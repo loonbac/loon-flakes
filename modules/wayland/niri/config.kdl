@@ -30,6 +30,11 @@ binds {
     Super+Return { spawn "ghostty"; }
     Super+Space { spawn "loon-launch"; }
 
+    // Moverse entre ventanas/workspaces con wrap infinito:
+    // al llegar al extremo, salta al otro lado.
+    Super+Left { spawn-sh "niri-cycle left"; }
+    Super+Right { spawn-sh "niri-cycle right"; }
+
     // Cambiar de workspace con Super+1..9.
     Super+1 { focus-workspace 1; }
     Super+2 { focus-workspace 2; }

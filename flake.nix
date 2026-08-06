@@ -35,6 +35,7 @@
       packages.${system} = {
         rebuild = pkgs.callPackage ./pkgs/rebuild { };
         loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
+        niri-cycle = pkgs.callPackage ./pkgs/niri-cycle { };
         zen-browser = zen-browser.packages.${system}.default;
       };
 
