@@ -10,6 +10,9 @@
   programs.fish = {
     enable = true;
     interactiveShellInit = ''
+      # Quita el banner "Welcome to fish" al abrir una consola.
+      set fish_greeting
+
       # Detección automática de binarios: agrega los dirs existentes.
       for dir in \
         ~/.npm-global/bin \
