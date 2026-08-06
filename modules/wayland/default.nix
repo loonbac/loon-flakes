@@ -5,5 +5,6 @@
 {
   imports = [
     ./niri
+    ./dms-greeter
   ];
 }

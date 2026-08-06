@@ -24,9 +24,11 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   ├── default.nix
     │   └── openssh/                   # cada servicio es un módulo propio
     │       └── default.nix
-    ├── wayland/                       # compositores Wayland
+    ├── wayland/                       # compositores Wayland y greeter
     │   ├── default.nix
-    │   └── niri/                      # compositor niri (scrollable-tiling)
+    │   ├── niri/                      # compositor niri (scrollable-tiling)
+    │   │   └── default.nix
+    │   └── dms-greeter/               # greeter DankMaterialShell (DankGreeter)
     │       └── default.nix
     └── users/                         # usuarios y sus grupos
         └── default.nix
