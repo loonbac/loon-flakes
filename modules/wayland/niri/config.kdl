@@ -42,6 +42,7 @@ binds {
     Super+Return { spawn "ghostty"; }
     Super+Space { spawn "loon-launch"; }
     Super+Q { close-window; }
+    Super+F { maximize-column; }
 
     // Moverse entre ventanas/workspaces con wrap infinito:
     // al llegar al extremo, salta al otro lado.
