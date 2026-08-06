@@ -41,10 +41,15 @@ layout {
 
 // Sin atajos por defecto: solo los binds explícitos de aquí.
 binds {
+    // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
+    // Pon tu video en ~/.config/mpvpaper/wallpaper.mp4.
     Super+Return { spawn "ghostty"; }
     Super+Space { spawn "loon-launch"; }
     Super+Q { close-window; }
     Super+F { maximize-column; }
+
+    // Cambiar de fondo animado con Super+B (reproduce el que indiques).
+    Super+B { spawn-sh "mpvpaper -o 'no-audio --loop-file=inf --profile=fast --no-cache --osc=no' ALL ~/.config/mpvpaper/wallpaper.mp4"; }
 
     // Moverse entre ventanas/workspaces con wrap infinito:
     // al llegar al extremo, salta al otro lado.
@@ -83,4 +88,10 @@ window-rule {
     open-maximized false
     default-column-width { fixed 720; }
     default-window-height { fixed 480; }
+}
+
+// mpvpaper: el fondo animado va detrás de todas las ventanas.
+layer-rule {
+    match namespace="^mpvpaper$"
+    place-within-backdrop true
 }

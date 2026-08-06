@@ -21,5 +21,7 @@
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
     "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
+    # Directorio para fondos de pantalla animados (mpvpaper).
+    "d /home/loonbac/.config/mpvpaper 0755 loonbac users -"
   ];
 }

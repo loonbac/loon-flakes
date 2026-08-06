@@ -39,6 +39,10 @@
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
 
+    # Fondo de pantalla animado (video en loop detrás de las ventanas).
+    mpvpaper
+    mpv
+
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.
     libva-utils        # vainfo: estado de la aceleración VA-API (GPU Intel)
