@@ -29,6 +29,17 @@ layout {
 binds {
     Super+Return { spawn "ghostty"; }
     Super+Space { spawn "loon-launch"; }
+
+    // Cambiar de workspace con Super+1..9.
+    Super+1 { focus-workspace 1; }
+    Super+2 { focus-workspace 2; }
+    Super+3 { focus-workspace 3; }
+    Super+4 { focus-workspace 4; }
+    Super+5 { focus-workspace 5; }
+    Super+6 { focus-workspace 6; }
+    Super+7 { focus-workspace 7; }
+    Super+8 { focus-workspace 8; }
+    Super+9 { focus-workspace 9; }
 }
 
 // Toda ventana abre maximizada (ancho completo + estado maximizado).
