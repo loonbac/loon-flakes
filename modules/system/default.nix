@@ -38,5 +38,15 @@
     (pkgs.callPackage ../../pkgs/loon-launch { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
+
+    # ---- Utilidades de diagnóstico de hardware/drivers ----
+    # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.
+    libva-utils        # vainfo: estado de la aceleración VA-API (GPU Intel)
+    pciutils           # lspci: dispositivos PCI (GPU, WiFi, audio)
+    usbutils           # lsusb: dispositivos USB
+    dmidecode          # información DMI/BIOS del equipo
+    inxi               # resumen completo de hardware y sistema
+    lshw               # listado detallado de hardware
+    iw                 # estado y configuración de interfaces WiFi
   ];
 }
