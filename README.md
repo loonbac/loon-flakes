@@ -24,6 +24,10 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   ├── default.nix
     │   └── openssh/                   # cada servicio es un módulo propio
     │       └── default.nix
+    ├── wayland/                       # compositores Wayland
+    │   ├── default.nix
+    │   └── niri/                      # compositor niri (scrollable-tiling)
+    │       └── default.nix
     └── users/                         # usuarios y sus grupos
         └── default.nix
 ```
@@ -116,6 +120,28 @@ environment.systemPackages = with pkgs; [
 imports = [
   ./openssh
   ./docker
+];
+```
+
+3. Aplica: `rebuild`
+
+## Cómo agregar un compositor Wayland (ej. Hyprland)
+
+1. Crea la carpeta `modules/wayland/hyprland/default.nix`:
+
+```nix
+{ config, lib, pkgs, ... }:
+{
+  programs.hyprland.enable = true;
+}
+```
+
+2. Registra el módulo en `modules/wayland/default.nix`:
+
+```nix
+imports = [
+  ./niri
+  ./hyprland
 ];
 ```
 
