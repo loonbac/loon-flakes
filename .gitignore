@@ -2,3 +2,6 @@
 *.bak
 # Lockfiles de Nix se versionan normalmente, pero el de flakes también:
 # mantener flake.lock versionado para reproducibilidad (no ignorar).
+
+# Artefactos de build de Rust (cargo)
+target/
