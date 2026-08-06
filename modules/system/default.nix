@@ -1,6 +1,6 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, zen-browser, ... }:
 
 {
   # ---- Bootloader (systemd-boot + UEFI) ----
@@ -30,6 +30,7 @@
     fastfetch
     ghostty
     nodejs
+    zen-browser
     # App launcher custom del flake (Super+Space en niri).
     (pkgs.callPackage ../../pkgs/loon-launch { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
