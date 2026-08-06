@@ -1,5 +1,5 @@
 {
-  description = "Configuración modular de NixOS para korosoft — port de la filosofía de loon-librust";
+  description = "Configuración modular de NixOS para korosoft — loon-flakes";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";

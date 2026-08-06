@@ -1,5 +1,5 @@
 # Módulo "users": definición de usuarios del sistema.
-# En loon-librust esto sería `core/userdata.rs`: quién puede usar qué.
+# Quién puede usar qué.
 { config, lib, pkgs, ... }:
 
 {

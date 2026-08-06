@@ -1,8 +1,7 @@
-# loon-nixos — Configuración modular de NixOS (host: korosoft)
+# loon-flakes — Configuración modular de NixOS (host: korosoft)
 
-Configuración de NixOS organizada con la **misma filosofía modular** que el proyecto
-[`loon-librust`](https://github.com/loonbac/loon-librust): módulos pequeños, con
-responsabilidad única, componibles y declarativos. Nada de monolitos.
+Configuración de NixOS organizada con **módulos pequeños, con
+responsabilidad única, componibles y declarativos**. Nada de monolitos.
 
 ```
 ~/.nixos/
@@ -28,18 +27,17 @@ responsabilidad única, componibles y declarativos. Nada de monolitos.
 
 ---
 
-## Filosofía: loon-librust ⇄ NixOS
+## Filosofía: estructura modular
 
-| loon-librust (Rust)              | NixOS (esta config)                  |
-|--------------------------------|--------------------------------------|
-| `Cargo.toml`                   | `flake.nix` (deps + outputs)         |
-| `src/main.rs` (solo compone)   | `hosts/korosoft/default.nix`         |
-| `src/core/mod.rs` (mod raíz)   | `modules/default.nix`                |
-| `src/core/ai/mod.rs` (sub-mod) | `modules/services/default.nix`       |
-| `src/core/ai/llm.rs`           | `modules/services/openssh/default.nix` |
-| `mod foo;`                     | `imports = [ ./foo ];`               |
-| `pub fn` / visibilidad        | cada módulo solo define lo suyo      |
-| `cargo build`                  | `nixos-rebuild switch --flake .#korosoft` |
+| Concepto                        | Esta config                          |
+|---------------------------------|--------------------------------------|
+| `flake.nix` (deps + outputs)    | "Cargo.toml" del sistema             |
+| `hosts/korosoft/default.nix`    | "main.rs" — solo compone             |
+| `modules/default.nix`           | "mod.rs" raíz                        |
+| `modules/services/default.nix`  | "mod" que compone sub-servicios      |
+| `modules/services/openssh/`     | cada servicio es un módulo propio    |
+| `imports = [ ./foo ];`          | el "mod foo;"                        |
+| `nixos-rebuild switch --flake`  | el "cargo build"                     |
 
 ---
 

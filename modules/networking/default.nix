@@ -1,5 +1,5 @@
 # Módulo "networking": todo lo relacionado con red.
-# En loon-librust esto sería `core/api/mod.rs`: la capa de conexión con el mundo.
+# La capa de conexión con el mundo.
 { config, lib, pkgs, ... }:
 
 {

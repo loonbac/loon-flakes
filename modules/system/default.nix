@@ -1,6 +1,5 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
-# política de paquetes. Es el equivalente a `core/system.rs` de loon-librust:
-# una sola responsabilidad, bien aislada.
+# política de paquetes. Una sola responsabilidad, bien aislada.
 { config, lib, pkgs, ... }:
 
 {

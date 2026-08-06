@@ -1,4 +1,4 @@
-# host "korosoft": como `src/main.rs` de loon-librust — solo compone,
+# host "korosoft": como `src/main.rs` — solo compone,
 # no define lógica. La lógica vive en ../modules.
 { config, lib, pkgs, ... }:
 
