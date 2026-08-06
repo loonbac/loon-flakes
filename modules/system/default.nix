@@ -28,6 +28,7 @@
     gh
     btop
     fastfetch
+    ghostty
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
   ];
