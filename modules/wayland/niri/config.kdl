@@ -14,7 +14,9 @@ input {
 
     touchpad {
         tap
-        natural-scroll
+        // Click con 1 dedo = izquierdo, con 2 dedos = derecho.
+        tap-button-map "left-right-middle"
+        click-method "clickfinger"
     }
 }
 
