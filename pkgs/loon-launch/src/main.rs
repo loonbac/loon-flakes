@@ -1,9 +1,12 @@
 use glib::clone;
 use gtk4::gdk::Key;
 use gtk4::prelude::*;
-use gtk4::{Application, ApplicationWindow, Entry, EventControllerKey, ListBox, ListBoxRow, Orientation};
+use gtk4::{
+    Application, ApplicationWindow, Entry, EventControllerKey, ListBox, ListBoxRow,
+    Orientation, SelectionMode,
+};
+use libadwaita as adw;
 use std::cell::RefCell;
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
@@ -115,6 +118,10 @@ fn power_actions() -> Vec<Item> {
 
 // ---------- UI ----------
 fn build_ui(app: &Application) {
+    // Modo oscuro global de libadwaita.
+    let style = adw::StyleManager::default();
+    style.set_color_scheme(adw::ColorScheme::ForceDark);
+
     let window = ApplicationWindow::builder()
         .application(app)
         .title("loon-launch")
@@ -136,6 +143,8 @@ fn build_ui(app: &Application) {
 
     let list = ListBox::new();
     list.set_activate_on_single_click(false);
+    list.set_selection_mode(SelectionMode::Single);
+    list.set_show_separators(false);
     vbox.append(&list);
 
     let scrolled = gtk4::ScrolledWindow::builder().child(&list).hexpand(true).vexpand(true).build();
@@ -173,7 +182,7 @@ fn build_ui(app: &Application) {
             }
         }
 
-        for item in &shown {
+        for (i, item) in shown.iter().enumerate() {
             let row = ListBoxRow::new();
             let label = gtk4::Label::new(Some(&item.name));
             label.set_xalign(0.0);
@@ -183,45 +192,114 @@ fn build_ui(app: &Application) {
             label.set_margin_end(12);
             row.set_child(Some(&label));
             list.append(&row);
+            // Seleccionar la primera fila por defecto (100% teclado).
+            if i == 0 {
+                list.select_row(Some(&row));
+            }
         }
 
         shown
     }
 
-    let mut current_items = Rc::new(RefCell::new(repopulate(&list, &all_apps, &power, "")));
+    let current_items = Rc::new(RefCell::new(repopulate(&list, &all_apps, &power, "")));
 
-    entry.connect_changed(clone!(@strong list, @strong entry, @strong all_apps, @strong power, @strong current_items => move |_| {
-        let q = entry.text().to_string();
-        *current_items.borrow_mut() = repopulate(&list, &all_apps, &power, &q);
-    }));
+    entry.connect_changed(clone!(
+        #[strong]
+        list,
+        #[strong]
+        entry,
+        #[strong]
+        all_apps,
+        #[strong]
+        power,
+        #[strong]
+        current_items,
+        move |_| {
+            let q = entry.text().to_string();
+            *current_items.borrow_mut() = repopulate(&list, &all_apps, &power, &q);
+        },
+    ));
 
-    entry.connect_activate(clone!(@strong list, @strong window, @strong current_items => move |_| {
-        if let Some(row) = list.selected_row() {
-            let idx = row.index() as usize;
-            let items = current_items.borrow();
-            if idx < items.len() {
-                let item = &items[idx];
-                // Ejecutar el comando de forma independiente.
-                let exec = item.exec.clone();
-                std::thread::spawn(move || {
-                    let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
-                });
+    let run_selected = clone!(
+        #[strong]
+        list,
+        #[strong]
+        window,
+        #[strong]
+        current_items,
+        move || {
+            if let Some(row) = list.selected_row() {
+                let idx = row.index() as usize;
+                let items = current_items.borrow();
+                if idx < items.len() {
+                    let item = &items[idx];
+                    // Ejecutar el comando de forma independiente.
+                    let exec = item.exec.clone();
+                    std::thread::spawn(move || {
+                        let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
+                    });
+                }
             }
-        }
-        window.close();
-    }));
+            window.close();
+        },
+    );
+
+    // Navegación 100% por teclado: Enter ejecuta, flechas mueven la selección,
+    // Escape cierra. El mouse está deshabilitado en el listado.
+    entry.connect_activate(clone!(
+        #[strong]
+        run_selected,
+        move |_| {
+            run_selected();
+        },
+    ));
 
     let key_controller = EventControllerKey::new();
-    key_controller.connect_key_pressed(clone!(@strong window => move |_, key, _, _| {
-        if key == Key::Escape {
-            window.close();
-            glib::Propagation::Stop
-        } else {
-            glib::Propagation::Proceed
-        }
-    }));
+    key_controller.connect_key_pressed(clone!(
+        #[strong]
+        list,
+        #[strong]
+        window,
+        #[strong]
+        run_selected,
+        move |_, key, _, _| {
+            match key {
+                Key::Escape => {
+                    window.close();
+                    glib::Propagation::Stop
+                }
+                Key::Down => {
+                    if let Some(row) = list.selected_row() {
+                        if let Some(next) = row.next_sibling() {
+                            if let Some(next_row) = next.downcast::<ListBoxRow>().ok() {
+                                list.select_row(Some(&next_row));
+                            }
+                        }
+                    } else if let Some(first) = list.first_child() {
+                        if let Some(first_row) = first.downcast::<ListBoxRow>().ok() {
+                            list.select_row(Some(&first_row));
+                        }
+                    }
+                    glib::Propagation::Stop
+                }
+                Key::Up => {
+                    if let Some(row) = list.selected_row() {
+                        if let Some(prev) = row.prev_sibling() {
+                            if let Some(prev_row) = prev.downcast::<ListBoxRow>().ok() {
+                                list.select_row(Some(&prev_row));
+                            }
+                        }
+                    }
+                    glib::Propagation::Stop
+                }
+                _ => glib::Propagation::Proceed,
+            }
+        },
+    ));
     entry.add_controller(key_controller);
 
+    // El launcher se opera solo con el teclado: niri le da el foco
+    // al spawnearlo, y el entry lo toma al presentar.
     window.present();
     entry.grab_focus();
 }

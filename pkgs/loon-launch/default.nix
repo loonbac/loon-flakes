@@ -1,7 +1,7 @@
 # Paquete "loon-launch": app launcher Wayland para niri.
 # Lista apps (.desktop) y acciones de poder con prefijo '>'.
 # Se compila con buildRustPackage usando el Cargo.lock del repo.
-{ lib, rustPlatform, gtk4, glib, pkg-config, wrapGAppsHook4, glib-networking, gobject-introspection }:
+{ lib, rustPlatform, gtk4, glib, libadwaita, pkg-config, wrapGAppsHook4, glib-networking, gobject-introspection }:
 
 rustPlatform.buildRustPackage {
   pname = "loon-launch";
@@ -13,7 +13,7 @@ rustPlatform.buildRustPackage {
   };
 
   nativeBuildInputs = [ pkg-config wrapGAppsHook4 gobject-introspection ];
-  buildInputs = [ gtk4 glib glib-networking ];
+  buildInputs = [ gtk4 glib libadwaita glib-networking ];
 
   meta = {
     description = "App launcher Wayland para niri: apps + acciones de poder con prefijo '>'";
