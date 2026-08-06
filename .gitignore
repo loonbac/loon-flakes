@@ -1,0 +1,4 @@
+# Copia de seguridad de la config anterior (no versionar)
+*.bak
+# Lockfiles de Nix se versionan normalmente, pero el de flakes también:
+# mantener flake.lock versionado para reproducibilidad (no ignorar).
