@@ -8,6 +8,7 @@
     ./system
     ./networking
     ./services
+    ./programs
     ./wayland
     ./users
   ];
