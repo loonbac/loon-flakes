@@ -25,9 +25,10 @@ layout {
     gaps 16
 }
 
-// Sin atajos por defecto: la única tecla configurada es Super+Enter → ghostty.
+// Sin atajos por defecto: solo los binds explícitos de aquí.
 binds {
     Super+Return { spawn "ghostty"; }
+    Super+Space { spawn "loon-launch"; }
 }
 
 // Toda ventana abre maximizada (ancho completo + estado maximizado).

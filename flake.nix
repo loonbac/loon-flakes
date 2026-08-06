@@ -25,6 +25,7 @@
       # Paquetes custom del flake (el "workspace" de binarios propios).
       packages.${system} = {
         rebuild = pkgs.callPackage ./pkgs/rebuild { };
+        loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
       };
 
       nixosConfigurations = {

@@ -29,6 +29,8 @@
     btop
     fastfetch
     ghostty
+    # App launcher custom del flake (Super+Space en niri).
+    (pkgs.callPackage ../../pkgs/loon-launch { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
   ];

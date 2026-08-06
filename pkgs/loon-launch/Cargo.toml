@@ -1,0 +1,9 @@
+[package]
+name = "loon-launch"
+version = "0.1.0"
+edition = "2021"
+description = "App launcher Wayland para niri: apps + acciones de poder con prefijo '>'"
+
+[dependencies]
+gtk4 = "0.9"
+glib = "0.20"
