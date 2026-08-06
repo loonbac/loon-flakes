@@ -28,7 +28,11 @@
 
       # Prompt personalizado: Oh My Posh.
       # --strict resuelve `oh-my-posh` por PATH (correcto con el store de Nix).
-      oh-my-posh init fish --strict | source
+      # --config usa el tema craver guardado localmente en /etc.
+      oh-my-posh init fish --strict --config /etc/oh-my-posh/craver.omp.json | source
     '';
   };
+
+  # Tema craver de oh-my-posh, gestionado por NixOS (versionado en el repo).
+  environment.etc."oh-my-posh/craver.omp.json".source = ./craver.omp.json;
 }
