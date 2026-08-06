@@ -2,8 +2,8 @@ use glib::clone;
 use gtk4::gdk::Key;
 use gtk4::prelude::*;
 use gtk4::{
-    Application, ApplicationWindow, Entry, EventControllerKey, ListBox, ListBoxRow,
-    Orientation, SelectionMode,
+    Application, ApplicationWindow, Entry, EventControllerFocus, EventControllerKey, ListBox,
+    ListBoxRow, Orientation, SelectionMode,
 };
 use libadwaita as adw;
 use std::cell::RefCell;
@@ -296,7 +296,18 @@ fn build_ui(app: &Application) {
             }
         },
     ));
-    entry.add_controller(key_controller);
+    window.add_controller(key_controller);
+
+    // Cerrar si la ventana pierde el foco (click fuera de ella).
+    let focus_controller = EventControllerFocus::new();
+    focus_controller.connect_leave(clone!(
+        #[strong]
+        window,
+        move |_| {
+            window.close();
+        },
+    ));
+    window.add_controller(focus_controller);
 
     // El launcher se opera solo con el teclado: niri le da el foco
     // al spawnearlo, y el entry lo toma al presentar.
