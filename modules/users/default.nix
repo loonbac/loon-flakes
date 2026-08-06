@@ -10,6 +10,8 @@
     extraGroups = [ "networkmanager" "wheel" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
     packages = with pkgs; [ ];
+    # Shell por defecto: fish.
+    shell = pkgs.fish;
   };
 
   # npm global: instala en ~/.npm-global (el prefix del store de Nix es
