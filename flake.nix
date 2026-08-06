@@ -1,5 +1,5 @@
 {
-  description = "Configuración modular de NixOS para korosoft — loon-flakes";
+  description = "Configuración modular de NixOS para loon-laptop — loon-flakes";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
@@ -9,6 +9,7 @@
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
+      pkgs = nixpkgs.legacyPackages.${system};
 
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
@@ -21,8 +22,13 @@
       };
     in
     {
+      # Paquetes custom del flake (el "workspace" de binarios propios).
+      packages.${system} = {
+        rebuild = pkgs.callPackage ./pkgs/rebuild { };
+      };
+
       nixosConfigurations = {
-        korosoft = mkHost "korosoft" [ ];
+        "loon-laptop" = mkHost "loon-laptop" [ ];
       };
     };
 }

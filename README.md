@@ -1,4 +1,4 @@
-# loon-flakes — Configuración modular de NixOS (host: korosoft)
+# loon-flakes — Configuración modular de NixOS (host: loon-laptop)
 
 Configuración de NixOS organizada con **módulos pequeños, con
 responsabilidad única, componibles y declarativos**. Nada de monolitos.
@@ -7,8 +7,11 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 ~/.nixos/
 ├── flake.nix                          # "Cargo.toml" del sistema
 ├── README.md                          # este archivo
-├── hosts/                             # "binarios" — máquinas concretas
-│   └── korosoft/
+├── pkgs/                              # "binarios" propios del flake
+│   └── rebuild/                       # comando custom `rebuild`
+│       └── default.nix
+├── hosts/                             # máquinas concretas
+│   └── loon-laptop/
 │       ├── default.nix                # "main.rs" — solo compone
 │       └── hardware-configuration.nix # autogenerado (no tocar)
 └── modules/                           # "src/core" — lógica reutilizable
@@ -17,9 +20,9 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   └── default.nix
     ├── networking/                    # red, firewall
     │   └── default.nix
-    ├── services/                      # "core/ai/mod.rs" — compone sub-servicios
+    ├── services/                      # compone sub-servicios
     │   ├── default.nix
-    │   └── openssh/                   # cada servicio es un "crate"
+    │   └── openssh/                   # cada servicio es un módulo propio
     │       └── default.nix
     └── users/                         # usuarios y sus grupos
         └── default.nix
@@ -32,33 +35,52 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 | Concepto                        | Esta config                          |
 |---------------------------------|--------------------------------------|
 | `flake.nix` (deps + outputs)    | "Cargo.toml" del sistema             |
-| `hosts/korosoft/default.nix`    | "main.rs" — solo compone             |
+| `hosts/loon-laptop/default.nix` | "main.rs" — solo compone             |
 | `modules/default.nix`           | "mod.rs" raíz                        |
 | `modules/services/default.nix`  | "mod" que compone sub-servicios      |
 | `modules/services/openssh/`     | cada servicio es un módulo propio    |
+| `pkgs/rebuild/`                 | binario propio del flake             |
 | `imports = [ ./foo ];`          | el "mod foo;"                        |
-| `nixos-rebuild switch --flake`  | el "cargo build"                     |
+| `rebuild`                       | el "cargo build && cargo run"        |
 
 ---
 
-## Comandos útiles
+## Comando custom: `rebuild`
+
+En lugar de escribir `sudo nixos-rebuild switch --flake .#loon-laptop` cada vez,
+este flake incluye un comando propio **`rebuild`** que lo hace por ti.
+
+```bash
+rebuild          # aplica los cambios (switch) — el más usado
+rebuild dry      # prueba sin aplicar (dry-run)
+rebuild update   # actualiza nixpkgs (flake update) y aplica
+```
+
+- Se ejecuta desde cualquier directorio: internamente entra a `~/.nixos`.
+- Pide sudo solo cuando aplica (switch/update).
+- El código vive en `pkgs/rebuild/default.nix`; la instalación se hace
+  desde `modules/system/default.nix`.
+
+---
+
+## Comandos útiles (sin el custom)
 
 ```bash
 # Aplicar cambios (desde ~/.nixos)
-sudo nixos-rebuild switch --flake .#korosoft
+sudo nixos-rebuild switch --flake .#loon-laptop
 
 # Probar sin aplicar (dry-run)
-sudo nixos-rebuild dry-run --flake .#korosoft
+sudo nixos-rebuild dry-run --flake .#loon-laptop
 
-# Ver qué se actualizaría / cambiaría
+# Ver qué se exporta el flake
 nix flake show
 nix flake check
 
 # Actualizar nixpkgs (el "cargo update" de NixOS)
 nix flake update
 
-# Reconstruir con un canal/commit específico
-nix flake lock --update-input nixpkgs
+# Probar el paquete custom sin instalarlo
+nix run .#rebuild
 ```
 
 ---
@@ -75,7 +97,7 @@ environment.systemPackages = with pkgs; [
 ];
 ```
 
-3. Aplica: `sudo nixos-rebuild switch --flake .#korosoft`
+3. Aplica: `rebuild` (o `sudo nixos-rebuild switch --flake .#loon-laptop`)
 
 ## Cómo agregar un servicio (ej. Docker)
 
@@ -97,21 +119,21 @@ imports = [
 ];
 ```
 
-3. Aplica: `sudo nixos-rebuild switch --flake .#korosoft`
+3. Aplica: `rebuild`
 
-## Cómo agregar una máquina nueva (ej. "laptop")
+## Cómo agregar una máquina nueva (ej. "desktop")
 
-1. Crea `hosts/laptop/default.nix` con su `hardware-configuration.nix`.
+1. Crea `hosts/desktop/default.nix` con su `hardware-configuration.nix`.
 2. Declárala en `flake.nix`:
 
 ```nix
 nixosConfigurations = {
-  korosoft = mkHost "korosoft" [ ];
-  laptop   = mkHost "laptop" [ ];
+  "loon-laptop" = mkHost "loon-laptop" [ ];
+  desktop       = mkHost "desktop" [ ];
 };
 ```
 
-3. Aplica desde esa máquina: `sudo nixos-rebuild switch --flake .#laptop`
+3. Aplica desde esa máquina: `sudo nixos-rebuild switch --flake .#desktop`
 
 ---
 
@@ -126,7 +148,7 @@ nixosConfigurations = {
 
 ## Notas sobre el host
 
-- Hostname: `korosoft`
+- Hostname: `loon-laptop`
 - Zona horaria: `America/Lima`
 - Locale: `es_PE.UTF-8`, teclado `es` (X11 y consola)
 - Boot: systemd-boot + UEFI
@@ -135,7 +157,7 @@ nixosConfigurations = {
 ## ¿Por qué no hay `configuration.nix` ya?
 
 Porque fue **reemplazado** por la estructura de flake. El archivo `/etc/nixos/configuration.nix`
-ahora es un enlace simbólico hacia `~/.nixos/hosts/korosoft/default.nix` para que
+ahora es un enlace simbólico hacia `~/.nixos/hosts/loon-laptop/default.nix` para que
 `nixos-generate-config` y herramientas antiguas sigan funcionando; pero el flake
 es la fuente de verdad. La configuración vieja quedó respaldada en
 `~/.nixos/configuration.nix.bak`.

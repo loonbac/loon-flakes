@@ -26,5 +26,8 @@
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
     git
     gh
+    btop
+    # Comando custom del flake: `rebuild` reconstruye esta config.
+    (import ../../pkgs/rebuild { inherit pkgs lib; })
   ];
 }
