@@ -23,6 +23,18 @@ layout {
     default-column-width { proportion 1.0; }
 
     gaps 16
+
+    // Sustituye el focus-ring azul por defecto por un borde fino.
+    focus-ring {
+        off
+    }
+
+    border {
+        on
+        width 1
+        active-color "#5e81ac"
+        inactive-color "#3b4252"
+    }
 }
 
 // Sin atajos por defecto: solo los binds explícitos de aquí.
@@ -48,10 +60,14 @@ binds {
     Super+9 { focus-workspace 9; }
 }
 
-// Toda ventana abre maximizada (ancho completo + estado maximizado).
+// Toda ventana abre maximizada (ancho completo + estado maximizado),
+// con esquinas redondeadas.
 window-rule {
     match app-id=".*"
     open-maximized true
+
+    geometry-corner-radius 12
+    clip-to-geometry true
 }
 
 // loon-launch: flotante, centrado, tamaño fijo (la regla va después
