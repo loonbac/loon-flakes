@@ -27,6 +27,7 @@
     git
     gh
     btop
+    fastfetch
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
   ];
