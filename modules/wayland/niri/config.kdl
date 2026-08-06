@@ -1,0 +1,37 @@
+// Config de niri gestionada por NixOS (loon-flakes).
+// Los binds por defecto se eliminaron a propósito: solo existe Super+Enter → ghostty.
+// Edita este archivo en ~/.nixos/modules/wayland/niri/config.kdl y corre `rebuild`.
+// Referencia: https://niri-wm.github.io/niri/Configuration:-Introduction
+
+input {
+    keyboard {
+        // Layout español, consistente con el resto del sistema.
+        xkb {
+            layout "es"
+        }
+        numlock
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+    }
+}
+
+layout {
+    // Ventanas nuevas al 100% del ancho (efecto "maximizado").
+    default-column-width { proportion 1.0; }
+
+    gaps 16
+}
+
+// Sin atajos por defecto: la única tecla configurada es Super+Enter → ghostty.
+binds {
+    Super+Return { spawn "ghostty"; }
+}
+
+// Toda ventana abre maximizada (ancho completo + estado maximizado).
+window-rule {
+    match app-id=".*"
+    open-maximized true
+}
