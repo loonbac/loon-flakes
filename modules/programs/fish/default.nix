@@ -22,6 +22,10 @@
           fish_add_path --prepend --move $dir
         end
       end
+
+      # Prompt personalizado: Oh My Posh.
+      # --strict resuelve `oh-my-posh` por PATH (correcto con el store de Nix).
+      oh-my-posh init fish --strict | source
     '';
   };
 }

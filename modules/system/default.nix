@@ -42,6 +42,8 @@
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
     mpv
+    # Prompt personalizado para fish (oh-my-posh).
+    oh-my-posh
 
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.
