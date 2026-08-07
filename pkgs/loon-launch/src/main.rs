@@ -185,29 +185,22 @@ fn build_ui(app: &Application) {
     window.set_child(Some(&vbox));
 
     // ---------- Banner: imagen de fondo con la búsqueda centrada encima ----------
-    let banner = gtk4::Overlay::new();
-    banner.set_size_request(-1, 200);
-    banner.set_hexpand(true);
+    let entry = Entry::new();
+    entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
+    entry.add_css_class("search-entry");
+    entry.set_margin_top(12);
+    entry.set_margin_bottom(8);
+    entry.set_margin_start(60);
+    entry.set_margin_end(60);
+    entry.set_hexpand(true);
+    vbox.append(&entry);
 
     let banner_pic = gtk4::Picture::for_filename(BANNER_PATH);
     banner_pic.set_content_fit(gtk4::ContentFit::Cover);
     banner_pic.set_hexpand(true);
-    banner_pic.set_vexpand(true);
+    banner_pic.set_height_request(140);
     banner_pic.add_css_class("banner-img");
-    banner.add_overlay(&banner_pic);
-
-    let entry = Entry::new();
-    entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
-    entry.set_halign(gtk4::Align::Center);
-    entry.set_valign(gtk4::Align::Center);
-    entry.set_hexpand(true);
-    entry.set_margin_start(60);
-    entry.set_margin_end(60);
-    entry.set_margin_top(40);
-    entry.set_margin_bottom(40);
-    banner.add_overlay(&entry);
-
-    vbox.append(&banner);
+    vbox.append(&banner_pic);
 
     // ---------- Grid de apps ----------
     let grid = gtk4::Grid::new();
@@ -428,22 +421,21 @@ fn build_ui(app: &Application) {
     let css = gtk4::CssProvider::new();
     css.load_from_data(
         ".banner-img { border-radius: 18px; }
-         entry {
+         entry.search-entry {
              border-radius: 16px;
-             background-color: rgba(20, 20, 28, 0.92);
+             background-color: rgba(22, 22, 30, 0.94);
              color: white;
              caret-color: white;
-             border: 1px solid rgba(255, 255, 255, 0.25);
+             border: 1px solid rgba(255, 255, 255, 0.28);
              padding: 10px 16px;
              font-size: 15px;
-             min-height: 20px;
          }
-         entry selection {
-             background-color: @theme_selected_bg_color;
+         entry.search-entry selection {
+             background-color: rgba(88, 101, 242, 0.9);
              color: white;
          }
          .selected {
-             background-color: alpha(@theme_selected_bg_color, 0.35);
+             background-color: rgba(88, 101, 242, 0.35);
              border-radius: 12px;
          }",
     );
