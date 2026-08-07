@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -51,18 +50,14 @@ const (
 	minSegmentDist = 20                     // minimum distance in one direction before counting a reversal
 )
 
-// Cursor sizes
+// Temas de cursor: el normal y el "grow" (animado, crece).
 const (
-	normalSize = 32
-	largeSize  = 64
+	normalTheme = "Win11OSX"
+	growTheme   = "Win11OSX-Grow"
 )
 
-// How long the cursor stays large after the last shake
+// How long the cursor stays grow after the last shake
 const shrinkDelay = 2 * time.Second
-
-// Tamaños intermedios para la animación de crecimiento/encogido.
-var growSteps = []int{36, 40, 44, 48, 52, 56, 60, 64}
-var shrinkSteps = []int{60, 56, 52, 48, 44, 40, 36, 32}
 
 func main() {
 	log.SetFlags(log.Ltime)
@@ -101,13 +96,13 @@ func main() {
 		}
 	}()
 
-	// Handle clean shutdown: restore normal cursor size
+	// Handle clean shutdown: restore normal cursor
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		log.Println("Shutting down, restoring cursor size...")
-		setCursorSize(configPath, normalSize)
+		log.Println("Shutting down, restoring cursor...")
+		setCursorTheme(configPath, normalTheme)
 		os.Exit(0)
 	}()
 
@@ -116,9 +111,6 @@ func main() {
 		enlarged bool
 		shrinkAt time.Time
 	)
-
-	// Serializa las animaciones de tamaño (grow/shrink no se pisan).
-	var animMu sync.Mutex
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -150,36 +142,19 @@ func main() {
 				shrinkAt = now.Add(shrinkDelay)
 				if !enlarged {
 					enlarged = true
-					log.Println("Shake detected! Enlarging cursor.")
-					go func() {
-						animMu.Lock()
-						defer animMu.Unlock()
-						animateCursor(configPath, growSteps)
-					}()
+					log.Println("Shake detected! Switching to grow cursor.")
+					setCursorTheme(configPath, growTheme)
 				}
 			}
 
 		case <-ticker.C:
 			if enlarged && time.Now().After(shrinkAt) {
 				enlarged = false
-				log.Println("Shrinking cursor back to normal.")
-				go func() {
-					animMu.Lock()
-					defer animMu.Unlock()
-					animateCursor(configPath, shrinkSteps)
-				}()
+				log.Println("Restoring normal cursor.")
+				setCursorTheme(configPath, normalTheme)
 				samples = samples[:0]
 			}
 		}
-	}
-}
-
-// animateCursor cambia el tamaño del cursor por pasos (animación suave).
-// Cada paso escribe el override y espera un poco para que niri recargue.
-func animateCursor(configPath string, steps []int) {
-	for _, size := range steps {
-		setCursorSize(configPath, size)
-		time.Sleep(60 * time.Millisecond)
 	}
 }
 
@@ -272,11 +247,11 @@ func analyzeShake(samples []motionSample) (reversals int, totalDist int32) {
 	return
 }
 
-// setCursorSize escribe el override en ~/.config/niri/cursor-size.kdl.
+// setCursorTheme escribe el override en ~/.config/niri/cursor-size.kdl.
 // El config principal de niri (gestionado por NixOS) incluye este archivo;
 // niri vigila los includes y recarga la config solo cuando cambia.
-func setCursorSize(configPath string, size int) {
-	content := fmt.Sprintf("cursor {\n    xcursor-size %d\n}\n", size)
+func setCursorTheme(configPath string, theme string) {
+	content := fmt.Sprintf("cursor {\n    xcursor-theme \"%s\"\n}\n", theme)
 
 	if data, err := os.ReadFile(configPath); err == nil && string(data) == content {
 		return
@@ -290,7 +265,7 @@ func setCursorSize(configPath string, size int) {
 		log.Printf("Failed to write config: %v", err)
 		return
 	}
-	log.Printf("Wrote cursor size %d to %s", size, configPath)
+	log.Printf("Wrote cursor theme %s to %s", theme, configPath)
 }
 
 // findNiriCursorConfig returns the override file that niri includes.
@@ -301,7 +276,7 @@ func findNiriCursorConfig() string {
 	home, _ := os.UserHomeDir()
 	p := filepath.Join(home, ".config", "niri", "cursor-size.kdl")
 	// El archivo puede no existir aún; devolvemos la ruta de todas formas
-	// para que setCursorSize lo cree.
+	// para que setCursorTheme lo cree.
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return ""
 	}

@@ -26,13 +26,9 @@ input {
     }
 }
 
-// Tema de cursor: Win11OSX (Xcursor nativo de Linux, en pkgs/win11osx-cursor).
-// NOTA: el TAMAÑO lo controla el include "cursor-size.kdl" (arriba), que
-// niri-shake-cursor modifica para el shake-to-find. Si se define aquí,
-// pisaría al include (positionality: lo que va después gana).
-cursor {
-    xcursor-theme "Win11OSX"
-}
+// Tema de cursor: lo controla el include "cursor-size.kdl" (arriba), que
+// niri-shake-cursor modifica alternando entre Win11OSX (normal) y
+// Win11OSX-Grow (animado para el shake-to-find).
 
 layout {
     // Ventanas nuevas al 100% del ancho (efecto "maximizado").

@@ -1,4 +1,5 @@
-// Tamaño dinámico del cursor (shake-to-find): niri-shake-cursor escribe aquí.
+// Tema dinámico del cursor (shake-to-find): niri-shake-cursor escribe aquí
+// alternando entre "Win11OSX" (normal) y "Win11OSX-Grow" (animado).
 cursor {
-    xcursor-size 32
+    xcursor-theme "Win11OSX"
 }
