@@ -57,9 +57,10 @@ const (
 	bigTheme    = "Win11OSX-Big"
 )
 
-// Duración de la animación de crecimiento (la del cursor grow, 12 frames
-// a 40ms ≈ 480ms) antes de pasar al cursor estático grande.
-const growAnimDuration = 600 * time.Millisecond
+// Duración exacta de un ciclo del cursor grow (11 frames × 40ms = 440ms).
+// Se corta justo al terminar el primer ciclo (el último frame es el de 64px,
+// igual que el tema big) para que el switch sea invisible y no se vea el bucle.
+const growAnimDuration = 440 * time.Millisecond
 
 // How long the cursor stays big after the last shake
 const shrinkDelay = 2 * time.Second
