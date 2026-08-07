@@ -172,6 +172,7 @@ Detalles de la config:
 | `Super+Q`           | Cerrar ventana                                  |
 | `Super+F`           | Maximizar/restaurar columna                     |
 | `Super+B`           | Fondo animado (mpvpaper-wallpaper)              |
+| `Super+Shift+S`     | Captura de pantalla (área) → portapapeles       |
 | `Super+←` / `→`     | Mover ventana con wrap (niri-cycle)             |
 | `Super+1..9`        | Cambiar de workspace                            |
 | `Fn+F6` / `Fn+F7`   | Bajar/subir brillo (`brightnessctl` ±10%)       |

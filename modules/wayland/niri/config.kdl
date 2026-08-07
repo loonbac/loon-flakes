@@ -70,6 +70,10 @@ binds {
     // Cambiar de fondo animado con Super+B (usa el video seteado o el único).
     Super+B { spawn "mpvpaper-wallpaper"; }
 
+    // Captura de pantalla con Super+Shift+S: congela la pantalla, selecciona
+    // el área con el mouse y Ctrl+C copia al portapapeles (sin guardar a disco).
+    Super+Shift+S { screenshot; }
+
     // Brillo de pantalla con las teclas multimedia Fn+F6 / Fn+F7.
     // brightnessctl necesita root para escribir en /sys/class/backlight.
     XF86MonBrightnessDown { spawn-sh "brightnessctl set 10%-"; }
