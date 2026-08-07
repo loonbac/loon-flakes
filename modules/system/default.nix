@@ -21,6 +21,17 @@
   # ---- Paquetes no libres (ej. microcode Intel) ----
   nixpkgs.config.allowUnfree = true;
 
+  # ---- Brillo de pantalla ----
+  # Wrapper setuid para que brightnessctl (teclas Fn+F6/F7) pueda escribir
+  # en /sys/class/backlight sin pedir contraseña. Solo el binario setuid,
+  # no todo el paquete.
+  security.wrappers.brightnessctl = {
+    owner = "root";
+    group = "root";
+    setuid = true;
+    source = "${pkgs.brightnessctl}/bin/brightnessctl";
+  };
+
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
@@ -30,6 +41,7 @@
     fastfetch
     ghostty
     nodejs
+    brightnessctl
     zen-browser
     equibop
     fish

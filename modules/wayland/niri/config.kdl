@@ -62,6 +62,11 @@ binds {
     // Cambiar de fondo animado con Super+B (usa el video seteado o el único).
     Super+B { spawn "mpvpaper-wallpaper"; }
 
+    // Brillo de pantalla con las teclas multimedia Fn+F6 / Fn+F7.
+    // brightnessctl necesita root para escribir en /sys/class/backlight.
+    XF86MonBrightnessDown { spawn-sh "brightnessctl set 10%-"; }
+    XF86MonBrightnessUp { spawn-sh "brightnessctl set +10%"; }
+
     // Moverse entre ventanas/workspaces con wrap infinito:
     // al llegar al extremo, salta al otro lado.
     Super+Left { spawn-sh "niri-cycle left"; }
