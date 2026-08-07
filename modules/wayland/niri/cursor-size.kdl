@@ -1,0 +1,4 @@
+// Tamaño dinámico del cursor (shake-to-find): niri-shake-cursor escribe aquí.
+cursor {
+    xcursor-size 32
+}

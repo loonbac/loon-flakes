@@ -76,6 +76,9 @@
     # Tema de cursor Vision (blanco, por defecto del sistema).
     # La variante negra está en el mismo paquete: .black.
     (pkgs.callPackage ../../pkgs/vision-cursor { }).white
+    # Shake-to-find cursor: agranda el cursor al mover el mouse rápido
+    # (estilo macOS). Requiere grupo "input" (ver modules/users).
+    (pkgs.callPackage ../../pkgs/niri-shake-cursor { })
 
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.

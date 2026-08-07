@@ -6,8 +6,9 @@
   users.users."loonbac" = {
     isNormalUser = true;
     description = "Joshua Rosales";
-    # Grupos: networkmanager (GUI de red), wheel (sudo).
-    extraGroups = [ "networkmanager" "wheel" ];
+    # Grupos: networkmanager (GUI de red), wheel (sudo), input (leer /dev/input
+    # para el shake-to-find cursor de niri-shake-cursor).
+    extraGroups = [ "networkmanager" "wheel" "input" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
     packages = with pkgs; [ ];
     # Shell por defecto: fish.
@@ -26,9 +27,9 @@
     PATH = [ "$HOME/.npm-global/bin" ];
     # Tema de cursor por defecto del sistema (Vision Cursor blanco).
     XCURSOR_THEME = "Vision-White";
-    XCURSOR_SIZE = "24";
+    XCURSOR_SIZE = "32";
     # Para apps GTK/Qt/Electron que leen su propio cursor.
     GTK_CURSOR_THEME = "Vision-White";
-    GTK_CURSOR_SIZE = "24";
+    GTK_CURSOR_SIZE = "32";
   };
 }

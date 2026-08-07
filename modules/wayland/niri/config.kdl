@@ -3,6 +3,12 @@
 // Edita este archivo en ~/.nixos/modules/wayland/niri/config.kdl y corre `rebuild`.
 // Referencia: https://niri-wm.github.io/niri/Configuration:-Introduction
 
+// Override del tamaño de cursor para el shake-to-find (niri-shake-cursor):
+// el archivo vive en ~/.config/niri/cursor-size.kdl (editable por el usuario,
+// no gestionado por NixOS) y niri lo vigila para recargar en vivo.
+// Ruta absoluta del home (el config principal vive en /etc/niri).
+include "/home/loonbac/.config/niri/cursor-size.kdl"
+
 input {
     keyboard {
         // Layout español, consistente con el resto del sistema.
@@ -24,7 +30,7 @@ input {
 // La variante negra es "Vision-Black" (ambas vienen del paquete del flake).
 cursor {
     xcursor-theme "Vision-White"
-    xcursor-size 24
+    xcursor-size 32
 }
 
 layout {
@@ -58,6 +64,8 @@ spawn-at-startup "mpvpaper-wallpaper"
 spawn-at-startup "niri-backdrop"
 // Lanza la barra de estado loon-bar (Rust GTK4 custom con IPC de Niri).
 spawn-at-startup "loon-bar"
+// Shake-to-find cursor: agranda el cursor al mover el mouse rápido (estilo macOS).
+spawn-at-startup "niri-shake-cursor"
 
 binds {
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
