@@ -1,0 +1,113 @@
+// Config de Waybar gestionada por NixOS (loon-flakes) — barra superior.
+// Edita este archivo en ~/.nixos/modules/programs/waybar/config.jsonc y
+// corre `rebuild`. Recarga la barra con: killall waybar && waybar &
+// Referencia: https://github.com/Alexays/Waybar/wiki/Configuration
+{
+    "layer": "top",
+    "position": "top",
+    "height": 30,
+    "spacing": 4,
+    // Módulos para niri (el compositor de esta config).
+    "modules-left": [
+        "niri/workspaces",
+        "niri/window"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "pulseaudio",
+        "network",
+        "backlight",
+        "battery",
+        "tray"
+    ],
+
+    // --- Workspaces de niri ---
+    "niri/workspaces": {
+        "format": "{name}",
+        "format-icons": {
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7",
+            "8": "8",
+            "9": "9",
+            "urgent": "!",
+            "focused": "",
+            "default": ""
+        }
+    },
+    "niri/window": {
+        "format": "{title}",
+        "max-length": 60,
+        "tooltip": false
+    },
+
+    // --- Reloj ---
+    "clock": {
+        "interval": 60,
+        // Formato strftime. Al combinar dos formatos se necesitan índices
+        // explícitos ({0:...}) o el parser de fmt falla con "invalid arg-id".
+        "format": "{0:%H:%M}  {0:%d-%m}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+
+    // --- Volumen (pipewire) ---
+    "pulseaudio": {
+        "scroll-step": 5,
+        "format": "{volume}% {icon}",
+        "format-muted": "audio-volume-muted-symbolic",
+        "format-icons": {
+            "default": [
+                "audio-volume-low-symbolic",
+                "audio-volume-medium-symbolic",
+                "audio-volume-high-symbolic"
+            ]
+        },
+        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+    },
+
+    // --- Red ---
+    "network": {
+        "format-wifi": "{essid} ({signalStrength}%) network-wireless-symbolic",
+        "format-ethernet": "{ipaddr}/{cidr} network-wired-symbolic",
+        "format-disconnected": "network-offline-symbolic",
+        "tooltip-format": "{ifname} via {gwaddr}"
+    },
+
+    // --- Brillo (intel_backlight) ---
+    "backlight": {
+        "device": "intel_backlight",
+        "format": "{percent}% {icon}",
+        "format-icons": ["display-brightness-symbolic"]
+    },
+
+    // --- Batería ---
+    "battery": {
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{capacity}% {icon}",
+        "format-charging": "{capacity}% battery-level-charging-symbolic",
+        "format-plugged": "{capacity}% ac-adapter-symbolic",
+        "format-icons": [
+            "battery-level-0-symbolic",
+            "battery-level-20-symbolic",
+            "battery-level-40-symbolic",
+            "battery-level-60-symbolic",
+            "battery-level-80-symbolic",
+            "battery-level-100-symbolic"
+        ],
+        "tooltip-format": "{timeTo} restante"
+    },
+
+    // --- Bandeja del sistema ---
+    "tray": {
+        "spacing": 10
+    }
+}

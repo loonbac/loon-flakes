@@ -6,5 +6,6 @@
   imports = [
     ./fish
     ./ghostty
+    ./waybar
   ];
 }

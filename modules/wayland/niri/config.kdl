@@ -49,6 +49,8 @@ layout {
 spawn-at-startup "mpvpaper-wallpaper"
 // Lanza el fondo estático del backdrop (imagen, fondo de todo).
 spawn-at-startup "niri-backdrop"
+// Lanza la barra de estado Waybar (config en modules/programs/waybar).
+spawn-at-startup "waybar"
 
 binds {
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.

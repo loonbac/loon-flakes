@@ -28,7 +28,8 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   └── tailscale/                 # red mesh privada (WireGuard)
     ├── programs/                      # shells y programas de usuario
     │   ├── fish/                      # shell + prompt oh-my-posh
-    │   └── ghostty/                   # terminal (config gestionada)
+    │   ├── ghostty/                   # terminal (config gestionada)
+    │   └── waybar/                    # barra de estado (config + estilo)
     ├── wayland/                       # compositores Wayland y greeter
     │   ├── niri/                      # compositor niri (config.kdl gestionado)
     │   └── dms-greeter/               # greeter DankMaterialShell
@@ -206,6 +207,19 @@ Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
 - Fondo opaco por defecto; la transparencia real la aplica niri (window-rule).
 - Atajos: `ctrl+shift+t` nueva pestaña, `ctrl+shift+w` cerrar pestaña,
   `ctrl+shift+,` recargar config en caliente.
+
+### waybar (`waybar/`)
+
+Barra de estado superior (Waybar v0.15), config gestionada por NixOS
+(mismo patrón: `/etc/waybar/` + symlinks en `~/.config/waybar/`). Se lanza
+automáticamente al iniciar la sesión (`spawn-at-startup "waybar"` en niri).
+
+- **Módulos**: workspaces y ventana de niri, reloj, volumen (pulseaudio),
+  red, brillo, batería y bandeja del sistema.
+- **Estilo**: tema Nord consistente con niri (colores `#3b4252`, `#5e81ac`, ...).
+- **Editar**: `modules/programs/waybar/config.jsonc` (módulos) y
+  `modules/programs/waybar/style.css` (estilos) → `rebuild`.
+- **Recargar la barra** sin reiniciar sesión: `killall waybar && waybar &`.
 
 ---
 
