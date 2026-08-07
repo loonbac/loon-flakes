@@ -54,9 +54,14 @@ const (
 const (
 	normalTheme = "Win11OSX"
 	growTheme   = "Win11OSX-Grow"
+	bigTheme    = "Win11OSX-Big"
 )
 
-// How long the cursor stays grow after the last shake
+// Duración de la animación de crecimiento (la del cursor grow, 12 frames
+// a 40ms ≈ 480ms) antes de pasar al cursor estático grande.
+const growAnimDuration = 600 * time.Millisecond
+
+// How long the cursor stays big after the last shake
 const shrinkDelay = 2 * time.Second
 
 func main() {
@@ -110,6 +115,7 @@ func main() {
 		samples  []motionSample
 		enlarged bool
 		shrinkAt time.Time
+		bigAt    time.Time // cuándo pasar del grow (animación) al big (estático)
 	)
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -142,13 +148,20 @@ func main() {
 				shrinkAt = now.Add(shrinkDelay)
 				if !enlarged {
 					enlarged = true
-					log.Println("Shake detected! Switching to grow cursor.")
+					log.Println("Shake detected! Playing grow animation.")
+					bigAt = now.Add(growAnimDuration)
 					setCursorTheme(configPath, growTheme)
 				}
 			}
 
 		case <-ticker.C:
-			if enlarged && time.Now().After(shrinkAt) {
+			now := time.Now()
+			if enlarged && !bigAt.IsZero() && now.After(bigAt) {
+				bigAt = time.Time{}
+				log.Println("Grow animation done, staying big.")
+				setCursorTheme(configPath, bigTheme)
+			}
+			if enlarged && now.After(shrinkAt) {
 				enlarged = false
 				log.Println("Restoring normal cursor.")
 				setCursorTheme(configPath, normalTheme)
