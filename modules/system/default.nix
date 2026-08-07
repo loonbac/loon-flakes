@@ -46,6 +46,7 @@
     zen-browser
     vscode-insiders
     equibop
+    antigravity
     fish
     yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
