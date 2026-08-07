@@ -3,13 +3,15 @@ use gtk4::gdk::Key;
 use gtk4::prelude::*;
 use gtk4::{
     Application, ApplicationWindow, Entry, EventControllerFocus, EventControllerKey, IconLookupFlags,
-    IconTheme, Image, ListBox, ListBoxRow, Orientation, SelectionMode,
+    IconTheme, Image, Label, ListBoxRow, Orientation,
 };
 use libadwaita as adw;
 use std::cell::RefCell;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
+
+const BANNER_PATH: &str = "/home/loonbac/Descargas/cl_aesthetic_mix58.jpg";
 
 // ---------- Modelo de una app/acción ----------
 #[derive(Clone)]
@@ -105,32 +107,34 @@ fn parse_desktop(path: &Path) -> Option<Item> {
     Some(Item { name, exec, icon })
 }
 
-// ---------- Fila con icono + nombre ----------
-fn make_row(item: &Item) -> ListBoxRow {
-    let row = ListBoxRow::new();
-    let hbox = gtk4::Box::new(Orientation::Horizontal, 12);
-    hbox.set_margin_top(8);
-    hbox.set_margin_bottom(8);
-    hbox.set_margin_start(12);
-    hbox.set_margin_end(12);
+// ---------- Celda del grid: icono arriba, nombre debajo ----------
+fn make_cell(item: &Item) -> ListBoxRow {
+    let cell = ListBoxRow::new();
+    let vbox = gtk4::Box::new(Orientation::Vertical, 6);
+    vbox.set_margin_top(12);
+    vbox.set_margin_bottom(12);
+    vbox.set_margin_start(14);
+    vbox.set_margin_end(14);
+    vbox.set_valign(gtk4::Align::Center);
 
-    // Icono de la app: nombre del tema de iconos (p.ej. "firefox")
-    // o ruta absoluta (p.ej. /path/icon.png). Si no se encuentra, vacío.
     let image = Image::new();
     if let Some(icon) = resolve_icon(&item.icon) {
         image.set_paintable(Some(&icon));
     }
-    image.set_pixel_size(28);
+    image.set_pixel_size(44);
     image.set_valign(gtk4::Align::Center);
-    hbox.append(&image);
+    image.set_halign(gtk4::Align::Center);
+    vbox.append(&image);
 
-    let label = gtk4::Label::new(Some(&item.name));
-    label.set_xalign(0.0);
-    label.set_valign(gtk4::Align::Center);
-    hbox.append(&label);
+    let label = Label::new(Some(&item.name));
+    label.set_xalign(0.5);
+    label.set_justify(gtk4::Justification::Center);
+    label.set_max_width_chars(12);
+    label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+    vbox.append(&label);
 
-    row.set_child(Some(&hbox));
-    row
+    cell.set_child(Some(&vbox));
+    cell
 }
 
 fn resolve_icon(icon: &str) -> Option<gtk4::IconPaintable> {
@@ -172,42 +176,58 @@ fn build_ui(app: &Application) {
     let window = ApplicationWindow::builder()
         .application(app)
         .title("loon-launch")
-        .default_width(720)
-        .default_height(480)
+        .default_width(760)
+        .default_height(520)
         .decorated(false)
         .build();
 
     let vbox = gtk4::Box::new(Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
 
+    // ---------- Banner: imagen de fondo con la búsqueda centrada encima ----------
+    let banner = gtk4::Overlay::new();
+    banner.set_size_request(-1, 200);
+    banner.set_hexpand(true);
+
+    let banner_pic = gtk4::Picture::for_filename(BANNER_PATH);
+    banner_pic.set_content_fit(gtk4::ContentFit::Cover);
+    banner_pic.set_hexpand(true);
+    banner_pic.set_vexpand(true);
+    banner_pic.add_css_class("banner-img");
+    banner.add_overlay(&banner_pic);
+
     let entry = Entry::new();
     entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
-    entry.set_margin_bottom(8);
-    entry.set_margin_top(12);
-    entry.set_margin_start(12);
-    entry.set_margin_end(12);
-    vbox.append(&entry);
+    entry.set_halign(gtk4::Align::Center);
+    entry.set_valign(gtk4::Align::Center);
+    entry.set_hexpand(true);
+    entry.set_margin_start(140);
+    entry.set_margin_end(140);
+    entry.set_margin_top(40);
+    entry.set_margin_bottom(40);
+    banner.add_overlay(&entry);
 
-    let list = ListBox::new();
-    list.set_activate_on_single_click(false);
-    list.set_selection_mode(SelectionMode::Single);
-    list.set_show_separators(false);
-    vbox.append(&list);
+    vbox.append(&banner);
 
-    let scrolled = gtk4::ScrolledWindow::builder().child(&list).hexpand(true).vexpand(true).build();
+    // ---------- Grid de apps ----------
+    let grid = gtk4::Grid::new();
+    grid.set_row_spacing(2);
+    grid.set_column_spacing(2);
+    grid.set_halign(gtk4::Align::Center);
+    let scrolled = gtk4::ScrolledWindow::builder().child(&grid).hexpand(true).vexpand(true).build();
     vbox.append(&scrolled);
 
     let all_apps = load_apps();
     let power = power_actions();
 
     fn repopulate(
-        list: &ListBox,
+        grid: &gtk4::Grid,
         all_apps: &[Item],
         power: &[Item],
         query: &str,
     ) -> Vec<Item> {
-        while let Some(row) = list.first_child() {
-            list.remove(&row);
+        while let Some(child) = grid.first_child() {
+            grid.remove(&child);
         }
 
         let q = query.to_lowercase();
@@ -229,23 +249,24 @@ fn build_ui(app: &Application) {
             }
         }
 
+        let cols = 7;
         for (i, item) in shown.iter().enumerate() {
-            let row = make_row(item);
-            list.append(&row);
-            // Seleccionar la primera fila por defecto (100% teclado).
+            let cell = make_cell(item);
+            grid.attach(&cell, (i % cols) as i32, (i / cols) as i32, 1, 1);
             if i == 0 {
-                list.select_row(Some(&row));
+                // La primera celda queda marcada como seleccionada.
+                cell.add_css_class("selected");
             }
         }
 
         shown
     }
 
-    let current_items = Rc::new(RefCell::new(repopulate(&list, &all_apps, &power, "")));
+    let current_items = Rc::new(RefCell::new(repopulate(&grid, &all_apps, &power, "")));
 
     entry.connect_changed(clone!(
         #[strong]
-        list,
+        grid,
         #[strong]
         entry,
         #[strong]
@@ -256,28 +277,30 @@ fn build_ui(app: &Application) {
         current_items,
         move |_| {
             let q = entry.text().to_string();
-            *current_items.borrow_mut() = repopulate(&list, &all_apps, &power, &q);
+            *current_items.borrow_mut() = repopulate(&grid, &all_apps, &power, &q);
         },
     ));
 
     let run_selected = clone!(
         #[strong]
-        list,
+        grid,
         #[strong]
         window,
         #[strong]
         current_items,
         move || {
-            if let Some(row) = list.selected_row() {
-                let idx = row.index() as usize;
-                let items = current_items.borrow();
-                if idx < items.len() {
-                    let item = &items[idx];
-                    // Ejecutar el comando de forma independiente.
-                    let exec = item.exec.clone();
-                    std::thread::spawn(move || {
-                        let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
-                    });
+            if let Some(child) = grid.first_child() {
+                if let Some(row) = child.downcast::<ListBoxRow>().ok() {
+                    let idx = row.index() as usize;
+                    let items = current_items.borrow();
+                    if idx < items.len() {
+                        let item = &items[idx];
+                        // Ejecutar el comando de forma independiente.
+                        let exec = item.exec.clone();
+                        std::thread::spawn(move || {
+                            let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
+                        });
+                    }
                 }
             }
             window.close();
@@ -297,38 +320,77 @@ fn build_ui(app: &Application) {
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed(clone!(
         #[strong]
-        list,
+        grid,
         #[strong]
         window,
-        #[strong]
-        run_selected,
         move |_, key, _, _| {
+            // Grid no tiene selección nativa: marcamos la celda activa con
+            // la clase CSS "selected" y navegamos por índice (cols fijas).
+            let sel_idx = || {
+                if let Some(child) = grid.first_child() {
+                    child.downcast::<ListBoxRow>().map(|r| r.index() as i32).ok()
+                } else {
+                    None
+                }
+            };
+            let set_sel = |idx: i32| {
+                if idx < 0 {
+                    return;
+                }
+                if let Some(child) = grid.child_at(idx, 0) {
+                    if let Some(row) = child.downcast::<ListBoxRow>().ok() {
+                        let children = grid.observe_children();
+                        for i in 0..children.n_items() {
+                            if let Some(obj) = children.item(i) {
+                                if let Ok(w) = obj.downcast::<gtk4::Widget>() {
+                                    w.remove_css_class("selected");
+                                }
+                            }
+                        }
+                        row.add_css_class("selected");
+                    }
+                }
+            };
+            let total = || {
+                let mut n = 0;
+                let mut child = grid.first_child();
+                while let Some(c) = child {
+                    n += 1;
+                    child = c.next_sibling();
+                }
+                n
+            };
+            let cols = 7;
             match key {
                 Key::Escape => {
                     window.close();
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    if let Some(row) = list.selected_row() {
-                        if let Some(next) = row.next_sibling() {
-                            if let Some(next_row) = next.downcast::<ListBoxRow>().ok() {
-                                list.select_row(Some(&next_row));
-                            }
-                        }
-                    } else if let Some(first) = list.first_child() {
-                        if let Some(first_row) = first.downcast::<ListBoxRow>().ok() {
-                            list.select_row(Some(&first_row));
-                        }
+                    let idx = sel_idx().unwrap_or(-1);
+                    if idx + cols < total() {
+                        set_sel(idx + cols);
                     }
                     glib::Propagation::Stop
                 }
                 Key::Up => {
-                    if let Some(row) = list.selected_row() {
-                        if let Some(prev) = row.prev_sibling() {
-                            if let Some(prev_row) = prev.downcast::<ListBoxRow>().ok() {
-                                list.select_row(Some(&prev_row));
-                            }
-                        }
+                    let idx = sel_idx().unwrap_or(0);
+                    if idx - cols >= 0 {
+                        set_sel(idx - cols);
+                    }
+                    glib::Propagation::Stop
+                }
+                Key::Right => {
+                    let idx = sel_idx().unwrap_or(-1);
+                    if idx + 1 < total() {
+                        set_sel(idx + 1);
+                    }
+                    glib::Propagation::Stop
+                }
+                Key::Left => {
+                    let idx = sel_idx().unwrap_or(0);
+                    if idx > 0 {
+                        set_sel(idx - 1);
                     }
                     glib::Propagation::Stop
                 }
@@ -348,6 +410,18 @@ fn build_ui(app: &Application) {
         },
     ));
     window.add_controller(focus_controller);
+
+    // ---------- Estilos ----------
+    let css = gtk4::CssProvider::new();
+    css.load_from_data(
+        ".banner-img { border-radius: 18px; }
+         entry { border-radius: 14px; }
+         .selected {
+             background-color: alpha(@theme_selected_bg_color, 0.35);
+             border-radius: 12px;
+         }",
+    );
+    window.style_context().add_provider(&css, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
     // El launcher se opera solo con el teclado: niri le da el foco
     // al spawnearlo, y el entry lo toma al presentar.
