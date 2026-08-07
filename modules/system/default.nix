@@ -21,6 +21,13 @@
   # ---- Paquetes no libres (ej. microcode Intel) ----
   nixpkgs.config.allowUnfree = true;
 
+  # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para Waybar) ----
+  fonts.packages = with pkgs; [
+    nerd-fonts.symbols-only
+    nerd-fonts.fira-code
+    font-awesome
+  ];
+
   # ---- Brillo de pantalla ----
   # Wrapper setuid para que brightnessctl (teclas Fn+F6/F7) pueda escribir
   # en /sys/class/backlight sin pedir contraseña. Solo el binario setuid,
@@ -45,9 +52,9 @@
     waybar
     zen-browser
     vscode-insiders
-    equibop
     antigravity
     fish
+    psmisc             # killall, pstree, fuser
     yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })

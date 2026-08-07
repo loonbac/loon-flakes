@@ -1,113 +1,79 @@
-// Config de Waybar gestionada por NixOS (loon-flakes) — barra inferior.
-// Edita este archivo en ~/.nixos/modules/programs/waybar/config.jsonc y
-// corre `rebuild`. Recarga la barra con: killall waybar && waybar &
-// Referencia: https://github.com/Alexays/Waybar/wiki/Configuration
+// Config de Waybar gestionada por NixOS (loon-flakes) — Estilo Barra de Tareas Windows 10.
+// Edita este archivo en ~/.nixos/modules/programs/waybar/config.jsonc
 {
     "layer": "top",
     "position": "bottom",
-    "height": 30,
-    "spacing": 4,
-    // Módulos para niri (el compositor de esta config).
+    "height": 48,
+    "spacing": 0,
     "modules-left": [
-        "niri/workspaces",
-        "niri/window"
+        "custom/start",
+        "wlr/taskbar"
     ],
-    "modules-center": [
+    "modules-center": [],
+    "modules-right": [
+        "tray",
+        "network",
+        "battery",
         "clock"
     ],
-    "modules-right": [
-        "pulseaudio",
-        "network",
-        "backlight",
-        "battery",
-        "tray"
-    ],
 
-    // --- Workspaces de niri ---
-    "niri/workspaces": {
-        "format": "{name}",
-        "format-icons": {
-            "1": "1",
-            "2": "2",
-            "3": "3",
-            "4": "4",
-            "5": "5",
-            "6": "6",
-            "7": "7",
-            "8": "8",
-            "9": "9",
-            "urgent": "!",
-            "focused": "",
-            "default": ""
+    // --- Botón de Inicio (Logo NixOS) ---
+    "custom/start": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "loon-launch"
+    },
+
+    // --- Lista de Todas las Ventanas Abiertas (Barra de Tareas estilo Windows 10) ---
+    "wlr/taskbar": {
+        "format": "{icon} {title}",
+        "icon-size": 18,
+        "tooltip-format": "{title}",
+        "on-click": "activate",
+        "on-click-middle": "close",
+        "ignore-list": [
+            "loon-launch"
+        ],
+        "rewrite": {
+            "(.*) — Zen Browser": "Zen Browser",
+            "(.*) — Mozilla Firefox": "Firefox",
+            "(.*) - Visual Studio Code": "VS Code",
+            "(.*) - Ghostty": "Ghostty"
         }
     },
-    "niri/window": {
-        "format": "{title}",
-        "max-length": 60,
-        "tooltip": false
-    },
 
-    // --- Reloj ---
+    // --- Reloj Estilo Windows 10 (12 Horas AM/PM sobre Fecha) ---
     "clock": {
-        "interval": 60,
-        // Formato strftime. Al combinar dos formatos se necesitan índices
-        // explícitos ({0:...}) o el parser de fmt falla con "invalid arg-id".
-        "format": "{0:%H:%M}  {0:%d-%m}",
+        "interval": 1,
+        "format": "{0:%I:%M %p}\n{0:%d/%m/%Y}",
+        "justify": "center",
         "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
     },
 
-    // --- Volumen (pipewire) ---
-    "pulseaudio": {
-        "scroll-step": 5,
-        "format": "{volume}% {icon}",
-        "format-muted": "audio-volume-muted-symbolic",
-        "format-icons": {
-            "default": [
-                "audio-volume-low-symbolic",
-                "audio-volume-medium-symbolic",
-                "audio-volume-high-symbolic"
-            ]
-        },
-        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
-    },
-
-    // --- Red ---
+    // --- Red (Solo ícono, como en Windows 10) ---
     "network": {
-        "format-wifi": "{essid} ({signalStrength}%) network-wireless-symbolic",
-        "format-ethernet": "{ipaddr}/{cidr} network-wired-symbolic",
-        "format-disconnected": "network-offline-symbolic",
-        "tooltip-format": "{ifname} via {gwaddr}"
+        "format-wifi": "󰤨",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰤭",
+        "tooltip-format": "{essid} ({signalStrength}%)\nIP: {ifname}"
     },
 
-    // --- Brillo (intel_backlight) ---
-    "backlight": {
-        "device": "intel_backlight",
-        "format": "{percent}% {icon}",
-        "format-icons": ["display-brightness-symbolic"]
-    },
-
-    // --- Batería ---
+    // --- Batería (Solo ícono, como en Windows 10) ---
     "battery": {
         "states": {
             "warning": 30,
             "critical": 15
         },
-        "format": "{capacity}% {icon}",
-        "format-charging": "{capacity}% battery-level-charging-symbolic",
-        "format-plugged": "{capacity}% ac-adapter-symbolic",
-        "format-icons": [
-            "battery-level-0-symbolic",
-            "battery-level-20-symbolic",
-            "battery-level-40-symbolic",
-            "battery-level-60-symbolic",
-            "battery-level-80-symbolic",
-            "battery-level-100-symbolic"
-        ],
-        "tooltip-format": "{timeTo} restante"
+        "format": "{icon}",
+        "format-charging": "󰂄",
+        "format-plugged": "󰚥",
+        "format-icons": ["󰂎", "󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
+        "tooltip-format": "{capacity}% ({timeTo} restante)"
     },
 
     // --- Bandeja del sistema ---
     "tray": {
+        "icon-size": 18,
         "spacing": 10
     }
 }

@@ -7,5 +7,6 @@
     ./fish
     ./ghostty
     ./waybar
+    ./equibop
   ];
 }

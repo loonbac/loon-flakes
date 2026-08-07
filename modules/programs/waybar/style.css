@@ -1,107 +1,103 @@
 /* Estilo de Waybar gestionado por NixOS (loon-flakes).
-   Tema Nord, consistente con niri (borde #5e81ac / #3b4252).
-   Edita este archivo en ~/.nixos/modules/programs/waybar/style.css y
-   corre `rebuild`. Recarga la barra con: killall waybar && waybar & */
+   Réplica Fiel de la Barra de Tareas de Windows 10 (Dark Mode). */
 
 * {
-    font-family: "Fira Sans", "Font Awesome 6 Free", sans-serif;
+    font-family: "Segoe UI", "FiraCode Nerd Font", "Symbols Nerd Font", "Font Awesome 6 Free", "Fira Sans", sans-serif;
     font-size: 13px;
     border: none;
     border-radius: 0;
     min-height: 0;
+    margin: 0;
+    padding: 0;
 }
 
 window#waybar {
-    background-color: rgba(46, 52, 64, 0.85); /* nord0 translúcido */
-    color: #d8dee9;                          /* nord4 */
-    border-top: 1px solid #3b4252;           /* nord1 */
+    background-color: rgba(16, 16, 16, 0.94); /* Windows 10 Taskbar Dark Acrylic */
+    color: #ffffff;
+    border-top: 1px solid rgba(255, 255, 255, 0.12); /* Sutil línea de separación superior */
 }
 
-/* Módulos: fondo transparente, solo el contenido */
-.modules-left,
-.modules-center,
-.modules-right {
-    background: transparent;
+/* --- Botón de Inicio (Logo NixOS) --- */
+#custom-start {
+    font-size: 20px;
+    padding: 0 18px;
+    color: #ffffff;
+    background-color: transparent;
 }
 
-/* Workspaces (niri) */
-#workspaces button {
-    padding: 0 10px;
-    margin: 4px 2px;
-    background: transparent;
-    color: #81a1c1;                          /* nord9 */
-    border-radius: 8px;
+#custom-start:hover {
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
-#workspaces button.focused {
-    background-color: #3b4252;               /* nord1 */
-    color: #eceff4;                          /* nord6 */
+
+/* --- Barra de Tareas (Todas las Ventanas Abiertas - Estilo Windows 10) --- */
+#taskbar {
+    margin: 0 4px;
 }
 
-#workspaces button.urgent {
-    background-color: #bf616a;               /* nord11 */
-    color: #eceff4;
-}
-
-#workspaces button:hover {
-    background-color: #434c5e;               /* nord2 */
-    color: #eceff4;
-}
-
-/* Ventana activa */
-#window {
+#taskbar button {
     padding: 0 12px;
-    color: #d8dee9;
-    font-weight: 500;
+    margin: 5px 3px;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    border-bottom: 2px solid transparent;
+    border-radius: 2px;
 }
 
-/* Reloj */
+#taskbar button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+#taskbar button.active {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    border-bottom: 3px solid #0078d7; /* Indicador azul de app activa en Windows 10 */
+}
+
+#taskbar button image {
+    margin-right: 6px;
+}
+
+/* --- Módulos del System Tray y Notificaciones (Derecha) --- */
+.modules-right > widget > * {
+    padding: 0 12px;
+    color: #ffffff;
+}
+
+.modules-right > widget > *:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Reloj estilo Windows 10 (12 Horas AM/PM sobre Fecha) */
 #clock {
-    padding: 0 12px;
-    color: #88c0d0;                          /* nord8 */
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 14px;
 }
 
-/* Volumen */
-#pulseaudio {
-    padding: 0 10px;
-    color: #a3be8c;                          /* nord14 */
+#clock:hover {
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
-#pulseaudio.muted {
-    color: #bf616a;                          /* nord11 */
-}
-
-/* Red */
-#network {
-    padding: 0 10px;
-    color: #b48ead;                          /* nord15 */
-}
-
-#network.disconnected {
-    color: #bf616a;
-}
-
-/* Brillo */
-#backlight {
-    padding: 0 10px;
-    color: #ebcb8b;                          /* nord13 */
-}
-
-/* Batería */
+/* Íconos de Red y Batería */
+#network,
 #battery {
-    padding: 0 10px;
-    color: #a3be8c;
+    font-size: 17px;
+    padding: 0 12px;
 }
 
-#battery.warning {
-    color: #ebcb8b;                          /* nord13 */
+#network {
+    padding-top: 1px;
 }
 
+#network.disconnected,
 #battery.critical {
-    color: #bf616a;
+    color: #f7630c; /* Naranja/Rojo de advertencia Windows */
 }
 
-/* Bandeja */
+/* System Tray */
 #tray {
-    padding: 0 8px;
+    padding: 0 10px;
 }
