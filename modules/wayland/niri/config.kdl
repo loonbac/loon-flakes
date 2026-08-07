@@ -67,6 +67,10 @@ binds {
     XF86MonBrightnessDown { spawn-sh "brightnessctl set 10%-"; }
     XF86MonBrightnessUp { spawn-sh "brightnessctl set +10%"; }
 
+    // Volumen con las teclas multimedia Fn+F2 / Fn+F3 (pipewire).
+    XF86AudioLowerVolume { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"; }
+    XF86AudioRaiseVolume { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"; }
+
     // Moverse entre ventanas/workspaces con wrap infinito:
     // al llegar al extremo, salta al otro lado.
     Super+Left { spawn-sh "niri-cycle left"; }
