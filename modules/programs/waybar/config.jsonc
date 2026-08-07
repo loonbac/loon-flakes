@@ -1,10 +1,10 @@
-// Config de Waybar gestionada por NixOS (loon-flakes) — barra superior.
+// Config de Waybar gestionada por NixOS (loon-flakes) — barra inferior.
 // Edita este archivo en ~/.nixos/modules/programs/waybar/config.jsonc y
 // corre `rebuild`. Recarga la barra con: killall waybar && waybar &
 // Referencia: https://github.com/Alexays/Waybar/wiki/Configuration
 {
     "layer": "top",
-    "position": "top",
+    "position": "bottom",
     "height": 30,
     "spacing": 4,
     // Módulos para niri (el compositor de esta config).

@@ -210,7 +210,7 @@ Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
 
 ### waybar (`waybar/`)
 
-Barra de estado superior (Waybar v0.15), config gestionada por NixOS
+Barra de estado inferior (Waybar v0.15), config gestionada por NixOS
 (mismo patrón: `/etc/waybar/` + symlinks en `~/.config/waybar/`). Se lanza
 automáticamente al iniciar la sesión (`spawn-at-startup "waybar"` en niri).
 

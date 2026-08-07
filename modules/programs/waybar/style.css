@@ -14,7 +14,7 @@
 window#waybar {
     background-color: rgba(46, 52, 64, 0.85); /* nord0 translúcido */
     color: #d8dee9;                          /* nord4 */
-    border-bottom: 1px solid #3b4252;        /* nord1 */
+    border-top: 1px solid #3b4252;           /* nord1 */
 }
 
 /* Módulos: fondo transparente, solo el contenido */
