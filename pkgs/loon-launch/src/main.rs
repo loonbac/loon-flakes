@@ -177,18 +177,22 @@ fn parse_desktop(path: &Path) -> Option<Item> {
 // ---------- Celda del grid: icono arriba, nombre debajo ----------
 fn make_cell(item: &Item) -> ListBoxRow {
     let cell = ListBoxRow::new();
+    cell.set_size_request(92, -1);
+
     let vbox = gtk4::Box::new(Orientation::Vertical, 6);
-    vbox.set_margin_top(12);
-    vbox.set_margin_bottom(12);
-    vbox.set_margin_start(14);
-    vbox.set_margin_end(14);
+    vbox.set_margin_top(4);
+    vbox.set_margin_bottom(4);
+    vbox.set_margin_start(8);
+    vbox.set_margin_end(8);
     vbox.set_valign(gtk4::Align::Center);
+    vbox.set_hexpand(true);
 
     let image = Image::new();
     if let Some(icon) = resolve_icon(&item.icon) {
         image.set_paintable(Some(&icon));
     }
     image.set_pixel_size(44);
+    image.set_size_request(44, 44);
     image.set_valign(gtk4::Align::Center);
     image.set_halign(gtk4::Align::Center);
     vbox.append(&image);
@@ -196,8 +200,10 @@ fn make_cell(item: &Item) -> ListBoxRow {
     let label = Label::new(Some(&item.name));
     label.set_xalign(0.5);
     label.set_justify(gtk4::Justification::Center);
+    label.set_hexpand(true);
     label.set_max_width_chars(12);
     label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+    label.add_css_class("app-name");
     vbox.append(&label);
 
     cell.set_child(Some(&vbox));
@@ -242,37 +248,44 @@ fn build_ui(app: &Application) {
     let window = ApplicationWindow::builder()
         .application(app)
         .title("loon-launch")
-        .default_width(760)
-        .default_height(520)
+        .default_width(680)
+        .default_height(350)
+        .resizable(false)
         .decorated(false)
         .build();
+    window.set_size_request(680, 350);
 
     let vbox = gtk4::Box::new(Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
 
-    // ---------- Banner: imagen con la barra superpuesta (Overlay).
-    // La imagen es el main child; la barra es overlay child (se pinta
-    // encima). Con el provider global el CSS del entry aplica. ----------
+    // ---------- Banner: viewport fijo con imagen natural recortada.
     let banner = gtk4::Overlay::new();
-    banner.set_hexpand(true);
+    banner.set_size_request(680, 180);
+    banner.add_css_class("banner-viewport");
 
-    let banner_pic = gtk4::Picture::for_filename("/home/loonbac/Descargas/cl_aesthetic_mix58.jpg");
-    banner_pic.set_content_fit(gtk4::ContentFit::Cover);
-    banner_pic.set_hexpand(true);
-    banner_pic.set_height_request(110);
-    banner_pic.add_css_class("banner-img");
-    banner.set_child(Some(&banner_pic));
+    let banner_viewport = gtk4::DrawingArea::new();
+    banner_viewport.set_content_width(680);
+    banner_viewport.set_content_height(180);
+    banner_viewport.set_size_request(680, 180);
+
+    let banner_pixbuf = gtk4::gdk_pixbuf::Pixbuf::from_file(
+        "/home/loonbac/Descargas/cl_aesthetic_mix58.jpg",
+    )
+    .expect("failed to load launcher banner image");
+    banner_viewport.set_draw_func(move |_, cr, _, _| {
+        cr.set_source_pixbuf(&banner_pixbuf, -300.0, -123.5);
+        let _ = cr.paint();
+    });
+    banner.set_child(Some(&banner_viewport));
 
     let entry = Entry::new();
     entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
     entry.add_css_class("search-entry");
     entry.set_halign(gtk4::Align::Center);
     entry.set_valign(gtk4::Align::Center);
-    entry.set_hexpand(true);
-    entry.set_margin_start(40);
-    entry.set_margin_end(40);
+    entry.set_size_request(600, -1);
     banner.add_overlay(&entry);
-    banner.set_measure_overlay(&entry, true);
+    banner.set_measure_overlay(&entry, false);
 
     vbox.append(&banner);
 
@@ -281,7 +294,16 @@ fn build_ui(app: &Application) {
     grid.set_row_spacing(2);
     grid.set_column_spacing(2);
     grid.set_halign(gtk4::Align::Center);
-    let scrolled = gtk4::ScrolledWindow::builder().child(&grid).hexpand(true).build();
+    grid.set_valign(gtk4::Align::Start);
+    grid.set_focusable(true);
+    let scrolled = gtk4::ScrolledWindow::builder()
+        .child(&grid)
+        .hexpand(true)
+        .vexpand(true)
+        .min_content_height(170)
+        .height_request(170)
+        .vscrollbar_policy(gtk4::PolicyType::Automatic)
+        .build();
     vbox.append(&scrolled);
 
     let all_apps = load_apps();
@@ -363,9 +385,7 @@ fn build_ui(app: &Application) {
         },
     );
 
-    // El key controller va en el ENTRY (no en la ventana), en fase de
-    // captura: intercepta las flechas/teclas antes de que el entry las
-    // use para mover el cursor, y así las flechas navegan el grid.
+    // Capturar el teclado en la ventana evita que el Entry robe las flechas.
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed(clone!(
         #[strong]
@@ -415,19 +435,23 @@ fn build_ui(app: &Application) {
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    apply_sel(move_selection(*sel_idx.borrow(), COLS as i32, total()));
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_selection(current, COLS as i32, total()));
                     glib::Propagation::Stop
                 }
                 Key::Up => {
-                    apply_sel(move_selection(*sel_idx.borrow(), -(COLS as i32), total()));
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_selection(current, -(COLS as i32), total()));
                     glib::Propagation::Stop
                 }
                 Key::Right => {
-                    apply_sel(move_selection(*sel_idx.borrow(), 1, total()));
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_selection(current, 1, total()));
                     glib::Propagation::Stop
                 }
                 Key::Left => {
-                    apply_sel(move_selection(*sel_idx.borrow(), -1, total()));
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_selection(current, -1, total()));
                     glib::Propagation::Stop
                 }
                 Key::Return | Key::KP_Enter => {
@@ -457,7 +481,7 @@ fn build_ui(app: &Application) {
         },
     ));
     key_controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
-    entry.add_controller(key_controller);
+    window.add_controller(key_controller);
 
     // Cerrar si la ventana pierde el foco (click fuera de ella).
     let focus_controller = EventControllerFocus::new();
@@ -473,22 +497,34 @@ fn build_ui(app: &Application) {
     // ---------- Estilos ----------
     let css = gtk4::CssProvider::new();
     css.load_from_data(
-        ".banner-img { border-radius: 18px; }
+        ".banner-viewport {
+             border-radius: 18px;
+             overflow: hidden;
+         }
          entry.search-entry {
+             min-height: 46px;
              border-radius: 14px;
              background-color: rgba(22, 22, 30, 0.94);
              color: white;
              caret-color: white;
-             border: 1px solid rgba(255, 255, 255, 0.28);
+             border: 1px solid rgba(255, 255, 255, 0.42);
              padding: 10px 16px;
              font-size: 15px;
+         }
+         entry.search-entry placeholder {
+             color: rgba(255, 255, 255, 0.78);
          }
          entry.search-entry selection {
              background-color: rgba(88, 101, 242, 0.9);
              color: white;
          }
+         label.app-name {
+             color: rgba(255, 255, 255, 0.96);
+             font-size: 13px;
+             font-weight: 500;
+         }
          .selected {
-             background-color: rgba(88, 101, 242, 0.35);
+             background-color: rgba(88, 101, 242, 0.48);
              border-radius: 12px;
          }",
     );
@@ -500,10 +536,9 @@ fn build_ui(app: &Application) {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
-    // El launcher se opera 100% con teclado: el entry intercepta las teclas
-    // en fase captura (flechas navegan, letras escriben, Enter ejecuta).
+    // El grid recibe el foco inicial; el Entry solo muestra la búsqueda.
     window.present();
-    entry.grab_focus();
+    grid.grab_focus();
 }
 
 fn main() {
