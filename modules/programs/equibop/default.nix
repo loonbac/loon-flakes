@@ -2,15 +2,19 @@
 #
 # Con Tailscale (o cualquier VPN) activo, WebRTC se confunde y se bindea a la
 # interfaz de la VPN, quedando el voice chat colgado en "DTLS Connecting".
-# El fix (el mismo de Vesktop/Legcord): forzar la política de IP de WebRTC a
-# "disable_non_proxied_udp" para que WebRTC solo use la interfaz de la ruta
-# por defecto (WiFi) y no la de la VPN.
+# El fix (el mismo de Vesktop PR #1283): forzar la política de IP de WebRTC a
+# "default_public_and_private_interfaces" para que use las interfaces públicas
+# y privadas pero NO la de la VPN (comentario del propio código de Vesktop:
+# "Switching to 'default_public_and_private_interfaces' may fix calls stuck
+# at 'DTLS Connecting' when using VPNs, Tailscale, etc.").
 #
+# OJO: el valor "disable_non_proxied_udp" NO sirve — desactiva todo el UDP
+# directo y deja el media en "RTC Connecting" sin poder conectar.
 # OJO: una bandera de Chromium (--webrtc-ip-handling-policy=...) NO sirve aquí
 # porque Equibop no la lee. El fix real es llamar a la API de Electron
-# webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp") desde el
-# proceso main, igual que hace Vesktop. Por eso parcheamos el app.asar:
-# se extrae, se inyecta el hook en dist/js/main.js y se reempaqueta.
+# webContents.setWebRTCIPHandlingPolicy(...) desde el proceso main, igual que
+# hace Vesktop. Por eso parcheamos el app.asar: se extrae, se inyecta el hook
+# en dist/js/main.js y se reempaqueta.
 { config, lib, pkgs, ... }:
 
 let
@@ -25,7 +29,7 @@ let
         asar extract "$out/opt/Equibop/resources/app.asar" "$TMPDIR/equibop-asar"
         cat >> "$TMPDIR/equibop-asar/dist/js/main.js" <<'PATCH'
         require("electron").app.on("web-contents-created", (_e, c) => {
-          try { c.setWebRTCIPHandlingPolicy("disable_non_proxied_udp"); } catch (_) {}
+          try { c.setWebRTCIPHandlingPolicy("default_public_and_private_interfaces"); } catch (_) {}
         });
         PATCH
         asar pack "$TMPDIR/equibop-asar" "$out/opt/Equibop/resources/app.asar"
