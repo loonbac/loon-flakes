@@ -11,8 +11,6 @@ use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 
-const BANNER_PATH: &str = "/home/loonbac/Descargas/cl_aesthetic_mix58.jpg";
-
 // ---------- Modelo de una app/acción ----------
 #[derive(Clone)]
 struct Item {
@@ -184,23 +182,25 @@ fn build_ui(app: &Application) {
     let vbox = gtk4::Box::new(Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
 
-    // ---------- Banner: imagen de fondo con la búsqueda centrada encima ----------
+    // ---------- Banner: imagen arriba, barra pegada a su borde inferior ----------
+    let banner_pic = gtk4::Picture::for_filename("/home/loonbac/Descargas/cl_aesthetic_mix58.jpg");
+    banner_pic.set_content_fit(gtk4::ContentFit::Cover);
+    banner_pic.set_hexpand(true);
+    banner_pic.set_height_request(150);
+    banner_pic.add_css_class("banner-img");
+    vbox.append(&banner_pic);
+
     let entry = Entry::new();
     entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
     entry.add_css_class("search-entry");
-    entry.set_margin_top(12);
-    entry.set_margin_bottom(8);
-    entry.set_margin_start(60);
-    entry.set_margin_end(60);
-    entry.set_hexpand(true);
+    entry.set_margin_start(70);
+    entry.set_margin_end(70);
+    entry.set_margin_top(0);
+    entry.set_margin_bottom(6);
+    // El key controller de la ventana (fase captura) intercepta las teclas
+    // antes que el entry, así que puede quedar enfocable sin robar la
+    // navegación con flechas.
     vbox.append(&entry);
-
-    let banner_pic = gtk4::Picture::for_filename(BANNER_PATH);
-    banner_pic.set_content_fit(gtk4::ContentFit::Cover);
-    banner_pic.set_hexpand(true);
-    banner_pic.set_height_request(140);
-    banner_pic.add_css_class("banner-img");
-    vbox.append(&banner_pic);
 
     // ---------- Grid de apps ----------
     let grid = gtk4::Grid::new();
@@ -319,13 +319,8 @@ fn build_ui(app: &Application) {
 
     // Navegación 100% por teclado: Enter ejecuta, flechas mueven la selección,
     // Escape cierra. El mouse está deshabilitado en el listado.
-    entry.connect_activate(clone!(
-        #[strong]
-        run_selected,
-        move |_| {
-            run_selected();
-        },
-    ));
+    // (El Enter se maneja en el key controller de la ventana, no aquí,
+    // porque el entry no tiene foco.)
 
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed(clone!(
@@ -335,6 +330,8 @@ fn build_ui(app: &Application) {
         window,
         #[strong]
         sel_idx,
+        #[strong]
+        entry,
         move |_, key, _, _| {
             let total = || {
                 let mut n = 0;
@@ -376,6 +373,22 @@ fn build_ui(app: &Application) {
                     }
                 }
             };
+            // Escribir un carácter en la barra de búsqueda.
+            let type_char = |c: char| {
+                let mut text = entry.text().to_string();
+                text.push(c);
+                entry.set_text(&text);
+                entry.set_position(-1);
+            };
+            // Borrar el último carácter.
+            let backspace = || {
+                let mut text = entry.text().to_string();
+                if !text.is_empty() {
+                    text.pop();
+                    entry.set_text(&text);
+                    entry.set_position(-1);
+                }
+            };
             let cols = 7;
             match key {
                 Key::Escape => {
@@ -398,11 +411,29 @@ fn build_ui(app: &Application) {
                     move_sel(-1);
                     glib::Propagation::Stop
                 }
-                _ => glib::Propagation::Proceed,
+                Key::Return | Key::KP_Enter => {
+                    run_selected();
+                    glib::Propagation::Stop
+                }
+                Key::BackSpace => {
+                    backspace();
+                    glib::Propagation::Stop
+                }
+                _ => {
+                    // Teclas imprimibles: escribir en la barra y filtrar.
+                    if let Some(c) = key.to_unicode() {
+                        if !c.is_control() {
+                            type_char(c);
+                        }
+                        glib::Propagation::Stop
+                    } else {
+                        glib::Propagation::Proceed
+                    }
+                }
             }
         },
     ));
-    // En fase de captura para que las flechas lleguen antes que el Entry.
+    // En fase de captura para que las teclas lleguen antes que el Entry.
     key_controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
     window.add_controller(key_controller);
 
@@ -422,7 +453,7 @@ fn build_ui(app: &Application) {
     css.load_from_data(
         ".banner-img { border-radius: 18px; }
          entry.search-entry {
-             border-radius: 16px;
+             border-radius: 14px;
              background-color: rgba(22, 22, 30, 0.94);
              color: white;
              caret-color: white;
@@ -441,10 +472,10 @@ fn build_ui(app: &Application) {
     );
     window.style_context().add_provider(&css, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
-    // El launcher se opera solo con el teclado: niri le da el foco
-    // al spawnearlo, y el entry lo toma al presentar.
+    // El launcher se opera 100% con teclado: la ventana intercepta todas
+    // las teclas en fase captura (flechas navegan, letras escriben en la
+    // barra, Enter ejecuta, Escape cierra) antes de que lleguen al entry.
     window.present();
-    entry.grab_focus();
 }
 
 fn main() {
