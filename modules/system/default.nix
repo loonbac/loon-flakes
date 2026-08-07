@@ -31,6 +31,7 @@
     ghostty
     nodejs
     zen-browser
+    equibop
     fish
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
@@ -42,6 +43,10 @@
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
     mpv
+    # Script para gestionar el fondo animado (Super+B en niri).
+    (pkgs.callPackage ../../pkgs/mpvpaper-wallpaper { })
+    # Script para el fondo estático del backdrop (swaybg, ve a través).
+    (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
 

@@ -5,5 +5,6 @@
 {
   imports = [
     ./fish
+    ./ghostty
   ];
 }

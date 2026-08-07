@@ -1,0 +1,25 @@
+# Config de ghostty gestionada por NixOS (loon-flakes).
+# Sin barra de título (la X y los iconos): la ventana es solo la terminal.
+# Atajos:
+#   ctrl+shift+t → nueva ventana de terminal
+#   ctrl+shift+w → cerrar la ventana actual
+# Edita este archivo en ~/.nixos/modules/programs/ghostty/config y corre
+# `rebuild`. Recarga en caliente con ctrl+shift+, (coma).
+
+# Quita la barra superior (titlebar) con la X y los iconos.
+window-decoration = false
+
+# Padding interno: separa el texto de los bordes de la ventana.
+window-padding-x = 12
+window-padding-y = 12
+
+# Transparencia del fondo: la maneja niri vía window-rule (opacity real).
+# Ghostty la deja opaca para no duplicar la transparencia (su
+# background-opacity no produce transparencia real en niri, se ve negro).
+background-opacity = 1
+
+# Opacidad de la ventana: la aplica niri (window-rule). 0.6 = 40% transparente.
+
+# Atajos de ventana (pestañas nativas de ghostty).
+keybind = ctrl+shift+t=new_tab
+keybind = ctrl+shift+w=close_tab

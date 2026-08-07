@@ -24,6 +24,10 @@ layout {
     // Ventanas nuevas al 100% del ancho (efecto "maximizado").
     default-column-width { proportion 1.0; }
 
+    // Fondo transparente: deja ver el backdrop (donde está el wallpaper).
+    // Requiere que el wallpaper use place-within-backdrop (ver más abajo).
+    background-color "transparent"
+
     gaps 16
 
     // Sustituye el focus-ring azul por defecto por un borde fino.
@@ -40,16 +44,23 @@ layout {
 }
 
 // Sin atajos por defecto: solo los binds explícitos de aquí.
+
+// Lanza el fondo animado al iniciar la sesión (usa el video seteado o el único).
+spawn-at-startup "mpvpaper-wallpaper"
+// Lanza el fondo estático del backdrop (imagen, fondo de todo).
+spawn-at-startup "niri-backdrop"
+
 binds {
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
-    // Pon tu video en ~/.config/mpvpaper/wallpaper.mp4.
+    // Pon tus videos en ~/Videos/Wallpapers. Con Super+B se reproduce el
+    // video seteado (o el único). Para elegir: mpvpaper-wallpaper set NOMBRE.
     Super+Return { spawn "ghostty"; }
     Super+Space { spawn "loon-launch"; }
     Super+Q { close-window; }
     Super+F { maximize-column; }
 
-    // Cambiar de fondo animado con Super+B (reproduce el que indiques).
-    Super+B { spawn-sh "mpvpaper -o 'no-audio --loop-file=inf --profile=fast --no-cache --osc=no' ALL ~/.config/mpvpaper/wallpaper.mp4"; }
+    // Cambiar de fondo animado con Super+B (usa el video seteado o el único).
+    Super+B { spawn "mpvpaper-wallpaper"; }
 
     // Moverse entre ventanas/workspaces con wrap infinito:
     // al llegar al extremo, salta al otro lado.
@@ -69,13 +80,16 @@ binds {
 }
 
 // Toda ventana abre maximizada (ancho completo + estado maximizado),
-// con esquinas redondeadas.
+// con esquinas redondeadas. El borde se dibuja como trazo fino SIN fondo
+// sólido, para no tapar la transparencia de las ventanas.
 window-rule {
     match app-id=".*"
     open-maximized true
 
     geometry-corner-radius 12
     clip-to-geometry true
+
+    draw-border-with-background false
 }
 
 // loon-launch: flotante, centrado, tamaño fijo (la regla va después
@@ -90,8 +104,32 @@ window-rule {
     default-window-height { fixed 480; }
 }
 
-// mpvpaper: el fondo animado va detrás de todas las ventanas.
+// ghostty: transparencia real a nivel de compositor (opacity afecta toda
+// la ventana, no solo el fondo — el background-opacity de ghostty no produce
+// transparencia real en niri).
+// xray: hace que el fondo de la ventana "vea a través" hasta el wallpaper
+// (sin xray, una ventana transparente muestra el color de fondo de niri,
+// no el wallpaper). Va después de la regla genérica.
+window-rule {
+    match app-id="^com\\.mitchellh\\.ghostty$"
+
+    opacity 0.6
+    background-effect {
+        xray true
+    }
+}
+
+// mpvpaper: el video va en la capa background de CADA workspace (animado,
+// se mueve con los workspaces). El fondo estático de todo (backdrop) lo pone
+// niri-backdrop con swaybg (que sí ignora exclusive zones).
+// OJO: no usar place-within-backdrop aquí — mpvpaper manda exclusive_zone(-1),
+// no califica para el backdrop, y además congelaría el video (issue #4038).
+//
+// niri-backdrop: el fondo estático del backdrop (swaybg usa namespace
+// "wallpaper"). place-within-backdrop lo mueve al backdrop (fondo de todo).
 layer-rule {
-    match namespace="^mpvpaper$"
+    match namespace="^wallpaper$"
+
     place-within-backdrop true
 }
+
