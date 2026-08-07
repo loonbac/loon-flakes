@@ -1,6 +1,6 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
-{ config, lib, pkgs, zen-browser, ... }:
+{ config, lib, pkgs, zen-browser, vscode-insiders, ... }:
 
 {
   # ---- Bootloader (systemd-boot + UEFI) ----
@@ -43,6 +43,7 @@
     nodejs
     brightnessctl
     zen-browser
+    vscode-insiders
     equibop
     fish
     yazi
