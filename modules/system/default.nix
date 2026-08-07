@@ -73,6 +73,12 @@
     (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
+    # Portapapeles Wayland persistente: sin esto, el contenido se pierde al
+    # cerrar la app dueña (p. ej. la UI de captura de niri). wl-clip-persist
+    # mantiene el contenido cuando el dueño desaparece.
+    wl-clipboard
+    wl-clip-persist
+    cliphist
     # Tema de cursor por defecto: Win11OSX (Xcursor nativo, compatible Linux).
     (pkgs.callPackage ../../pkgs/win11osx-cursor { })
     # Tema de cursor Vision (blanco/negro) — alternativa.

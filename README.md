@@ -160,6 +160,10 @@ Detalles de la config:
 - **Fondo transparente**: `background-color "transparent"` deja ver el backdrop
   (donde está el wallpaper).
 - **Teclado**: layout `es`, numlock activo. Touchpad con tap y clickfinger.
+- **Portapapeles persistente**: `wl-clip-persist` corre al inicio de la sesión
+  (con `wl-clipboard` + `cliphist`) para que el contenido copiado no se pierda
+  al cerrar la app dueña — imprescindible para pegar capturas de la UI de niri
+  en otros programas tras cerrarla.
 - **Window-rule de ghostty**: transparencia real a nivel de compositor
   (`opacity 0.8` + `background-effect xray true` para ver el wallpaper a través).
 
