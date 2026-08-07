@@ -2,8 +2,8 @@ use glib::clone;
 use gtk4::gdk::Key;
 use gtk4::prelude::*;
 use gtk4::{
-    Application, ApplicationWindow, Entry, EventControllerFocus, EventControllerKey, ListBox,
-    ListBoxRow, Orientation, SelectionMode,
+    Application, ApplicationWindow, Entry, EventControllerFocus, EventControllerKey, IconLookupFlags,
+    IconTheme, Image, ListBox, ListBoxRow, Orientation, SelectionMode,
 };
 use libadwaita as adw;
 use std::cell::RefCell;
@@ -105,7 +105,54 @@ fn parse_desktop(path: &Path) -> Option<Item> {
     Some(Item { name, exec, icon })
 }
 
-// ---------- Acciones de poder (modo ">") ----------
+// ---------- Fila con icono + nombre ----------
+fn make_row(item: &Item) -> ListBoxRow {
+    let row = ListBoxRow::new();
+    let hbox = gtk4::Box::new(Orientation::Horizontal, 12);
+    hbox.set_margin_top(8);
+    hbox.set_margin_bottom(8);
+    hbox.set_margin_start(12);
+    hbox.set_margin_end(12);
+
+    // Icono de la app: nombre del tema de iconos (p.ej. "firefox")
+    // o ruta absoluta (p.ej. /path/icon.png). Si no se encuentra, vacío.
+    let image = Image::new();
+    if let Some(icon) = resolve_icon(&item.icon) {
+        image.set_paintable(Some(&icon));
+    }
+    image.set_pixel_size(28);
+    image.set_valign(gtk4::Align::Center);
+    hbox.append(&image);
+
+    let label = gtk4::Label::new(Some(&item.name));
+    label.set_xalign(0.0);
+    label.set_valign(gtk4::Align::Center);
+    hbox.append(&label);
+
+    row.set_child(Some(&hbox));
+    row
+}
+
+fn resolve_icon(icon: &str) -> Option<gtk4::IconPaintable> {
+    let theme = IconTheme::new();
+    // Si el icono es una ruta absoluta, gtk4 lo carga directo; si es un
+    // nombre del tema, solo renderiza si existe (evita el icono "missing").
+    if !icon.starts_with('/') && !theme.has_icon(icon) {
+        return None;
+    }
+    Some(theme.lookup_icon(
+        icon,
+        &[],
+        28,
+        1,
+        gtk4::TextDirection::None,
+        IconLookupFlags::FORCE_SYMBOLIC
+            | IconLookupFlags::FORCE_REGULAR
+            | IconLookupFlags::PRELOAD,
+    ))
+}
+
+
 fn power_actions() -> Vec<Item> {
     vec![
         Item { name: "Apagar".to_string(), exec: "systemctl poweroff".to_string(), icon: "system-shutdown".to_string() },
@@ -183,14 +230,7 @@ fn build_ui(app: &Application) {
         }
 
         for (i, item) in shown.iter().enumerate() {
-            let row = ListBoxRow::new();
-            let label = gtk4::Label::new(Some(&item.name));
-            label.set_xalign(0.0);
-            label.set_margin_top(8);
-            label.set_margin_bottom(8);
-            label.set_margin_start(12);
-            label.set_margin_end(12);
-            row.set_child(Some(&label));
+            let row = make_row(item);
             list.append(&row);
             // Seleccionar la primera fila por defecto (100% teclado).
             if i == 0 {

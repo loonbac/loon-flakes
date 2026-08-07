@@ -54,3 +54,5 @@ mento, y solo recurre al reinicio/relogin cuando no hay alternativa. Confidence:
 .45
 l fondo animado a través. Confidence: 0.6
 - Para corregir la opacidad/transparencia de una app prefiere ajustes incrementales pequeños ("súbele la opacidad un poco más") en lugar de cambios drásticos. Confidence: 0.45
+- Quiere que las teclas multimedia del teclado (Fn+F2/F3 volumen, Fn+F6/F7 brillo) estén mapeadas en los binds de niri con sus nombres XKB `XF86*` (`XF86AudioRaiseVolume`/`XF86AudioLowerVolume`, `XF86MonBrightnessUp`/`XF86MonBrightnessDown`), igual que las combinaciones Super+letra para acciones frecuentes. Confidence: 0.7
+- Cuando pide "lo mismo con X" (p. ej. "ahora tambien lo mismo con f2 y f3" para volumen tras haber configurado F6/F7 para brillo), espera que el agente extienda el mismo patrón ya establecido al nuevo caso — bind en `config.kdl` de niri con el nombre XKB de la tecla + herramienta del sistema apropiada (wpctl/pipewire para audio, brightnessctl para brillo) + validación, rebuild y commit/push — sin re-explicar el enfoque. Confidence: 0.6
