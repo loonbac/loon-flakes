@@ -5,33 +5,34 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 
 ```
 ~/.nixos/
-├── flake.nix                          # "Cargo.toml" del sistema
+├── flake.nix                          # "Cargo.toml" del sistema (inputs + paquetes)
+├── flake.lock                         # lockfile versionado (no tocar a mano)
+├── AGENTS.md                          # guía para agentes que trabajan la config
 ├── README.md                          # este archivo
 ├── pkgs/                              # "binarios" propios del flake
-│   └── rebuild/                       # comando custom `rebuild`
-│       └── default.nix
-├── hosts/                             # máquinas concretas
+│   ├── rebuild/                       # comando custom `rebuild`
+│   ├── loon-launch/                   # app launcher GTK4 (Super+Space)
+│   ├── niri-cycle/                    # mover ventanas con wrap infinito
+│   ├── mpvpaper-wallpaper/            # fondo animado (video en loop)
+│   └── niri-backdrop/                 # fondo estático del backdrop
+├── hosts/
 │   └── loon-laptop/
-│       ├── default.nix                # "main.rs" — solo compone
-│       └── hardware-configuration.nix # autogenerado (no tocar)
+│       ├── default.nix                # "main.rs" — identidad + hardware, solo compone
+│       └── hardware-configuration.nix # autogenerado (NO tocar)
 └── modules/                           # "src/core" — lógica reutilizable
-    ├── default.nix                    # "mod.rs" raíz — agrega todos los módulos
-    ├── system/                        # boot, zona horaria, locale, paquetes
-    │   └── default.nix
-    ├── networking/                    # red, firewall
-    │   └── default.nix
+    ├── default.nix                    # "mod.rs" raíz — importa todos los módulos
+    ├── system/                        # boot, timezone, locale, systemPackages, wrappers
+    ├── networking/                    # networkmanager, firewall
     ├── services/                      # compone sub-servicios
-    │   ├── default.nix
-    │   └── openssh/                   # cada servicio es un módulo propio
-    │       └── default.nix
+    │   ├── openssh/                   # daemon SSH endurecido
+    │   └── tailscale/                 # red mesh privada (WireGuard)
+    ├── programs/                      # shells y programas de usuario
+    │   ├── fish/                      # shell + prompt oh-my-posh
+    │   └── ghostty/                   # terminal (config gestionada)
     ├── wayland/                       # compositores Wayland y greeter
-    │   ├── default.nix
-    │   ├── niri/                      # compositor niri (scrollable-tiling)
-    │   │   └── default.nix
-    │   └── dms-greeter/               # greeter DankMaterialShell (DankGreeter)
-    │       └── default.nix
-    └── users/                         # usuarios y sus grupos
-        └── default.nix
+    │   ├── niri/                      # compositor niri (config.kdl gestionado)
+    │   └── dms-greeter/               # greeter DankMaterialShell
+    └── users/                         # usuario loonbac, grupos, npm-global
 ```
 
 ---
@@ -45,7 +46,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 | `modules/default.nix`           | "mod.rs" raíz                        |
 | `modules/services/default.nix`  | "mod" que compone sub-servicios      |
 | `modules/services/openssh/`     | cada servicio es un módulo propio    |
-| `pkgs/rebuild/`                 | binario propio del flake             |
+| `pkgs/loon-launch/`             | binario propio del flake             |
 | `imports = [ ./foo ];`          | el "mod foo;"                        |
 | `rebuild`                       | el "cargo build && cargo run"        |
 
@@ -59,13 +60,204 @@ este flake incluye un comando propio **`rebuild`** que lo hace por ti.
 ```bash
 rebuild          # aplica los cambios (switch) — el más usado
 rebuild dry      # prueba sin aplicar (dry-run)
-rebuild update   # actualiza nixpkgs (flake update) y aplica
+rebuild update   # actualiza nixpkgs y los flakes (flake update) y aplica
 ```
 
 - Se ejecuta desde cualquier directorio: internamente entra a `~/.nixos`.
 - Pide sudo solo cuando aplica (switch/update).
 - El código vive en `pkgs/rebuild/default.nix`; la instalación se hace
   desde `modules/system/default.nix`.
+
+> **Nota**: `rebuild update` también actualiza el `flake.lock`, lo que trae
+> las últimas versiones de Zen Browser y VS Code Insiders (ver abajo).
+
+---
+
+## Paquetes del flake (`pkgs/`)
+
+### `loon-launch` — app launcher (Super+Space)
+
+Launcher Wayland en Rust (GTK4 + libadwaita) para niri:
+
+- Lista las apps desde los `.desktop` de `/run/current-system/sw/share/applications`,
+  `~/.local/share/applications` y `/usr/share/applications`.
+- Cada fila muestra el **icono de la app** (tema de iconos del sistema,
+  hicolor/adwaita) junto al nombre.
+- Navegación 100% por teclado: `Enter` ejecuta, `↑/↓` mueven la selección,
+  `Escape` cierra (también cierra al hacer click fuera).
+- **Modo poder**: escribiendo `>` se filtran acciones de sistema
+  (apagar, reiniciar, hibernar, suspender, bloquear).
+
+Se compila con `rustPlatform.buildRustPackage` (Cargo.lock versionado).
+Código: `pkgs/loon-launch/src/main.rs`.
+
+### `niri-cycle` — mover ventanas con wrap (Super+←/→)
+
+En niri las ventanas viven en columnas horizontales. Este script usa
+`niri msg action focus-column-left/right` y si estás en el extremo, salta
+al otro lado (wrap infinito).
+
+### `mpvpaper-wallpaper` — fondo animado (Super+B)
+
+Reproduce un video en loop detrás de las ventanas con `mpvpaper`:
+
+```bash
+mpvpaper-wallpaper              # reproduce el video seteado (o el primero)
+mpvpaper-wallpaper set NOMBRE   # setea un video de ~/Videos/Wallpapers
+mpvpaper-wallpaper list         # lista los videos disponibles
+mpvpaper-wallpaper stop         # detiene el fondo animado
+```
+
+Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
+
+### `niri-backdrop` — fondo estático del backdrop
+
+Pone una imagen fija (con `swaybg`) en la capa **backdrop** de niri — el fondo
+global que se ve detrás de todo, incluido a través de las ventanas transparentes
+con `xray`. Imágenes en `~/Pictures/Wallpaper`:
+
+```bash
+niri-backdrop              # pone la imagen seteada (o la primera)
+niri-backdrop set IMAGEN   # setea una imagen específica
+niri-backdrop stop         # detiene el fondo
+```
+
+---
+
+## Entorno gráfico: niri + greeter
+
+### niri (`modules/wayland/niri/`)
+
+Compositor Wayland **scrollable-tiling**. La config `config.kdl` se gestiona
+desde NixOS: se instala en `/etc/niri/config.kdl` y `~/.config/niri/config.kdl`
+es un symlink (tmpfiles). **No edites `~/.config/niri` a mano**; edita el repo
+y corre `rebuild`.
+
+Detalles de la config:
+
+- **Layout**: ventanas al 100% del ancho, gaps de 16px, esquinas redondeadas
+  (12px), borde fino de 1px (sin fondo sólido para no tapar transparencias),
+  sin focus-ring.
+- **Fondo transparente**: `background-color "transparent"` deja ver el backdrop
+  (donde está el wallpaper).
+- **Teclado**: layout `es`, numlock activo. Touchpad con tap y clickfinger.
+- **Window-rule de ghostty**: transparencia real a nivel de compositor
+  (`opacity 0.8` + `background-effect xray true` para ver el wallpaper a través).
+
+#### Atajos de teclado (binds)
+
+| Tecla               | Acción                                          |
+|---------------------|-------------------------------------------------|
+| `Super+Return`      | Abrir ghostty                                   |
+| `Super+Space`       | Abrir loon-launch (launcher)                    |
+| `Super+Q`           | Cerrar ventana                                  |
+| `Super+F`           | Maximizar/restaurar columna                     |
+| `Super+B`           | Fondo animado (mpvpaper-wallpaper)              |
+| `Super+←` / `→`     | Mover ventana con wrap (niri-cycle)             |
+| `Super+1..9`        | Cambiar de workspace                            |
+| `Fn+F6` / `Fn+F7`   | Bajar/subir brillo (`brightnessctl` ±10%)       |
+| `Fn+F2` / `Fn+F3`   | Bajar/subir volumen (`wpctl` ±5%)               |
+
+### dms-greeter (`modules/wayland/dms-greeter/`)
+
+Greeter **DankMaterialShell** sobre el compositor niri. Config fina del tema en
+`~/.config/DankMaterialShell/settings.json`.
+
+---
+
+## Servicios (`modules/services/`)
+
+### OpenSSH (`openssh/`)
+
+Daemon SSH **endurecido**: solo acceso por clave (`PasswordAuthentication = false`),
+root no puede entrar (`PermitRootLogin = "no"`).
+
+### Tailscale (`tailscale/`)
+
+Red mesh privada (WireGuard) para conectar dispositivos entre sí.
+
+```bash
+sudo tailscale up   # autenticar y unir la máquina a la tailnet (una vez)
+tailscale status    # ver el estado y los dispositivos
+```
+
+---
+
+## Programas (`modules/programs/`)
+
+### fish (`fish/`)
+
+Shell por defecto del usuario:
+
+- Sin banner de bienvenida.
+- **Detección automática de binarios**: agrega al PATH los directorios que
+  existan (`~/.npm-global/bin`, `~/.cargo/bin`, `~/.local/bin`, pipx, etc.)
+  — cualquier paquete instalado globalmente funciona sin configurar nada.
+- **Prompt Oh My Posh** con el tema *craver*, gestionado por NixOS
+  (se instala en `/etc/oh-my-posh/craver.omp.json`, versionado en el repo).
+
+### ghostty (`ghostty/`)
+
+Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
+`/etc/ghostty/config` y `~/.config/ghostty/config` es symlink):
+
+- Sin barra de título (`window-decoration = false`).
+- Padding interno de 12px.
+- Fondo opaco por defecto; la transparencia real la aplica niri (window-rule).
+- Atajos: `ctrl+shift+t` nueva pestaña, `ctrl+shift+w` cerrar pestaña,
+  `ctrl+shift+,` recargar config en caliente.
+
+---
+
+## Sistema (`modules/system/`)
+
+- **Boot**: systemd-boot + UEFI.
+- **Zona horaria / locale**: `America/Lima`, `es_PE.UTF-8`, teclado `es`.
+- **Paquetes no libres**: `allowUnfree = true` (microcode Intel, etc.).
+- **Brillo**: wrapper setuid de `brightnessctl` (`security.wrappers`) para que
+  las teclas Fn+F6/F7 funcionen sin contraseña.
+- **Paquetes globales** (`environment.systemPackages`): git, gh, btop,
+  fastfetch, ghostty, nodejs, brightnessctl, zen-browser, vscode-insiders,
+  equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
+  (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
+  y utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode,
+  inxi, lshw, iw).
+
+## Red (`modules/networking/`)
+
+- **NetworkManager** activo (WiFi, ethernet por GUI).
+- **Firewall** activo por defecto; para abrir puertos:
+  `networking.firewall.allowedTCPPorts = [ ... ]` /
+  `networking.firewall.allowedUDPPorts = [ ... ]`.
+
+## Usuarios (`modules/users/`)
+
+- Usuario `loonbac` (Joshua Rosales), grupos: `networkmanager` (red) y
+  `wheel` (sudo). Shell: fish.
+- **npm global**: `~/.npm-global` creado y agregado al PATH (el prefix del
+  store de Nix es inmutable).
+
+---
+
+## Flake (`flake.nix`)
+
+**Inputs**:
+
+| Input                 | Qué aporta                                        |
+|-----------------------|---------------------------------------------------|
+| `nixpkgs`             | `nixos-26.05`                                     |
+| `zen-browser`         | Zen Browser (no está en nixpkgs)                  |
+| `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
+
+**Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
+`niri-cycle`, `vscode-insiders`, `zen-browser`.
+
+**VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
+sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con
+`builtins.readFile` y construimos el paquete con `pkgs.vscode.override
+{ isInsiders = true; }`, anulando las fases de nixpkgs que asumen una
+estructura que Insiders no trae (`patchPhase` de ripgrep y `postFixup` de
+vsce-sign). Así `rebuild update` siempre instala la última versión.
 
 ---
 
@@ -82,11 +274,12 @@ sudo nixos-rebuild dry-run --flake .#loon-laptop
 nix flake show
 nix flake check
 
-# Actualizar nixpkgs (el "cargo update" de NixOS)
+# Actualizar nixpkgs y los flakes (el "cargo update" de NixOS)
 nix flake update
 
-# Probar el paquete custom sin instalarlo
+# Probar un paquete custom sin instalarlo
 nix run .#rebuild
+nix run .#loon-launch
 ```
 
 ---
@@ -121,6 +314,7 @@ environment.systemPackages = with pkgs; [
 ```nix
 imports = [
   ./openssh
+  ./tailscale
   ./docker
 ];
 ```
@@ -165,6 +359,15 @@ nixosConfigurations = {
 
 ---
 
+## Notas sobre el host (`hosts/loon-laptop/`)
+
+- Hostname: `loon-laptop` — Dell Inspiron 15 3520.
+- **GPU Intel Iris Xe**: stack gráfico + VA-API con `intel-media-driver` (iHD)
+  para aceleración por hardware.
+- **Firmware redistribuible**: WiFi Realtek 8821CE, Bluetooth Realtek y
+  microcode Intel — sin esto el WiFi no funciona.
+- Estado: `26.05`.
+
 ## Notas de seguridad
 
 - `PasswordAuthentication = false` → solo se puede entrar por **clave SSH**.
@@ -172,15 +375,7 @@ nixosConfigurations = {
 - El firewall está **activo** por defecto; para abrir puertos, ver
   `modules/networking/default.nix`.
 - La contraseña de `loonbac` NO se guarda en este repo: se define con
-  `passwd` en la máquina (o con `hashedPassword` si algún día se versiona).
-
-## Notas sobre el host
-
-- Hostname: `loon-laptop`
-- Zona horaria: `America/Lima`
-- Locale: `es_PE.UTF-8`, teclado `es` (X11 y consola)
-- Boot: systemd-boot + UEFI
-- Estado: `26.05`
+  `passwd` en la máquina.
 
 ## ¿Por qué no hay `configuration.nix` ya?
 
@@ -188,4 +383,4 @@ Porque fue **reemplazado** por la estructura de flake. El archivo `/etc/nixos/co
 ahora es un enlace simbólico hacia `~/.nixos/hosts/loon-laptop/default.nix` para que
 `nixos-generate-config` y herramientas antiguas sigan funcionando; pero el flake
 es la fuente de verdad. La configuración vieja quedó respaldada en
-`~/.nixos/configuration.nix.bak`.
+`~/.nixos/configuration.nix.bak` (no se versiona, está en `.gitignore`).
