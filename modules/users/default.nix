@@ -6,9 +6,8 @@
   users.users."loonbac" = {
     isNormalUser = true;
     description = "Joshua Rosales";
-    # Grupos: networkmanager (GUI de red), wheel (sudo), input (leer /dev/input
-    # para el shake-to-find cursor de niri-shake-cursor).
-    extraGroups = [ "networkmanager" "wheel" "input" ];
+    # Grupos: networkmanager (GUI de red), wheel (sudo).
+    extraGroups = [ "networkmanager" "wheel" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
     packages = with pkgs; [ ];
     # Shell por defecto: fish.

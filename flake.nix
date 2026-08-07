@@ -72,8 +72,6 @@
         loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
         loon-bar = pkgs.callPackage ./pkgs/loon-bar { };
         niri-cycle = pkgs.callPackage ./pkgs/niri-cycle { };
-        # Shake-to-find cursor (estilo macOS) para niri.
-        niri-shake-cursor = pkgs.callPackage ./pkgs/niri-shake-cursor { };
         # Tema de cursor Vision (blanco/negro) — paquetes propios del flake.
         vision-cursor = pkgs.callPackage ./pkgs/vision-cursor { };
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).

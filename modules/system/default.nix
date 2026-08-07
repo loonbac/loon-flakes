@@ -77,9 +77,6 @@
     (pkgs.callPackage ../../pkgs/win11osx-cursor { })
     # Tema de cursor Vision (blanco/negro) — alternativa.
     (pkgs.callPackage ../../pkgs/vision-cursor { }).white
-    # Shake-to-find cursor: agranda el cursor al mover el mouse rápido
-    # (estilo macOS). Requiere grupo "input" (ver modules/users).
-    (pkgs.callPackage ../../pkgs/niri-shake-cursor { })
 
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.

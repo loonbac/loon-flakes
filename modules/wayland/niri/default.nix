@@ -21,10 +21,6 @@
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
     "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
-    # Override del tamaño de cursor (shake-to-find): copia el base al home
-    # con propietario loonbac para que niri-shake-cursor lo escriba.
-    # "C" solo actúa si no existe, para no pisar el tamaño dinámico en cada boot.
-    "C /home/loonbac/.config/niri/cursor-size.kdl 0644 loonbac users - ${./cursor-size.kdl}"
     # Fondo animado (mpvpaper): el video vive en ~/Videos/Wallpapers.
     "d /home/loonbac/Videos 0755 loonbac users -"
     "d /home/loonbac/Videos/Wallpapers 0755 loonbac users -"
