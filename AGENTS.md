@@ -51,6 +51,9 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
     │   ├── niri/              # compositor niri + config.kdl gestionado
     │   └── dms-greeter/       # greeter DankMaterialShell
     └── users/                 # usuario loonbac, grupos
+
+`modules/programs/` contiene además los módulos `fish/`, `ghostty/`,
+`waybar/` y `equibop/` (ver "Equibop + Tailscale" en Lecciones aprendidas).
 ```
 
 ## Flujo estándar (aplica a casi todo)
@@ -124,6 +127,19 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
   En XKB la tecla Enter se llama `Return`. `Super+Space` existe solo si se
   define; niri no tiene binds por defecto.
 
+### Editar el fix de Equibop (WebRTC + Tailscale)
+
+- **Archivo**: `modules/programs/equibop/default.nix` — override del paquete
+  que parchea el `app.asar` (extrae, inyecta el hook en `dist/js/main.js` y
+  reempaqueta con `asar` de nixpkgs).
+- **El autostart** también lo gestiona el módulo (`/etc/equibop/autostart.desktop`
+  + tmpfiles → `~/.config/autostart/equibop.desktop`).
+- **Probar sin aplicar**: `nixos-rebuild build --flake .#loon-laptop` y
+  verificar el hook en el asar:
+  `grep -ao 'setWebRTCIPHandlingPolicy("[^"]*")' <store>/opt/Equibop/resources/app.asar`.
+- **Si el voice chat se queda en "RTC Connecting"**: el valor está mal — usar
+  `default_public_and_private_interfaces` (ver Lecciones aprendidas).
+
 ---
 
 ## Lecciones aprendidas (gotchas)
@@ -152,6 +168,18 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
   sistema, no home-manager); `configHome = "/home/loonbac"` sincroniza el tema.
 - **El rebuild puede tardar** (compila niri, loon-launch, quickshell) — usar
   timeouts generosos (600000 ms).
+- **Equibop + Tailscale → "DTLS Connecting"**: el voice chat se cuelga si
+  WebRTC se bindea a la interfaz de la VPN. El fix vive en
+  `modules/programs/equibop/default.nix` y **parchea el `app.asar`** (inyecta
+  `setWebRTCIPHandlingPolicy("default_public_and_private_interfaces")` en
+  `dist/js/main.js`). Gotchas aprendidos:
+  - La bandera `--webrtc-ip-handling-policy` de Chromium **NO sirve** — Equibop
+    no la lee; hay que llamar la API de Electron desde el proceso main.
+  - El valor `disable_non_proxied_udp` **NO sirve** — deja la llamada en "RTC
+    Connecting" (desactiva el UDP directo). Usar
+    `default_public_and_private_interfaces` (el de Vesktop PR #1283).
+  - Si Equibop cambia la estructura del bundle al actualizar, el parche puede
+    fallar: verificar que `dist/js/main.js` exista en el asar y ajustar.
 
 ---
 

@@ -29,7 +29,8 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     ├── programs/                      # shells y programas de usuario
     │   ├── fish/                      # shell + prompt oh-my-posh
     │   ├── ghostty/                   # terminal (config gestionada)
-    │   └── waybar/                    # barra de estado (config + estilo)
+    │   ├── waybar/                    # barra de estado (config + estilo)
+    │   └── equibop/                   # Discord con fix de WebRTC (Tailscale)
     ├── wayland/                       # compositores Wayland y greeter
     │   ├── niri/                      # compositor niri (config.kdl gestionado)
     │   └── dms-greeter/               # greeter DankMaterialShell
@@ -220,6 +221,25 @@ automáticamente al iniciar la sesión (`spawn-at-startup "waybar"` en niri).
 - **Editar**: `modules/programs/waybar/config.jsonc` (módulos) y
   `modules/programs/waybar/style.css` (estilos) → `rebuild`.
 - **Recargar la barra** sin reiniciar sesión: `killall waybar && waybar &`.
+
+### equibop (`equibop/`)
+
+Cliente Discord **Equibop** con un fix de WebRTC para que el voice chat
+funcione con Tailscale (o cualquier VPN) activo. El autostart está gestionado
+por NixOS (mismo patrón: `/etc/equibop/` + symlink en `~/.config/autostart/`).
+
+**El problema**: con una VPN activa, WebRTC se confunde y se bindea a la
+interfaz de la VPN, quedando la llamada colgada en *"DTLS Connecting"*.
+
+**El fix**: se parchea el `app.asar` del paquete en cada build — se inyecta en
+`dist/js/main.js` un hook `app.on("web-contents-created", ...)` que llama
+`setWebRTCIPHandlingPolicy("default_public_and_private_interfaces")` en cada
+ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/pull/1283)).
+
+> **OJO (gotchas)**: la bandera de Chromium `--webrtc-ip-handling-policy` NO
+> sirve (Equibop no la lee). El valor `disable_non_proxied_udp` NO sirve
+> (desactiva el UDP directo y deja la llamada en *"RTC Connecting"*). El único
+> valor que funciona con VPNs es `default_public_and_private_interfaces`.
 
 ---
 
