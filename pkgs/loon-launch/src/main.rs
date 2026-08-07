@@ -250,24 +250,31 @@ fn build_ui(app: &Application) {
     let vbox = gtk4::Box::new(Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
 
-    // ---------- Banner: imagen como CSS background del contenedor, barra
-    // DENTRO (child normal del box, centrada sobre el fondo). ----------
-    let banner_box = gtk4::Box::new(Orientation::Vertical, 0);
-    banner_box.set_hexpand(true);
-    banner_box.set_height_request(110);
-    banner_box.add_css_class("banner-box");
+    // ---------- Banner: imagen con la barra superpuesta (Overlay).
+    // La imagen es el main child; la barra es overlay child (se pinta
+    // encima). Con el provider global el CSS del entry aplica. ----------
+    let banner = gtk4::Overlay::new();
+    banner.set_hexpand(true);
+
+    let banner_pic = gtk4::Picture::for_filename("/home/loonbac/Descargas/cl_aesthetic_mix58.jpg");
+    banner_pic.set_content_fit(gtk4::ContentFit::Cover);
+    banner_pic.set_hexpand(true);
+    banner_pic.set_height_request(110);
+    banner_pic.add_css_class("banner-img");
+    banner.set_child(Some(&banner_pic));
 
     let entry = Entry::new();
     entry.set_placeholder_text(Some("Buscar app… (escribe '>' para acciones de poder)"));
     entry.add_css_class("search-entry");
-    entry.set_halign(gtk4::Align::Fill);
+    entry.set_halign(gtk4::Align::Center);
     entry.set_valign(gtk4::Align::Center);
     entry.set_hexpand(true);
     entry.set_margin_start(40);
     entry.set_margin_end(40);
-    banner_box.append(&entry);
+    banner.add_overlay(&entry);
+    banner.set_measure_overlay(&entry, true);
 
-    vbox.append(&banner_box);
+    vbox.append(&banner);
 
     // ---------- Grid de apps ----------
     let grid = gtk4::Grid::new();
@@ -275,7 +282,6 @@ fn build_ui(app: &Application) {
     grid.set_column_spacing(2);
     grid.set_halign(gtk4::Align::Center);
     let scrolled = gtk4::ScrolledWindow::builder().child(&grid).hexpand(true).build();
-    scrolled.set_vexpand(true);
     vbox.append(&scrolled);
 
     let all_apps = load_apps();
@@ -467,12 +473,7 @@ fn build_ui(app: &Application) {
     // ---------- Estilos ----------
     let css = gtk4::CssProvider::new();
     css.load_from_data(
-        ".banner-box {
-             background-image: url(\"file:///home/loonbac/Descargas/cl_aesthetic_mix58.jpg\");
-             background-size: cover;
-             background-position: center;
-             border-radius: 18px;
-         }
+        ".banner-img { border-radius: 18px; }
          entry.search-entry {
              border-radius: 14px;
              background-color: rgba(22, 22, 30, 0.94);
@@ -491,7 +492,13 @@ fn build_ui(app: &Application) {
              border-radius: 12px;
          }",
     );
-    window.style_context().add_provider(&css, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
+    // Provider global (display) para que aplique a TODOS los widgets,
+    // incluido el banner-box (el provider de la ventana no alcanzaba).
+    gtk4::style_context_add_provider_for_display(
+        &gtk4::prelude::WidgetExt::display(&window),
+        &css,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 
     // El launcher se opera 100% con teclado: el entry intercepta las teclas
     // en fase captura (flechas navegan, letras escriben, Enter ejecuta).
