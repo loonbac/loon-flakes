@@ -201,8 +201,8 @@ fn build_ui(app: &Application) {
     entry.set_halign(gtk4::Align::Center);
     entry.set_valign(gtk4::Align::Center);
     entry.set_hexpand(true);
-    entry.set_margin_start(140);
-    entry.set_margin_end(140);
+    entry.set_margin_start(60);
+    entry.set_margin_end(60);
     entry.set_margin_top(40);
     entry.set_margin_bottom(40);
     banner.add_overlay(&entry);
@@ -225,6 +225,7 @@ fn build_ui(app: &Application) {
         all_apps: &[Item],
         power: &[Item],
         query: &str,
+        sel: &Rc<RefCell<i32>>,
     ) -> Vec<Item> {
         while let Some(child) = grid.first_child() {
             grid.remove(&child);
@@ -253,16 +254,34 @@ fn build_ui(app: &Application) {
         for (i, item) in shown.iter().enumerate() {
             let cell = make_cell(item);
             grid.attach(&cell, (i % cols) as i32, (i / cols) as i32, 1, 1);
-            if i == 0 {
-                // La primera celda queda marcada como seleccionada.
+            if i as i32 == *sel.borrow() {
+                // La celda activa queda marcada como seleccionada.
                 cell.add_css_class("selected");
+            }
+        }
+        // Si el índice previo quedó fuera de rango, seleccionar el primero.
+        if shown.is_empty() {
+            *sel.borrow_mut() = -1;
+        } else if *sel.borrow() >= shown.len() as i32 {
+            *sel.borrow_mut() = 0;
+            if let Some(child) = grid.first_child() {
+                if let Some(row) = child.downcast::<ListBoxRow>().ok() {
+                    row.add_css_class("selected");
+                }
             }
         }
 
         shown
     }
 
-    let current_items = Rc::new(RefCell::new(repopulate(&grid, &all_apps, &power, "")));
+    let sel_idx = Rc::new(RefCell::new(0));
+    let current_items = Rc::new(RefCell::new(repopulate(
+        &grid,
+        &all_apps,
+        &power,
+        "",
+        &sel_idx,
+    )));
 
     entry.connect_changed(clone!(
         #[strong]
@@ -275,33 +294,31 @@ fn build_ui(app: &Application) {
         power,
         #[strong]
         current_items,
+        #[strong]
+        sel_idx,
         move |_| {
             let q = entry.text().to_string();
-            *current_items.borrow_mut() = repopulate(&grid, &all_apps, &power, &q);
+            *current_items.borrow_mut() = repopulate(&grid, &all_apps, &power, &q, &sel_idx);
         },
     ));
 
     let run_selected = clone!(
         #[strong]
-        grid,
-        #[strong]
         window,
         #[strong]
         current_items,
+        #[strong]
+        sel_idx,
         move || {
-            if let Some(child) = grid.first_child() {
-                if let Some(row) = child.downcast::<ListBoxRow>().ok() {
-                    let idx = row.index() as usize;
-                    let items = current_items.borrow();
-                    if idx < items.len() {
-                        let item = &items[idx];
-                        // Ejecutar el comando de forma independiente.
-                        let exec = item.exec.clone();
-                        std::thread::spawn(move || {
-                            let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
-                        });
-                    }
-                }
+            let items = current_items.borrow();
+            let idx = *sel_idx.borrow();
+            if idx >= 0 && (idx as usize) < items.len() {
+                let item = &items[idx as usize];
+                // Ejecutar el comando de forma independiente.
+                let exec = item.exec.clone();
+                std::thread::spawn(move || {
+                    let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
+                });
             }
             window.close();
         },
@@ -323,34 +340,9 @@ fn build_ui(app: &Application) {
         grid,
         #[strong]
         window,
+        #[strong]
+        sel_idx,
         move |_, key, _, _| {
-            // Grid no tiene selección nativa: marcamos la celda activa con
-            // la clase CSS "selected" y navegamos por índice (cols fijas).
-            let sel_idx = || {
-                if let Some(child) = grid.first_child() {
-                    child.downcast::<ListBoxRow>().map(|r| r.index() as i32).ok()
-                } else {
-                    None
-                }
-            };
-            let set_sel = |idx: i32| {
-                if idx < 0 {
-                    return;
-                }
-                if let Some(child) = grid.child_at(idx, 0) {
-                    if let Some(row) = child.downcast::<ListBoxRow>().ok() {
-                        let children = grid.observe_children();
-                        for i in 0..children.n_items() {
-                            if let Some(obj) = children.item(i) {
-                                if let Ok(w) = obj.downcast::<gtk4::Widget>() {
-                                    w.remove_css_class("selected");
-                                }
-                            }
-                        }
-                        row.add_css_class("selected");
-                    }
-                }
-            };
             let total = || {
                 let mut n = 0;
                 let mut child = grid.first_child();
@@ -360,6 +352,37 @@ fn build_ui(app: &Application) {
                 }
                 n
             };
+            // Mover la selección y repintar la clase "selected".
+            let move_sel = |delta: i32| {
+                let t = total();
+                if t == 0 {
+                    return;
+                }
+                let mut idx = *sel_idx.borrow();
+                if idx < 0 {
+                    idx = 0;
+                } else {
+                    idx += delta;
+                    if idx < 0 {
+                        idx = 0;
+                    } else if idx >= t {
+                        idx = t - 1;
+                    }
+                }
+                *sel_idx.borrow_mut() = idx;
+                let children = grid.observe_children();
+                for i in 0..children.n_items() {
+                    if let Some(obj) = children.item(i) {
+                        if let Ok(w) = obj.downcast::<gtk4::Widget>() {
+                            if i as i32 == idx {
+                                w.add_css_class("selected");
+                            } else {
+                                w.remove_css_class("selected");
+                            }
+                        }
+                    }
+                }
+            };
             let cols = 7;
             match key {
                 Key::Escape => {
@@ -367,37 +390,27 @@ fn build_ui(app: &Application) {
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    let idx = sel_idx().unwrap_or(-1);
-                    if idx + cols < total() {
-                        set_sel(idx + cols);
-                    }
+                    move_sel(cols);
                     glib::Propagation::Stop
                 }
                 Key::Up => {
-                    let idx = sel_idx().unwrap_or(0);
-                    if idx - cols >= 0 {
-                        set_sel(idx - cols);
-                    }
+                    move_sel(-cols);
                     glib::Propagation::Stop
                 }
                 Key::Right => {
-                    let idx = sel_idx().unwrap_or(-1);
-                    if idx + 1 < total() {
-                        set_sel(idx + 1);
-                    }
+                    move_sel(1);
                     glib::Propagation::Stop
                 }
                 Key::Left => {
-                    let idx = sel_idx().unwrap_or(0);
-                    if idx > 0 {
-                        set_sel(idx - 1);
-                    }
+                    move_sel(-1);
                     glib::Propagation::Stop
                 }
                 _ => glib::Propagation::Proceed,
             }
         },
     ));
+    // En fase de captura para que las flechas lleguen antes que el Entry.
+    key_controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
     window.add_controller(key_controller);
 
     // Cerrar si la ventana pierde el foco (click fuera de ella).
@@ -415,7 +428,20 @@ fn build_ui(app: &Application) {
     let css = gtk4::CssProvider::new();
     css.load_from_data(
         ".banner-img { border-radius: 18px; }
-         entry { border-radius: 14px; }
+         entry {
+             border-radius: 16px;
+             background-color: rgba(20, 20, 28, 0.92);
+             color: white;
+             caret-color: white;
+             border: 1px solid rgba(255, 255, 255, 0.25);
+             padding: 10px 16px;
+             font-size: 15px;
+             min-height: 20px;
+         }
+         entry selection {
+             background-color: @theme_selected_bg_color;
+             color: white;
+         }
          .selected {
              background-color: alpha(@theme_selected_bg_color, 0.35);
              border-radius: 12px;
