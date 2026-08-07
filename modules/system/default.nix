@@ -33,6 +33,7 @@
     zen-browser
     equibop
     fish
+    yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
     # App launcher custom del flake (Super+Space en niri).

@@ -48,4 +48,7 @@ mento, y solo recurre al reinicio/relogin cuando no hay alternativa. Confidence:
 - Espera que el agente siga el flujo documentado en el `AGENTS.md` de su repo `~/.nixos` para aplicar cada cambio de config ("siguiedo nuestra configuracion, lee agents.md"): leer el AGENTS.md primero, editar el módulo correspondiente, `git add -A`, `nixos-rebuild switch --flake .#<host>`, y cerrar con commit + push a GitHub. Confidence: 0.85
 - Las aplicaciones de escritorio se instalan de forma declarativa añadiéndolas a `environment.systemPackages` en `modules/system/default.nix` (pidió "instala environment.systemPackages = [ pkgs.equibop ]"). Confidence: 0.7
 - En apps distintas de la terminal, la transparencia excesiva le desagrada: al ver equibop (cliente de Discord) "muy transparente" pidió subirle la opacidad; quiere una opacidad cómoda y legible, en contraste con ghostty donde sí quiere transparencia alta para ver el fondo animado a través. Confidence: 0.6
+- Para corregir la opacidad/transparencia prefiere ajustes incrementales pequeños ("súbele la opacidad un poco más" → 0.6 a 0.8) en lugar de cambios drásticos. Confidence: 0.6
+.45
+l fondo animado a través. Confidence: 0.6
 - Para corregir la opacidad/transparencia de una app prefiere ajustes incrementales pequeños ("súbele la opacidad un poco más") en lugar de cambios drásticos. Confidence: 0.45
