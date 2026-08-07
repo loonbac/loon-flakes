@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -17,6 +19,12 @@ import (
 const (
 	evRel = 0x02
 	relX  = 0x00
+
+	// Touchpad: eventos absolutos de posición del dedo (ABS_MT).
+	evAbs       = 0x03
+	absMtPosX   = 0x35 // ABS_MT_POSITION_X (53)
+	absMtSlot   = 0x2f // ABS_MT_SLOT (47) — para distinguir dedos
+	absTracking = 0x39 // ABS_MT_TRACKING_ID (57) — -1 = dedo levantado
 )
 
 // inputEvent mirrors the Linux struct input_event (64-bit).
@@ -37,10 +45,10 @@ type motionSample struct {
 // Shake detection parameters.
 // Tune these to adjust sensitivity.
 const (
-	shakeWindow    = 500 * time.Millisecond // sliding window for detecting reversals
+	shakeWindow    = 600 * time.Millisecond // sliding window for detecting reversals
 	minReversals   = 3                      // minimum direction changes to qualify as a shake
 	minTotalDist   = 200                    // minimum cumulative |dx| in the window
-	minSegmentDist = 30                     // minimum distance in one direction before counting a reversal
+	minSegmentDist = 20                     // minimum distance in one direction before counting a reversal
 )
 
 // Cursor sizes
@@ -51,6 +59,10 @@ const (
 
 // How long the cursor stays large after the last shake
 const shrinkDelay = 2 * time.Second
+
+// Tamaños intermedios para la animación de crecimiento/encogido.
+var growSteps = []int{36, 40, 44, 48, 52, 56, 60, 64}
+var shrinkSteps = []int{60, 56, 52, 48, 44, 40, 36, 32}
 
 func main() {
 	log.SetFlags(log.Ltime)
@@ -105,6 +117,9 @@ func main() {
 		shrinkAt time.Time
 	)
 
+	// Serializa las animaciones de tamaño (grow/shrink no se pisan).
+	var animMu sync.Mutex
+
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -136,7 +151,11 @@ func main() {
 				if !enlarged {
 					enlarged = true
 					log.Println("Shake detected! Enlarging cursor.")
-					setCursorSize(configPath, largeSize)
+					go func() {
+						animMu.Lock()
+						defer animMu.Unlock()
+						animateCursor(configPath, growSteps)
+					}()
 				}
 			}
 
@@ -144,17 +163,39 @@ func main() {
 			if enlarged && time.Now().After(shrinkAt) {
 				enlarged = false
 				log.Println("Shrinking cursor back to normal.")
-				setCursorSize(configPath, normalSize)
+				go func() {
+					animMu.Lock()
+					defer animMu.Unlock()
+					animateCursor(configPath, shrinkSteps)
+				}()
 				samples = samples[:0]
 			}
 		}
 	}
 }
 
+// animateCursor cambia el tamaño del cursor por pasos (animación suave).
+// Cada paso escribe el override y espera un poco para que niri recargue.
+func animateCursor(configPath string, steps []int) {
+	for _, size := range steps {
+		setCursorSize(configPath, size)
+		time.Sleep(60 * time.Millisecond)
+	}
+}
+
 // readEvents continuously reads input events from a device file and sends
-// relative X-axis motion events to the provided channel.
+// X-axis motion deltas to the provided channel. Soporta:
+//   - Mice: REL_X (delta directo).
+//   - Trackpad: ABS_MT_POSITION_X (posición absoluta del dedo; el delta se
+//     calcula restando la posición anterior del mismo slot).
 func readEvents(f *os.File, ch chan<- inputEvent) {
 	buf := make([]byte, 24) // sizeof(struct input_event) on 64-bit Linux
+
+	// Estado del trackpad: última posición X por slot.
+	lastPos := make(map[int32]int32)
+	curSlot := int32(0)
+	hasTouch := false
+
 	for {
 		_, err := f.Read(buf)
 		if err != nil {
@@ -165,8 +206,41 @@ func readEvents(f *os.File, ch chan<- inputEvent) {
 		if err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &ev); err != nil {
 			continue
 		}
+
 		if ev.Type == evRel && ev.Code == relX {
+			// Mouse: delta directo.
 			ch <- ev
+			continue
+		}
+
+		if ev.Type == evAbs {
+			switch ev.Code {
+			case absMtSlot:
+				curSlot = ev.Value
+			case absTracking:
+				// -1 = dedo levantado: olvidar su posición.
+				if ev.Value == -1 {
+					delete(lastPos, curSlot)
+					hasTouch = false
+				} else {
+					hasTouch = true
+				}
+			case absMtPosX:
+				if !hasTouch {
+					lastPos[curSlot] = ev.Value
+					hasTouch = true
+					continue
+				}
+				prev, ok := lastPos[curSlot]
+				if ok {
+					dx := ev.Value - prev
+					// Solo reportar si el dedo se movió (evita ruido).
+					if dx != 0 {
+						ch <- inputEvent{Type: evRel, Code: relX, Value: dx}
+					}
+				}
+				lastPos[curSlot] = ev.Value
+			}
 		}
 	}
 }
@@ -235,7 +309,8 @@ func findNiriCursorConfig() string {
 }
 
 // findMouseDevices returns the paths of all /dev/input/eventX devices that
-// support relative motion (mice, trackpads, trackballs).
+// can report X motion: relative motion (mice, trackballs) or absolute
+// multitouch position (trackpads).
 func findMouseDevices() []string {
 	entries, err := os.ReadDir("/sys/class/input")
 	if err != nil {
@@ -249,18 +324,35 @@ func findMouseDevices() []string {
 			continue
 		}
 
-		capsPath := filepath.Join("/sys/class/input", name, "device", "capabilities", "rel")
-		data, err := os.ReadFile(capsPath)
-		if err != nil {
-			continue
-		}
-
-		relCaps := strings.TrimSpace(string(data))
-		if relCaps == "0" || relCaps == "" {
-			continue
-		}
-
 		devPath := filepath.Join("/dev/input", name)
+
+		// Aceptar si reporta movimiento relativo (mice)...
+		relPath := filepath.Join("/sys/class/input", name, "device", "capabilities", "rel")
+		relData, errRel := os.ReadFile(relPath)
+		relOk := errRel == nil && strings.TrimSpace(string(relData)) != "0" && strings.TrimSpace(string(relData)) != ""
+
+		// ...o si es un multitouch (trackpad) con ABS_MT_POSITION_X.
+		absPath := filepath.Join("/sys/class/input", name, "device", "capabilities", "abs")
+		absData, errAbs := os.ReadFile(absPath)
+		// La máscara de capacidades ABS es un hex que representa los códigos
+		// ABS soportados (multi-word, little-endian). ABS_MT_POSITION_X = 53.
+		absOk := false
+		if errAbs == nil {
+			words := strings.Fields(strings.TrimSpace(string(absData)))
+			var all uint64
+			for i := len(words) - 1; i >= 0; i-- {
+				v, err := strconv.ParseUint(words[i], 16, 64)
+				if err != nil {
+					continue
+				}
+				all = (all << 64) | v
+			}
+			absOk = (all & (1 << absMtPosX)) != 0
+		}
+
+		if !relOk && !absOk {
+			continue
+		}
 
 		f, err := os.Open(devPath)
 		if err != nil {

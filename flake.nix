@@ -76,6 +76,8 @@
         niri-shake-cursor = pkgs.callPackage ./pkgs/niri-shake-cursor { };
         # Tema de cursor Vision (blanco/negro) — paquetes propios del flake.
         vision-cursor = pkgs.callPackage ./pkgs/vision-cursor { };
+        # Tema de cursor Win11OSX (Xcursor nativo de Linux).
+        win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
         zen-browser = zen-browser.packages.${system}.default;
       };

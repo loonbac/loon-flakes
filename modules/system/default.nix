@@ -73,8 +73,9 @@
     (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
-    # Tema de cursor Vision (blanco, por defecto del sistema).
-    # La variante negra está en el mismo paquete: .black.
+    # Tema de cursor por defecto: Win11OSX (Xcursor nativo, compatible Linux).
+    (pkgs.callPackage ../../pkgs/win11osx-cursor { })
+    # Tema de cursor Vision (blanco/negro) — alternativa.
     (pkgs.callPackage ../../pkgs/vision-cursor { }).white
     # Shake-to-find cursor: agranda el cursor al mover el mouse rápido
     # (estilo macOS). Requiere grupo "input" (ver modules/users).

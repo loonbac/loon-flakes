@@ -26,11 +26,12 @@ input {
     }
 }
 
-// Tema de cursor: Vision Cursor (blanco, pack del zip en pkgs/vision-cursor).
-// La variante negra es "Vision-Black" (ambas vienen del paquete del flake).
+// Tema de cursor: Win11OSX (Xcursor nativo de Linux, en pkgs/win11osx-cursor).
+// NOTA: el TAMAÑO lo controla el include "cursor-size.kdl" (arriba), que
+// niri-shake-cursor modifica para el shake-to-find. Si se define aquí,
+// pisaría al include (positionality: lo que va después gana).
 cursor {
-    xcursor-theme "Vision-White"
-    xcursor-size 32
+    xcursor-theme "Win11OSX"
 }
 
 layout {
