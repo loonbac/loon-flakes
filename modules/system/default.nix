@@ -42,6 +42,7 @@
     ghostty
     nodejs
     brightnessctl
+    waybar
     zen-browser
     vscode-insiders
     equibop
