@@ -1,0 +1,12 @@
+[package]
+name = "loon-bar"
+version = "0.1.0"
+edition = "2021"
+description = "Barra de tareas nativa Wayland para Niri estilo Windows 10 con soporte IPC de workspaces"
+
+[dependencies]
+gtk4 = "0.10"
+glib = "0.20"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+gtk4-layer-shell = "0.7"

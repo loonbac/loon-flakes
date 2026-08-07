@@ -6,7 +6,6 @@
   imports = [
     ./fish
     ./ghostty
-    ./waybar
     ./equibop
   ];
 }

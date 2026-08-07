@@ -70,7 +70,10 @@
       packages.${system} = {
         rebuild = pkgs.callPackage ./pkgs/rebuild { };
         loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
+        loon-bar = pkgs.callPackage ./pkgs/loon-bar { };
         niri-cycle = pkgs.callPackage ./pkgs/niri-cycle { };
+        # Tema de cursor Vision (blanco/negro) — paquetes propios del flake.
+        vision-cursor = pkgs.callPackage ./pkgs/vision-cursor { };
         vscode-insiders = vscode-insiders;
         zen-browser = zen-browser.packages.${system}.default;
       };

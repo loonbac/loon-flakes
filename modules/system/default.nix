@@ -49,7 +49,6 @@
     ghostty
     nodejs
     brightnessctl
-    waybar
     zen-browser
     vscode-insiders
     antigravity
@@ -60,6 +59,8 @@
     (pkgs.callPackage ../../pkgs/niri-cycle { })
     # App launcher custom del flake (Super+Space en niri).
     (pkgs.callPackage ../../pkgs/loon-launch { })
+    # Barra de tareas nativa custom (estilo Windows 10 con IPC niri).
+    (pkgs.callPackage ../../pkgs/loon-bar { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
 
@@ -72,6 +73,9 @@
     (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
+    # Tema de cursor Vision (blanco, por defecto del sistema).
+    # La variante negra está en el mismo paquete: .black.
+    (pkgs.callPackage ../../pkgs/vision-cursor { }).white
 
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.

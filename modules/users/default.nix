@@ -24,5 +24,11 @@
 
   environment.sessionVariables = {
     PATH = [ "$HOME/.npm-global/bin" ];
+    # Tema de cursor por defecto del sistema (Vision Cursor blanco).
+    XCURSOR_THEME = "Vision-White";
+    XCURSOR_SIZE = "24";
+    # Para apps GTK/Qt/Electron que leen su propio cursor.
+    GTK_CURSOR_THEME = "Vision-White";
+    GTK_CURSOR_SIZE = "24";
   };
 }
