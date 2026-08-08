@@ -21,6 +21,21 @@
   # ---- Paquetes no libres (ej. microcode Intel) ----
   nixpkgs.config.allowUnfree = true;
 
+  # ---- Modo oscuro global ----
+  # Las apps GTK abren en dark por defecto (Nautilus, loon-bar, etc.).
+  programs.dconf.enable = true;
+  programs.dconf.profiles."user".databases = [
+    {
+      settings = {
+        "org/gnome/desktop/interface" = {
+          color-scheme = "prefer-dark";
+          gtk-theme = "Adwaita-dark";
+          gtk-application-prefer-dark-theme = true;
+        };
+      };
+    }
+  ];
+
   # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para Waybar) ----
   fonts.packages = with pkgs; [
     nerd-fonts.symbols-only
@@ -69,8 +84,14 @@
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
     mpv
+    # Acento dinámico: extrae el color del wallpaper para niri/loon-bar.
+    (pkgs.callPackage ../../pkgs/accent-wallpaper { })
+    ffmpeg
+    imagemagick
     # Script para gestionar el fondo animado (Super+B en niri).
-    (pkgs.callPackage ../../pkgs/mpvpaper-wallpaper { })
+    (pkgs.callPackage ../../pkgs/mpvpaper-wallpaper {
+      accent-wallpaper = pkgs.callPackage ../../pkgs/accent-wallpaper { };
+    })
     # Script para el fondo estático del backdrop (swaybg, ve a través).
     (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Prompt personalizado para fish (oh-my-posh).

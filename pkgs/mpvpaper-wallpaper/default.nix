@@ -6,7 +6,7 @@
 #   mpvpaper-wallpaper set NOMBRE # setea y reproduce un video específico
 #   mpvpaper-wallpaper list       # lista los videos disponibles
 #   mpvpaper-wallpaper stop       # detiene el fondo animado
-{ pkgs, lib }:
+{ pkgs, lib, accent-wallpaper }:
 
 let
   wallpapersDir = "$HOME/Videos/Wallpapers";
@@ -68,6 +68,8 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó
       # (importante para el bind de niri, que muere al cerrarse el terminal).
       setsid "$MPVPAPER" -o "$MPV_FLAGS" ALL "$VIDEO" >/dev/null 2>&1 &
+      # Extrae el color de acento del video nuevo (desacoplado, async).
+      setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
       ;;
     *)
       # Sin argumentos: usa el seteado, o el único/primero si no hay state.
@@ -92,6 +94,8 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       stop_wallpaper
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó.
       setsid "$MPVPAPER" -o "$MPV_FLAGS" ALL "$VIDEO" >/dev/null 2>&1 &
+      # Extrae el color de acento del video nuevo (desacoplado, async).
+      setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
       ;;
   esac
 ''

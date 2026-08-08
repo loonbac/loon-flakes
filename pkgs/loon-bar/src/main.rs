@@ -560,45 +560,61 @@ fn refresh_panel_state(
     wifi_switch.set_active(wifi_on);
 }
 
-fn main() {
-    let app = gtk4::Application::builder()
-        .application_id("com.loonbac.LoonBar")
-        .build();
+/// Lee el color de acento actual (~/.config/mpvpaper/accent.txt, escrito por
+/// accent-wallpaper). Fallback: azul Windows 10 clásico.
+fn load_accent() -> String {
+    let path = std::path::Path::new(
+        &std::env::var("HOME").unwrap_or_default(),
+    )
+    .join(".config/mpvpaper/accent.txt");
+    std::fs::read_to_string(&path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| s.starts_with('#') && s.len() == 7)
+        .unwrap_or_else(|| "#0078d7".to_string())
+}
 
-    app.connect_startup(|_| {
-        let provider = gtk4::CssProvider::new();
-        let css = r#"
-            window {
+/// Construye el CSS de la barra con el color de acento actual.
+/// Usa @define-color para que el acento se aplique a la underbar de la app
+/// activa, el botón "Conectar" y la red WiFi conectada.
+fn bar_css(accent: &str) -> String {
+    format!(
+        r#"
+            @define-color accent {accent};
+            @define-color accent-hover {accent_hover};
+            @define-color accent-alpha {accent_alpha};
+
+            window {{
                 background-color: rgba(16, 16, 16, 0.94);
                 color: #ffffff;
                 font-family: "Segoe UI", "FiraCode Nerd Font", "Symbols Nerd Font", sans-serif;
-            }
+            }}
 
             /* Logo de NixOS: solo ícono, sin fondo ni hover (no es botón). */
-            #start-btn {
+            #start-btn {{
                 color: #ffffff;
                 font-size: 20px;
-            }
+            }}
 
             /* Contenedor de la taskbar: sin recuadro, botones contiguos. */
-            #taskbar-group {
+            #taskbar-group {{
                 margin: 0;
                 padding: 0;
-            }
+            }}
 
             /* Separador entre workspaces (agrupa visualmente las apps
                de un mismo workspace). */
-            #ws-sep {
+            #ws-sep {{
                 font-size: 18px;
                 font-weight: bold;
                 color: #ffffff;
                 padding: 0 8px;
-            }
+            }}
 
             /* Botón de app: estilo Windows 10 exacto.
-               Indicador inferior: línea azulita de 3px en la activa (#0078d7)
+               Indicador inferior: línea de acento de 3px en la activa
                y línea tenue gris/blanca en inactivas abiertas. */
-            .taskbar-item {
+            .taskbar-item {{
                 padding: 0 14px;
                 margin: 0 2px;
                 background-color: rgba(255, 255, 255, 0.04);
@@ -606,129 +622,170 @@ fn main() {
                 font-size: 12px;
                 border-bottom: 2px solid rgba(255, 255, 255, 0.35); /* underbar inactiva */
                 min-height: 40px;
-            }
-            .taskbar-item:hover {
+            }}
+            .taskbar-item:hover {{
                 background-color: rgba(255, 255, 255, 0.10);
                 color: #ffffff;
                 border-bottom: 2px solid rgba(255, 255, 255, 0.6);
-            }
-            /* App activa estilo Windows 10: fondo traslúcido + LÍNEA AZULITA BRILLANTE abajo */
-            .taskbar-item.active {
+            }}
+            /* App activa estilo Windows 10: fondo traslúcido + LÍNEA DE ACENTO abajo */
+            .taskbar-item.active {{
                 background-color: rgba(255, 255, 255, 0.14);
                 color: #ffffff;
-                border-bottom: 3px solid #0078d7; /* Línea azulita icónica de Windows 10 */
-            }
-            .taskbar-item.active:hover {
+                border-bottom: 3px solid @accent;
+            }}
+            .taskbar-item.active:hover {{
                 background-color: rgba(255, 255, 255, 0.20);
-                border-bottom: 3px solid #0086f0;
-            }
+                border-bottom: 3px solid @accent-hover;
+            }}
 
             /* System Tray: Íconos a la izquierda de la hora */
-            #tray-box {
+            #tray-box {{
                 margin-right: 6px;
-            }
-            .tray-icon {
+            }}
+            .tray-icon {{
                 font-size: 14px;
                 padding: 6px 8px;
                 color: rgba(255, 255, 255, 0.9);
                 border-radius: 2px;
-            }
-            .tray-icon:hover {
+            }}
+            .tray-icon:hover {{
                 background-color: rgba(255, 255, 255, 0.12);
                 color: #ffffff;
-            }
+            }}
 
-            #clock-label {
+            #clock-label {{
                 font-size: 12px;
                 font-weight: 600;
                 padding: 3px 14px;
-            }
-            #clock-label:hover {
+            }}
+            #clock-label:hover {{
                 background-color: rgba(255, 255, 255, 0.12);
-            }
+            }}
 
             /* ---- Panel desplegable de sistema (WiFi/Volumen/Batería) ---- */
-            #sys-panel {
+            #sys-panel {{
                 background-color: #1f1f1f;
                 color: #ffffff;
                 border-radius: 0;
                 border-left: 1px solid #333333;
                 padding: 16px;
-            }
-            #sys-panel-title {
+            }}
+            #sys-panel-title {{
                 font-size: 14px;
                 font-weight: 700;
                 margin-bottom: 8px;
-            }
-            .sys-toggle-row {
+            }}
+            .sys-toggle-row {{
                 padding: 4px 0;
-            }
-            .sys-toggle-label {
+            }}
+            .sys-toggle-label {{
                 font-size: 13px;
                 font-weight: 600;
-            }
-            .wifi-list {
+            }}
+            .wifi-list {{
                 margin-top: 8px;
                 margin-bottom: 8px;
-            }
-            .wifi-net {
+            }}
+            .wifi-net {{
                 padding: 4px 10px;
                 border-radius: 4px;
-            }
-            .wifi-net:hover {
+            }}
+            .wifi-net:hover {{
                 background-color: rgba(255, 255, 255, 0.08);
-            }
-            .wifi-net.connected {
-                background-color: rgba(0, 120, 215, 0.25);
-            }
-            .wifi-net-name {
+            }}
+            .wifi-net.connected {{
+                background-color: @accent-alpha;
+            }}
+            .wifi-net-name {{
                 font-size: 13px;
                 font-weight: 500;
-            }
-            .wifi-net-detail {
+            }}
+            .wifi-net-detail {{
                 font-size: 11px;
                 color: rgba(255, 255, 255, 0.6);
-            }
-            .wifi-password-entry {
+            }}
+            .wifi-password-entry {{
                 margin-top: 6px;
-            }
-            .sys-connect-btn {
-                background-color: #0078d7;
+            }}
+            .sys-connect-btn {{
+                background-color: @accent;
                 color: #ffffff;
                 border-radius: 4px;
                 padding: 6px 14px;
                 font-weight: 600;
                 font-size: 12px;
                 margin-top: 6px;
-            }
-            .sys-connect-btn:hover {
-                background-color: #0086f0;
-            }
-            .sys-slider-row {
+            }}
+            .sys-connect-btn:hover {{
+                background-color: @accent-hover;
+            }}
+            .sys-slider-row {{
                 margin-top: 12px;
                 margin-bottom: 4px;
-            }
-            .sys-slider {
+            }}
+            .sys-slider {{
                 min-width: 180px;
-            }
-            .sys-status-row {
+            }}
+            .sys-status-row {{
                 margin-top: 12px;
                 font-size: 12px;
                 color: rgba(255, 255, 255, 0.75);
-            }
-        "#;
-        provider.load_from_data(css);
+            }}
+        "#,
+        accent = accent,
+        accent_hover = accent_hover(accent),
+        accent_alpha = accent_alpha(accent),
+    )
+}
 
-        if let Some(display) = gdk::Display::default() {
-            gtk4::style_context_add_provider_for_display(
-                &display,
-                &provider,
-                gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
+/// Versión más clara del acento para el hover (mezcla con blanco al 50%).
+fn accent_hover(hex: &str) -> String {
+    let r = u8::from_str_radix(&hex[1..3], 16).unwrap_or(0) as u16;
+    let g = u8::from_str_radix(&hex[3..5], 16).unwrap_or(0) as u16;
+    let b = u8::from_str_radix(&hex[5..7], 16).unwrap_or(0) as u16;
+    let mix = |c: u16| ((c + 255) / 2) as u8;
+    format!("#{:02x}{:02x}{:02x}", mix(r), mix(g), mix(b))
+}
+
+/// Acento con alpha 25% (para la red WiFi conectada). GTK4 acepta #rrggbbaa.
+fn accent_alpha(hex: &str) -> String {
+    format!("{}40", hex)
+}
+
+fn main() {
+    // GTK4 requiere init explícito antes de tocar CssProvider/widgets
+    // (el refresh loop usa load_from_data fuera de app.run()).
+    gtk4::init().expect("Fallo al inicializar GTK");
+
+    let app = gtk4::Application::builder()
+        .application_id("com.loonbac.LoonBar")
+        .build();
+
+    // Provider de CSS compartido: connect_startup lo crea y conecta al
+    // display; connect_activate (refresh loop) lo recarga si cambia el acento.
+    let provider: Rc<RefCell<gtk4::CssProvider>> = Rc::new(RefCell::new(gtk4::CssProvider::new()));
+
+    app.connect_startup({
+        let provider = provider.clone();
+        move |_| {
+            let accent = load_accent();
+            let css = bar_css(&accent);
+            let p = provider.borrow();
+            p.load_from_data(&css);
+
+            if let Some(display) = gdk::Display::default() {
+                let style_provider: gtk4::StyleProvider = p.clone().upcast();
+                gtk4::style_context_add_provider_for_display(
+                    &display,
+                    &style_provider,
+                    gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
+            }
         }
     });
 
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         let window = gtk4::ApplicationWindow::builder()
             .application(app)
             .title("LoonBar")
@@ -1155,7 +1212,24 @@ fn main() {
         // intervalo de 100ms es barato y la barra reacciona casi al instante.
         // El event-stream de niri resultó poco fiable (conexiones que se
         // cuelgan sin cerrar y pierden eventos), así que no se usa.
+        let provider = provider.clone();
+        let mut last_accent_mtime: Option<std::time::SystemTime> = None;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            // Vigilar el archivo de acento: si cambió (otro wallpaper),
+            // recargar el CSS para que la barra use el color nuevo.
+            let accent_path = std::path::Path::new(
+                &std::env::var("HOME").unwrap_or_default(),
+            )
+            .join(".config/mpvpaper/accent.txt");
+            let mtime = std::fs::metadata(&accent_path).and_then(|m| m.modified()).ok();
+            if mtime != last_accent_mtime {
+                last_accent_mtime = mtime;
+                let accent = load_accent();
+                let css = bar_css(&accent);
+                let p = provider.borrow();
+                p.load_from_data(&css);
+            }
+
             refresh_taskbar();
             glib::ControlFlow::Continue
         });

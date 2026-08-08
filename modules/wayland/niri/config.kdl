@@ -174,3 +174,9 @@ layer-rule {
     place-within-backdrop true
 }
 
+// Color de acento dinámico: lo escribe accent-wallpaper (script del flake)
+// con el color más llamativo del video de wallpaper. Va AL FINAL (después
+// del bloque layout) para que el override del border pise el azul default.
+// niri vigila este archivo y recarga la config en vivo al cambiar.
+include "~/.config/niri/accent.kdl"
+

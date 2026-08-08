@@ -21,6 +21,9 @@
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
     "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
+    # Acento dinámico: lo escribe accent-wallpaper; este default (f = crea
+    # si no existe, no pisa) evita que el include falle en el primer boot.
+    "f /home/loonbac/.config/niri/accent.kdl 0644 loonbac users - layout {\n    border {\n        active-color \"#5e81ac\"\n    }\n}\n"
     # Fondo animado (mpvpaper): el video vive en ~/Videos/Wallpapers.
     "d /home/loonbac/Videos 0755 loonbac users -"
     "d /home/loonbac/Videos/Wallpapers 0755 loonbac users -"

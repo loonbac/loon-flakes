@@ -129,6 +129,23 @@ mpvpaper-wallpaper stop         # detiene el fondo animado
 
 Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
 
+### `accent-wallpaper` — acento dinámico desde el wallpaper
+
+Extrae el color más llamativo del video de wallpaper y lo aplica como color de
+acento del sistema (borde de ventana activa en niri + underbar/botones de
+loon-bar). Usa `ffmpeg` para tomar un frame y `imagemagick` para analizar el
+histograma (el color más saturado × brillante, descartando casi negros):
+
+```bash
+accent-wallpaper             # analiza el video seteado
+accent-wallpaper from VIDEO  # analiza un video específico
+```
+
+Escribe `~/.config/mpvpaper/accent.txt` (hex) y `~/.config/niri/accent.kdl`
+(override del border de niri, que recarga en vivo al cambiar). `mpvpaper-wallpaper`
+lo dispara automáticamente al cambiar de fondo; loon-bar vigila el archivo y
+actualiza su CSS sin reiniciar.
+
 ### `niri-backdrop` — fondo estático del backdrop
 
 Pone una imagen fija (con `swaybg`) en la capa **backdrop** de niri — el fondo
@@ -168,6 +185,11 @@ Detalles de la config:
   (con watchers de `wl-paste`) y `Super+Shift+V` permite recuperarlas con el
   picker `fuzzel` — workaround para el bug de Chromium/Electron (p. ej.
   Equibop/Discord) que no pega imágenes que no provienen de un navegador.
+- **Acento dinámico**: el borde de la ventana activa usa el color extraído del
+  wallpaper por `accent-wallpaper` (include `~/.config/niri/accent.kdl`).
+- **Modo oscuro global**: `programs.dconf` con `color-scheme = prefer-dark` +
+  `gtk-theme = Adwaita-dark`, y `GTK_THEME=Adwaita-dark` en sessionVariables
+  para apps Electron.
 - **Window-rule de ghostty**: transparencia real a nivel de compositor
   (`opacity 0.8` + `background-effect xray true` para ver el wallpaper a través).
 
