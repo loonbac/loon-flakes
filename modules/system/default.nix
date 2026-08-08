@@ -52,6 +52,7 @@
     zen-browser
     vscode-insiders
     antigravity
+    obs-studio
     fish
     psmisc             # killall, pstree, fuser
     yazi
