@@ -17,6 +17,7 @@
       for dir in \
         ~/.npm-global/bin \
         ~/.cargo/bin \
+        ~/go/bin \
         ~/.local/bin \
         ~/.local/share/pipx/venvs/*/bin \
         ~/.local/state/nix/profile/bin \
