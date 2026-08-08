@@ -4,13 +4,18 @@
 //   - Grupo sin foco, con ventana en el ws activo -> enfocar esa.
 //   - Grupo sin foco, sin ventana en el ws activo -> cambiar de
 //     workspace y enfocar la primera.
+//
+// Nota: estas acciones se disparan desde el hilo de GTK, así que leen
+// el snapshot compartido (sin I/O de socket) y solo lanzan `niri msg`
+// como procesos externos (no bloquean el render).
 use std::process::Command;
 
 use crate::models::AppGroup;
-use crate::niri::{fetch_active_workspace_id, fetch_workspaces};
+use crate::niri::current_snapshot;
 
 pub fn activate_group(group: &AppGroup) {
-    let active_ws = fetch_active_workspace_id();
+    let (_, _windows, workspaces) = current_snapshot();
+    let active_ws = workspaces.iter().find(|w| w.is_active).map(|w| w.id);
     let focused = group.windows.iter().find(|w| w.is_focused);
     let first = group.windows.first().cloned();
 
@@ -39,11 +44,7 @@ pub fn activate_group(group: &AppGroup) {
     if let Some(ws_id) = target.workspace_id {
         if active_ws != Some(ws_id) {
             // Buscar el idx del workspace destino para enfocarlo.
-            if let Some(idx) = fetch_workspaces()
-                .into_iter()
-                .find(|w| w.id == ws_id)
-                .map(|w| w.idx)
-            {
+            if let Some(idx) = workspaces.iter().find(|w| w.id == ws_id).map(|w| w.idx) {
                 let _ = Command::new("niri")
                     .args(["msg", "action", "focus-workspace", &idx.to_string()])
                     .spawn();

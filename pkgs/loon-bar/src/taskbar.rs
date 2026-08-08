@@ -6,17 +6,21 @@
 // cada 100ms rompe el render de GTK (el texto deja de dibujarse). Solo
 // se reconstruyen cuando cambia el conjunto de apps (abrir/cerrar
 // ventana); en los refrescos de foco solo se actualiza la clase "active".
+//
+// Este módulo NO toca el socket de niri: lee el snapshot publicado por
+// el hilo poller (niri.rs). El render nunca se bloquea.
 use gtk4::prelude::*;
 
 use crate::actions::activate_group;
 use crate::grouping::{get_app_icon_glyph, group_windows};
-use crate::niri::{fetch_windows, fetch_workspaces};
+use crate::niri::current_snapshot;
 
 /// Refresca la barra de tareas dentro del contenedor dado.
 /// Llamar en el tick del loop principal (cada ~100ms).
-pub fn refresh_taskbar(taskbar_group: &gtk4::Box) {
-    let workspaces = fetch_workspaces();
-    let groups = group_windows(fetch_windows(), &workspaces);
+/// Devuelve true si el snapshot cambió en este tick.
+pub fn refresh_taskbar(taskbar_group: &gtk4::Box) -> bool {
+    let (_seq, windows, workspaces) = current_snapshot();
+    let groups = group_windows(windows, &workspaces);
 
     // Claves actuales: (app_id, workspace_idx) en orden.
     let keys: Vec<(String, u64)> = groups
@@ -137,4 +141,5 @@ pub fn refresh_taskbar(taskbar_group: &gtk4::Box) {
             child = widget.next_sibling();
         }
     }
+    true
 }

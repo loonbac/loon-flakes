@@ -33,6 +33,11 @@ fn main() {
     // (el refresh loop usa load_from_data fuera de app.run()).
     gtk4::init().expect("Fallo al inicializar GTK");
 
+    // Hilo de fondo que hace polling del socket de niri y publica el
+    // snapshot. El hilo de GTK NUNCA toca el socket: así la UI no se
+    // congela aunque niri tarde en responder.
+    niri::spawn_niri_poller();
+
     let app = gtk4::Application::builder()
         .application_id("com.loonbac.LoonBar")
         .build();
@@ -146,8 +151,12 @@ fn main() {
         // intervalo de 100ms es barato y la barra reacciona casi al instante.
         // El event-stream de niri resultó poco fiable (conexiones que se
         // cuelgan sin cerrar y pierden eventos), así que no se usa.
+        //
+        // El IPC real lo hace el hilo poller (niri.rs); aquí solo se
+        // repinta si el snapshot cambió.
         let provider = provider.clone();
         let mut last_accent_mtime: Option<std::time::SystemTime> = None;
+        let mut last_seq: u64 = u64::MAX;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             // Vigilar el archivo de acento: si cambió (otro wallpaper),
             // recargar el CSS para que la barra use el color nuevo.
@@ -164,7 +173,12 @@ fn main() {
                 p.load_from_data(&css);
             }
 
-            taskbar::refresh_taskbar(&taskbar_group);
+            // Repintar solo si el snapshot de niri cambió.
+            let (seq, _, _) = niri::current_snapshot();
+            if seq != last_seq {
+                last_seq = seq;
+                taskbar::refresh_taskbar(&taskbar_group);
+            }
             glib::ControlFlow::Continue
         });
 

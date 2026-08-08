@@ -12,7 +12,7 @@ pub struct NiriWindow {
     pub is_focused: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct NiriWorkspace {
     pub id: u64,
     pub idx: u64,
