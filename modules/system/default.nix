@@ -65,6 +65,7 @@
     fastfetch
     ghostty
     nodejs
+    pnpm
     go
     gcc
     claude-code
