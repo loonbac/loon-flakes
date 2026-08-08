@@ -67,6 +67,7 @@
     nodejs
     go
     gcc
+    claude-code
     brightnessctl
     zen-browser
     vscode-insiders
