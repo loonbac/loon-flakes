@@ -164,6 +164,10 @@ Detalles de la config:
   (con `wl-clipboard` + `cliphist`) para que el contenido copiado no se pierda
   al cerrar la app dueña — imprescindible para pegar capturas de la UI de niri
   en otros programas tras cerrarla.
+- **Historial de portapapeles**: `cliphist` guarda texto e imágenes copiadas
+  (con watchers de `wl-paste`) y `Super+Shift+V` permite recuperarlas con el
+  picker `fuzzel` — workaround para el bug de Chromium/Electron (p. ej.
+  Equibop/Discord) que no pega imágenes que no provienen de un navegador.
 - **Window-rule de ghostty**: transparencia real a nivel de compositor
   (`opacity 0.8` + `background-effect xray true` para ver el wallpaper a través).
 
@@ -177,6 +181,7 @@ Detalles de la config:
 | `Super+F`           | Maximizar/restaurar columna                     |
 | `Super+B`           | Fondo animado (mpvpaper-wallpaper)              |
 | `Super+Shift+S`     | Captura de pantalla (área) → portapapeles       |
+| `Super+Shift+V`     | Pegar desde historial (cliphist + fuzzel)       |
 | `Super+←` / `→`     | Mover ventana con wrap (niri-cycle)             |
 | `Super+1..9`        | Cambiar de workspace                            |
 | `Fn+F6` / `Fn+F7`   | Bajar/subir brillo (`brightnessctl` ±10%)       |

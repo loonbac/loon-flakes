@@ -80,6 +80,7 @@
     wl-clipboard
     wl-clip-persist
     cliphist
+    fuzzel             # picker del historial de portapapeles (Super+Shift+V)
     # Tema de cursor por defecto: Win11OSX (Xcursor nativo, compatible Linux).
     (pkgs.callPackage ../../pkgs/win11osx-cursor { })
     # Tema de cursor Vision (blanco/negro) — alternativa.

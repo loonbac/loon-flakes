@@ -61,6 +61,11 @@ spawn-at-startup "loon-bar"
 // copiar una captura con la UI de niri y cerrarla, sigue pegable en otros
 // programas). Sin esto, Ctrl+V falla al cerrar la app que copió.
 spawn-at-startup "wl-clip-persist" "--clipboard" "both"
+// Historial de portapapeles: guarda texto e imágenes copiadas (incluidas las
+// capturas) en la base de cliphist, para poder recuperarlas con Super+Shift+V
+// (workaround para el bug de Chromium/Electron que no pega imágenes externas).
+spawn-at-startup "sh" "-c" "wl-paste --type text --watch cliphist store"
+spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
 
 binds {
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
@@ -77,6 +82,11 @@ binds {
     // Captura de pantalla con Super+Shift+S: congela la pantalla, selecciona
     // el área con el mouse y Ctrl+C copia al portapapeles (sin guardar a disco).
     Super+Shift+S { screenshot; }
+
+    // Pegar desde el historial de portapapeles (cliphist + fuzzel): útil cuando
+    // una app (p. ej. Equibop/Discord) no acepta Ctrl+V de imágenes externas
+    // (bug de Chromium); eliges la captura del historial y se copia de nuevo.
+    Super+Shift+V { spawn-sh "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"; }
 
     // Brillo de pantalla con las teclas multimedia Fn+F6 / Fn+F7.
     // brightnessctl necesita root para escribir en /sys/class/backlight.
