@@ -8,5 +8,6 @@
     ./ghostty
     ./equibop
     ./nautilus
+    ./gtk
   ];
 }

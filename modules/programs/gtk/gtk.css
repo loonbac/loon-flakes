@@ -1,0 +1,20 @@
+/* gtk.css gestionado por NixOS (módulo programs/gtk).
+   El color de acento (--accent) lo sobreescribe accent-wallpaper con el
+   color más llamativo del wallpaper (ver pkgs/accent-wallpaper). */
+@define-color accent #0078d7;
+
+/* Nautilus: barra lateral y fondo en tono acorde al tema oscuro. */
+.nautilus-window .sidebar {
+    background-color: #1e1e1e;
+}
+.nautilus-window {
+    background-color: #242424;
+}
+
+/* Iconos seleccionados / activos usan el acento. */
+.nautilus-window .view:selected,
+.nautilus-window .view:selected:focus,
+.nautilus-window .sidebar .view:selected {
+    background-color: @accent;
+    color: #ffffff;
+}

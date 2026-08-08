@@ -65,6 +65,7 @@
     fastfetch
     ghostty
     nodejs
+    go
     brightnessctl
     zen-browser
     vscode-insiders

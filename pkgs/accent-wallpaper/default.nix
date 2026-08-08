@@ -18,6 +18,7 @@ let
   stateFile = "$HOME/.config/mpvpaper/current.txt";
   accentFile = "$HOME/.config/mpvpaper/accent.txt";
   accentKdl = "$HOME/.config/niri/accent.kdl";
+  gtkCss = "$HOME/.config/gtk-4.0/gtk.css";
 in
 pkgs.writeShellScriptBin "accent-wallpaper" ''
   set -euo pipefail
@@ -26,6 +27,7 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   STATE="${stateFile}"
   ACCENT="${accentFile}"
   KDL="${accentKdl}"
+  GTK_CSS="${gtkCss}"
   FFMPEG="${pkgs.ffmpeg}/bin/ffmpeg"
   MAGICK="${pkgs.imagemagick}/bin/magick"
 
@@ -108,10 +110,13 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
 
   mkdir -p "$(dirname "$ACCENT")" "$(dirname "$KDL")"
 
-  # Escribir solo si cambió (evita tocar el mtime y disparar recargas en vano).
-  if [ ! -f "$ACCENT" ] || [ "$(cat "$ACCENT" 2>/dev/null || true)" != "$HEX" ]; then
+  # Escribir si cambió, o si el gtk.css aún no existe (primera vez).
+  if [ ! -f "$ACCENT" ] || [ "$(cat "$ACCENT" 2>/dev/null || true)" != "$HEX" ] || [ ! -f "$GTK_CSS" ]; then
     echo "$HEX" > "$ACCENT"
     printf 'layout {\n    border {\n        active-color "%s"\n    }\n}\n' "$HEX" > "$KDL"
+    # gtk.css: color de acento para apps GTK (Nautilus selección, etc.).
+    mkdir -p "$(dirname "$GTK_CSS")"
+    printf '@define-color accent %s;\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {\n    background-color: @accent;\n    color: #ffffff;\n}\n' "$HEX" > "$GTK_CSS"
     echo "Acento: $HEX"
   fi
 ''
