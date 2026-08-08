@@ -78,6 +78,7 @@
     claude-code
     brightnessctl
     zen-browser
+    chromium           # para E2E (Playwright/Puppeteer) en esta máquina
     vscode-insiders
     antigravity
     antigravity-cli
