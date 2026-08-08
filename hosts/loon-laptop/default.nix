@@ -25,6 +25,7 @@
     enable = true;
     extraPackages = with pkgs; [
       intel-media-driver # VA-API (iHD) para Intel moderno
+      vpl-gpu-rt         # runtime oneVPL (QSV) para encode por hardware en OBS
     ];
   };
 
@@ -32,4 +33,11 @@
   # Intel: requieren firmware redistribuible que NixOS no incluye por
   # defecto. Sin esto el WiFi no funciona.
   hardware.enableRedistributableFirmware = true;
+
+  # Bluetooth Realtek (RTL8821CE, USB 0bda:c829): habilita el servicio y
+  # el soporte del kernel (btusb). Sin esto el adaptador no funciona.
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
 }

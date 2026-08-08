@@ -423,10 +423,13 @@ nixosConfigurations = {
 ## Notas sobre el host (`hosts/loon-laptop/`)
 
 - Hostname: `loon-laptop` — Dell Inspiron 15 3520.
-- **GPU Intel Iris Xe**: stack gráfico + VA-API con `intel-media-driver` (iHD)
-  para aceleración por hardware.
+- **GPU Intel Iris Xe** (Alder Lake, i915): stack gráfico + VA-API con
+  `intel-media-driver` (iHD) y runtime oneVPL (`vpl-gpu-rt`) para encode por
+  hardware en OBS (QSV). `LIBVA_DRIVER_NAME=iHD` en las sessionVariables.
 - **Firmware redistribuible**: WiFi Realtek 8821CE, Bluetooth Realtek y
   microcode Intel — sin esto el WiFi no funciona.
+- **Bluetooth Realtek**: servicio habilitado (`hardware.bluetooth.enable`)
+  con `powerOnBoot` para que el adaptador arranque con la sesión.
 - Estado: `26.05`.
 
 ## Notas de seguridad

@@ -30,5 +30,8 @@
     # Para apps GTK/Qt/Electron que leen su propio cursor.
     GTK_CURSOR_THEME = "Win11OSX";
     GTK_CURSOR_SIZE = "32";
+    # Fuerza el driver VA-API de Intel (iHD) para apps que usan decodificación
+    # por hardware (OBS QSV, mpv, navegadores).
+    LIBVA_DRIVER_NAME = "iHD";
   };
 }
