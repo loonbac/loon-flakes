@@ -53,6 +53,7 @@
     vscode-insiders
     antigravity
     obs-studio
+    zoom-us
     fish
     psmisc             # killall, pstree, fuser
     yazi
