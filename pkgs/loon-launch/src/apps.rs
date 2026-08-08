@@ -1,0 +1,100 @@
+// Carga de aplicaciones desde .desktop files y acciones de poder.
+use std::fs;
+use std::path::Path;
+
+use crate::models::Item;
+
+pub fn load_apps() -> Vec<Item> {
+    let mut apps = Vec::new();
+    let dirs = [
+        "/run/current-system/sw/share/applications",
+        "/run/current-system/sw/share/applications/kde",
+        "/home/loonbac/.local/share/applications",
+        "/usr/share/applications",
+    ];
+
+    for dir in dirs {
+        if !Path::new(dir).is_dir() {
+            continue;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                    continue;
+                }
+                if let Some(item) = parse_desktop(&path) {
+                    apps.push(item);
+                }
+            }
+        }
+    }
+
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.dedup_by(|a, b| a.name == b.name && a.exec == b.exec);
+    apps
+}
+
+fn parse_desktop(path: &Path) -> Option<Item> {
+    let content = fs::read_to_string(path).ok()?;
+    let mut name = None;
+    let mut exec = None;
+    let mut icon = String::new();
+    let mut in_entry = false;
+    let mut no_display = false;
+    let mut terminal = false;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line == "[Desktop Entry]" {
+            in_entry = true;
+            continue;
+        }
+        if in_entry && line.starts_with('[') && !line.starts_with("[Desktop Entry]") {
+            break;
+        }
+        if !in_entry {
+            continue;
+        }
+        if let Some(v) = line.strip_prefix("Name=") {
+            name = Some(v.to_string());
+        } else if let Some(v) = line.strip_prefix("Exec=") {
+            exec = Some(v.to_string());
+        } else if let Some(v) = line.strip_prefix("Icon=") {
+            icon = v.to_string();
+        } else if line.starts_with("NoDisplay=true") {
+            no_display = true;
+        } else if line.starts_with("Terminal=true") {
+            terminal = true;
+        }
+    }
+
+    let name = name?;
+    let mut exec = exec?;
+    if no_display || exec.is_empty() {
+        return None;
+    }
+
+    // Limpiar campos de Exec según la spec de freedesktop.
+    exec = exec
+        .split_whitespace()
+        .filter(|t| !t.starts_with('%'))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if terminal {
+        exec = format!("ghostty -e {}", exec);
+    }
+
+    Some(Item { name, exec, icon })
+}
+
+pub fn power_actions() -> Vec<Item> {
+    vec![
+        Item { name: "Apagar".to_string(), exec: "systemctl poweroff".to_string(), icon: "system-shutdown".to_string() },
+        Item { name: "Reiniciar".to_string(), exec: "systemctl reboot".to_string(), icon: "system-reboot".to_string() },
+        Item { name: "Hibernar".to_string(), exec: "systemctl hibernate".to_string(), icon: "system-suspend-hibernate".to_string() },
+        Item { name: "Suspender".to_string(), exec: "systemctl suspend".to_string(), icon: "system-suspend".to_string() },
+        Item { name: "Bloquear".to_string(), exec: "loginctl lock-session".to_string(), icon: "system-lock-screen".to_string() },
+    ]
+}
