@@ -22,8 +22,12 @@ struct Item {
     icon: String,
 }
 
-// Número de columnas del grid.
-const COLS: usize = 7;
+// Las apps se muestran como lista en columnas de ROWS filas: las dos
+// primeras columnas quedan visibles y el resto se desplaza a la derecha
+// (scroll horizontal en el ScrolledWindow).
+const ROWS: usize = 4;
+const CELL_W: i32 = 230;
+const ROW_H: i32 = 48;
 
 // ---------- Lógica pura (testeable) ----------
 
@@ -64,6 +68,13 @@ fn move_selection(sel: i32, delta: i32, total: usize) -> i32 {
         idx = total as i32 - 1;
     }
     idx
+}
+
+/// Navegación en la lista de ROWS filas por columna:
+/// - Izq/Der se mueven +/-1 fila (cambia de columna al cruzar el borde).
+/// - Arriba/Abajo se mueven en saltos de ROWS (siguiente/anterior columna).
+fn move_sel_rowwise(sel: i32, delta: i32, total: usize) -> i32 {
+    move_selection(sel, delta, total)
 }
 
 /// Normaliza la selección tras un repopulate: si quedó fuera de rango, 0.
@@ -177,39 +188,36 @@ fn parse_desktop(path: &Path) -> Option<Item> {
     Some(Item { name, exec, icon })
 }
 
-// ---------- Celda del grid: icono arriba, nombre debajo ----------
+// ---------- Celda del grid: fila con ícono a la izquierda y nombre al lado ----------
 fn make_cell(item: &Item) -> ListBoxRow {
     let cell = ListBoxRow::new();
-    cell.set_size_request(92, -1);
+    cell.set_size_request(CELL_W, ROW_H);
 
-    let vbox = gtk4::Box::new(Orientation::Vertical, 6);
-    vbox.set_margin_top(4);
-    vbox.set_margin_bottom(4);
-    vbox.set_margin_start(8);
-    vbox.set_margin_end(8);
-    vbox.set_valign(gtk4::Align::Center);
-    vbox.set_hexpand(true);
+    let hbox = gtk4::Box::new(Orientation::Horizontal, 10);
+    hbox.set_margin_top(4);
+    hbox.set_margin_bottom(4);
+    hbox.set_margin_start(10);
+    hbox.set_margin_end(10);
+    hbox.set_valign(gtk4::Align::Center);
 
     let image = Image::new();
     if let Some(icon) = resolve_icon(&item.icon) {
         image.set_paintable(Some(&icon));
     }
-    image.set_pixel_size(44);
-    image.set_size_request(44, 44);
+    image.set_pixel_size(28);
+    image.set_size_request(28, 28);
     image.set_valign(gtk4::Align::Center);
-    image.set_halign(gtk4::Align::Center);
-    vbox.append(&image);
+    hbox.append(&image);
 
     let label = Label::new(Some(&item.name));
-    label.set_xalign(0.5);
-    label.set_justify(gtk4::Justification::Center);
+    label.set_xalign(0.0);
+    label.set_halign(gtk4::Align::Start);
     label.set_hexpand(true);
-    label.set_max_width_chars(12);
     label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
     label.add_css_class("app-name");
-    vbox.append(&label);
+    hbox.append(&label);
 
-    cell.set_child(Some(&vbox));
+    cell.set_child(Some(&hbox));
     cell
 }
 
@@ -336,9 +344,10 @@ fn build_ui(app: &Application) {
         .child(&grid)
         .hexpand(true)
         .vexpand(true)
-        .min_content_height(170)
-        .height_request(170)
-        .vscrollbar_policy(gtk4::PolicyType::Automatic)
+        .min_content_height(180)
+        .height_request(180)
+        .hscrollbar_policy(gtk4::PolicyType::Automatic)
+        .vscrollbar_policy(gtk4::PolicyType::Never)
         .build();
     vbox.append(&scrolled);
 
@@ -367,7 +376,8 @@ fn build_ui(app: &Application) {
 
         for (i, item) in shown.iter().enumerate() {
             let cell = make_cell(item);
-            grid.attach(&cell, (i % COLS) as i32, (i / COLS) as i32, 1, 1);
+            // Columnas de ROWS filas: col 0 = filas 0..ROWS, col 1 = ROWS..2*ROWS...
+            grid.attach(&cell, (i / ROWS) as i32, (i % ROWS) as i32, 1, 1);
             if i as i32 == new_sel {
                 cell.add_css_class("selected");
             }
@@ -477,22 +487,22 @@ fn build_ui(app: &Application) {
                 }
                 Key::Down => {
                     let current = *sel_idx.borrow();
-                    apply_sel(move_selection(current, COLS as i32, total()));
+                    apply_sel(move_sel_rowwise(current, ROWS as i32, total()));
                     glib::Propagation::Stop
                 }
                 Key::Up => {
                     let current = *sel_idx.borrow();
-                    apply_sel(move_selection(current, -(COLS as i32), total()));
+                    apply_sel(move_sel_rowwise(current, -(ROWS as i32), total()));
                     glib::Propagation::Stop
                 }
                 Key::Right => {
                     let current = *sel_idx.borrow();
-                    apply_sel(move_selection(current, 1, total()));
+                    apply_sel(move_sel_rowwise(current, 1, total()));
                     glib::Propagation::Stop
                 }
                 Key::Left => {
                     let current = *sel_idx.borrow();
-                    apply_sel(move_selection(current, -1, total()));
+                    apply_sel(move_sel_rowwise(current, -1, total()));
                     glib::Propagation::Stop
                 }
                 Key::Return | Key::KP_Enter => {
@@ -641,9 +651,10 @@ mod tests {
     }
 
     #[test]
-    fn move_sel_down_steps_cols() {
-        assert_eq!(move_selection(0, COLS as i32, 20), COLS as i32);
-        assert_eq!(move_selection(18, COLS as i32, 20), 19); // clampa
+    fn move_sel_down_steps_rows() {
+        // En la lista de ROWS filas, Abajo salta ROWS (siguiente columna).
+        assert_eq!(move_sel_rowwise(0, ROWS as i32, 20), ROWS as i32);
+        assert_eq!(move_sel_rowwise(18, ROWS as i32, 20), 19); // clampa
     }
 
     #[test]
