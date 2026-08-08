@@ -69,6 +69,9 @@
     git
     gh
     btop
+    poppler-utils      # pdftotext, pdfinfo, etc.
+    python3            # intérprete de Python
+    uv                 # gestor de Python (venv + paquetes)
     fastfetch
     ghostty
     nodejs
