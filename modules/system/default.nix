@@ -66,6 +66,7 @@
     ghostty
     nodejs
     go
+    gcc
     brightnessctl
     zen-browser
     vscode-insiders

@@ -9,7 +9,7 @@
 - Aplica los cambios de su NixOS mediante `git add -A` + `rebuild` (config gestionada como repo git). Confidence: 0.6
 - Los discos secundarios se montan automáticamente y de forma declarativa en NixOS (pidió explícitamente que su Nix monte el disco sda1 "Extras" automáticamente en `/home/loonbac/Proyectos`, sin montajes manuales): módulo propio en `modules/system/extras-disk.nix` con `fileSystems."<punto-de-montaje>"` identificando el disco por UUID (`/dev/disk/by-uuid/<uuid>`), no por nombre de dispositivo (sda puede cambiar entre reinicios), y registrado en los imports de `modules/system/default.nix`; se aplica con rebuild y se verifica con `findmnt` + `df -h` antes del commit/push. Confidence: 0.7
 - Su carpeta de proyectos es `~/Proyectos`, montada en un disco secundario dedicado (sda1, ext4, label "Extras", ~700G, contenido preservado) gestionado por NixOS; al buscar o referirse a sus proyectos o a su segundo disco, asumir el punto de montaje `~/Proyectos`. Confidence: 0.7
-- Antes de añadir un paquete a `systemPackages`, el agente debe verificar que existe en nixpkgs (p. ej. `nix eval nixpkgs#<paquete>.name`) y, tras el rebuild, comprobar la instalación (`which <paquete>` / versión) antes de commitear y pushear. Confidence: 0.7
+- Antes de añadir un paquete a `systemPackages`, el agente debe verificar que existe en nixpkgs (p. ej. `nix eval nixpkgs#<paquete>.name`) y, tras el rebuild, comprobar la instalación (`which <paquete>` / versión) antes de commitear y pushear. Confidence: 0.85
 - Espera que el agente tenga presente en qué máquina está operando (remota vía SSH vs. local) antes de aplicar cambios, y que aplique los cambios directamente cuando se lo pide, sin pasos extra de confirmación (p. ej. "a ver haz rebuild" espera que ejecute el rebuild ya; "ponla pues", "ya aplicalo pues", "pero aplicalo pues, por las puras no te pido que hagas algo" y "porque no me crees?, instalalo nomas yo te dire si esta bien o mal" tras explicarle el cambio esperan que lo aplique sin más vueltas — un resumen/validación sin aplicar se considera trabajo a medias; el usuario valida el resultado, no pide que se le pida permiso antes de instalar). Confidence: 0.98
 - Autoriza al agente a ejecutar comandos con sudo en su nombre y comparte la contraseña cuando hace falta (el entorno remoto no tiene prompt interactivo; espera que se use vía `echo <pass> | sudo -S`), y la vuelve a dar sin problema cuando se necesitan varios rebuilds seguidos en la misma sesión. Confidence: 0.7
 - Prefiere un aspecto visual limpio en su escritorio: ventanas con esquinas redondeadas y bordes finos y sutiles, en lugar del focus-ring azul llamativo por defecto de niri (que considera feo). Confidence: 0.7
@@ -191,6 +191,11 @@ os de 140px a 60px). Confidence: 0.8
 obó fondo `rgba(20,20,28,0.92)` + borde blanco suave + texto blanco; además la quiere ancha, ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+es laterales reducidos de 140px a 60px). Confidence: 0.8
+el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+x a 60px). Confidence: 0.8
 ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 es laterales reducidos de 140px a 60px). Confidence: 0.8
 el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
