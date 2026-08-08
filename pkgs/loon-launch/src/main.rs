@@ -7,9 +7,12 @@ use gtk4::{
 };
 use libadwaita as adw;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
+
+use gtk4::gio;
 
 // ---------- Modelo de una app/acción ----------
 #[derive(Clone)]
@@ -210,23 +213,56 @@ fn make_cell(item: &Item) -> ListBoxRow {
     cell
 }
 
+// Tema de íconos y caché compartidos: resolver/decodear íconos en cada
+// tecla era el cuello de botella del launcher. Un solo IconTheme + caché
+// hace el filtrado instantáneo.
+thread_local! {
+    static ICON_CACHE: RefCell<HashMap<String, Option<gtk4::IconPaintable>>> =
+        RefCell::new(HashMap::new());
+    static ICON_THEME: RefCell<Option<gtk4::IconTheme>> = RefCell::new(None);
+}
+
 fn resolve_icon(icon: &str) -> Option<gtk4::IconPaintable> {
-    let theme = IconTheme::new();
-    // Si el icono es una ruta absoluta, gtk4 lo carga directo; si es un
-    // nombre del tema, solo renderiza si existe (evita el icono "missing").
-    if !icon.starts_with('/') && !theme.has_icon(icon) {
-        return None;
+    // Caché: la mayoría de apps comparten ícono (y las repopulaciones
+    // repiten las mismas apps).
+    if let Some(hit) = ICON_CACHE.with(|c| c.borrow().get(icon).cloned()) {
+        return hit;
     }
-    Some(theme.lookup_icon(
-        icon,
-        &[],
-        28,
-        1,
-        gtk4::TextDirection::None,
-        IconLookupFlags::FORCE_SYMBOLIC
-            | IconLookupFlags::FORCE_REGULAR
-            | IconLookupFlags::PRELOAD,
-    ))
+
+    let theme = ICON_THEME.with(|t| t.borrow().clone()).unwrap_or_else(|| {
+        let t = IconTheme::new();
+        ICON_THEME.with(|c| *c.borrow_mut() = Some(t.clone()));
+        t
+    });
+
+    let paintable = if icon.starts_with('/') {
+        // Ruta absoluta: solo si existe el archivo, carga perezosa.
+        if Path::new(icon).is_file() {
+            let file = gio::File::for_path(icon);
+            Some(gtk4::IconPaintable::for_file(&file, 28, 1))
+        } else {
+            None
+        }
+    } else {
+        // Nombre del tema: solo si existe (evita el ícono "missing").
+        if !theme.has_icon(icon) {
+            None
+        } else {
+            // Sin FORCE_SYMBOLIC/PRELOAD: se pinta asíncronamente (carga
+            // perezosa) y no bloquea el hilo de UI al filtrar.
+            Some(theme.lookup_icon(
+                icon,
+                &[],
+                28,
+                1,
+                gtk4::TextDirection::None,
+                IconLookupFlags::empty(),
+            ))
+        }
+    };
+
+    ICON_CACHE.with(|c| c.borrow_mut().insert(icon.to_string(), paintable.clone()));
+    paintable
 }
 
 fn power_actions() -> Vec<Item> {
@@ -308,6 +344,11 @@ fn build_ui(app: &Application) {
 
     let all_apps = load_apps();
     let power = power_actions();
+
+    // Mostrar la ventana ANTES de poblar el grid: el filtrado + creación
+    // de celdas (aunque sea rápido) no debe retrasar la primera aparición.
+    window.present();
+    grid.grab_focus();
 
     fn repopulate(
         grid: &gtk4::Grid,
@@ -536,9 +577,7 @@ fn build_ui(app: &Application) {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
-    // El grid recibe el foco inicial; el Entry solo muestra la búsqueda.
-    window.present();
-    grid.grab_focus();
+    // (El grid ya recibió el foco al presentar; ver arriba.)
 }
 
 fn main() {
