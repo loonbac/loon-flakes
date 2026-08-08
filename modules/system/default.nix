@@ -1,8 +1,10 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
 { config, lib, pkgs, zen-browser, vscode-insiders, ... }:
-
 {
+  imports = [
+    ./extras-disk.nix
+  ];
   # ---- Bootloader (systemd-boot + UEFI) ----
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
