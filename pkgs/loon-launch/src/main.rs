@@ -449,6 +449,8 @@ fn build_ui(app: &Application) {
         entry,
         #[strong]
         run_selected,
+        #[strong]
+        scrolled,
         move |_, key, _, _| {
             let total = || {
                 let mut n = 0;
@@ -460,13 +462,16 @@ fn build_ui(app: &Application) {
                 n
             };
             // Mover la selección y repintar la clase "selected".
-            let apply_sel = |new_idx: i32| {
+            let scrolled_ref = scrolled.clone();
+            let grid_ref = grid.clone();
+            let sel_ref = sel_idx.clone();
+            let apply_sel = move |new_idx: i32| {
                 if new_idx < 0 {
-                    *sel_idx.borrow_mut() = new_idx;
+                    *sel_ref.borrow_mut() = new_idx;
                     return;
                 }
-                *sel_idx.borrow_mut() = new_idx;
-                let children = grid.observe_children();
+                *sel_ref.borrow_mut() = new_idx;
+                let children = grid_ref.observe_children();
                 for i in 0..children.n_items() {
                     if let Some(obj) = children.item(i) {
                         if let Ok(w) = obj.downcast::<gtk4::Widget>() {
@@ -478,6 +483,11 @@ fn build_ui(app: &Application) {
                         }
                     }
                 }
+                // Scroll horizontal: mantener la columna de la selección a la vista.
+                let col = (new_idx as usize) / ROWS;
+                let h = scrolled_ref.hadjustment();
+                let target = (col as f64) * (CELL_W as f64);
+                h.set_value(target.min(h.upper() - h.page_size()).max(h.lower()));
             };
 
             match key {
@@ -486,23 +496,27 @@ fn build_ui(app: &Application) {
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    let current = *sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, ROWS as i32, total()));
-                    glib::Propagation::Stop
-                }
-                Key::Up => {
-                    let current = *sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, -(ROWS as i32), total()));
-                    glib::Propagation::Stop
-                }
-                Key::Right => {
+                    // Abajo baja por la columna (siguiente fila).
                     let current = *sel_idx.borrow();
                     apply_sel(move_sel_rowwise(current, 1, total()));
                     glib::Propagation::Stop
                 }
-                Key::Left => {
+                Key::Up => {
+                    // Arriba sube por la columna (anterior fila).
                     let current = *sel_idx.borrow();
                     apply_sel(move_sel_rowwise(current, -1, total()));
+                    glib::Propagation::Stop
+                }
+                Key::Right => {
+                    // Derecha va a la siguiente columna (salta ROWS filas).
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_sel_rowwise(current, ROWS as i32, total()));
+                    glib::Propagation::Stop
+                }
+                Key::Left => {
+                    // Izquierda va a la columna anterior.
+                    let current = *sel_idx.borrow();
+                    apply_sel(move_sel_rowwise(current, -(ROWS as i32), total()));
                     glib::Propagation::Stop
                 }
                 Key::Return | Key::KP_Enter => {
