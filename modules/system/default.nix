@@ -23,6 +23,13 @@
   # ---- Paquetes no libres (ej. microcode Intel) ----
   nixpkgs.config.allowUnfree = true;
 
+  # ---- Keyring del sistema (requisito de Settings Sync de VS Code) ----
+  # Sin un Secret Service (org.freedesktop.secrets) en el bus de sesión,
+  # VS Code no puede guardar el token de sincronización y Settings Sync
+  # falla con "Cannot write to Keychain". Niri no levanta gnome-keyring
+  # automáticamente, así que lo declaramos explícitamente.
+  services.gnome.gnome-keyring.enable = true;
+
   # ---- Modo oscuro global ----
   # Las apps GTK abren en dark por defecto (Nautilus, loon-bar, etc.).
   programs.dconf.enable = true;

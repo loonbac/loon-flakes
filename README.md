@@ -312,6 +312,9 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
   (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
   y utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode,
   inxi, lshw, iw).
+- **Keyring** (`services.gnome.gnome-keyring.enable`): requisito de Settings
+  Sync de VS Code (Secret Service `org.freedesktop.secrets`). Niri no lo
+  levanta solo, por eso se declara explícitamente.
 
 ## Red (`modules/networking/`)
 
