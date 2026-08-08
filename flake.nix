@@ -13,9 +13,15 @@
       url = "github:iosmanthus/code-insiders-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Antigravity CLI (`agy`) — no está en nixpkgs; flake que empaqueta
+    # la app y el CLI de Google Antigravity, actualizado 3x/semana por su CI.
+    antigravity-nix = {
+      url = "github:jacopone/antigravity-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake }:
+  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -58,6 +64,7 @@
         specialArgs = {
           zen-browser = zen-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
+          antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
         };
         modules = [
           ./hosts/${hostName}

@@ -1,6 +1,6 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
-{ config, lib, pkgs, zen-browser, vscode-insiders, ... }:
+{ config, lib, pkgs, zen-browser, vscode-insiders, antigravity-cli, ... }:
 {
   imports = [
     ./extras-disk.nix
@@ -72,6 +72,7 @@
     zen-browser
     vscode-insiders
     antigravity
+    antigravity-cli
     obs-studio
     zoom-us
     fish
