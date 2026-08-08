@@ -176,6 +176,7 @@ Detalles de la config:
 | Tecla               | Acción                                          |
 |---------------------|-------------------------------------------------|
 | `Super+Return`      | Abrir ghostty                                   |
+| `Super+E`           | Abrir Nautilus (explorador de archivos)         |
 | `Super+Space`       | Abrir loon-launch (launcher)                    |
 | `Super+Q`           | Cerrar ventana                                  |
 | `Super+F`           | Maximizar/restaurar columna                     |
