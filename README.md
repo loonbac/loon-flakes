@@ -236,6 +236,12 @@ Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
 - Atajos: `ctrl+shift+t` nueva pestaña, `ctrl+shift+w` cerrar pestaña,
   `ctrl+shift+,` recargar config en caliente.
 
+### nautilus (`nautilus/`)
+
+Explorador de archivos GNOME. En NixOS 26.05 la opción `programs.nautilus` fue
+removida, así que el módulo instala `nautilus` + `gvfs` (montajes, trash,
+samba) en `systemPackages` y habilita `programs.dconf` para los settings GTK.
+
 ### waybar (`waybar/`)
 
 Barra de estado inferior (Waybar v0.15), config gestionada por NixOS
