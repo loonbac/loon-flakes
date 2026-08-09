@@ -1,7 +1,87 @@
 // Utilidades de red (nmcli), audio (wpctl) y batería (sysfs).
-use std::process::Command;
+// IMPORTANTE: nmcli ejecutas comandos que pueden demorar hasta 3 segundos.
+// Para EVITAR que la interfaz GTK se congele o se vuelva lenta, toda la
+// información del sistema se obtiene en un hilo en SEGUNDO PLANO y se guarda
+// en un cache en memoria (RwLock). El hilo principal de GTK lee el cache
+// instantáneamente en 0ms.
 
-/// Ejecuta nmcli y devuelve stdout como String (o error).
+use std::process::Command;
+use std::sync::{Arc, OnceLock, RwLock};
+use std::thread;
+use std::time::Duration;
+
+#[derive(Debug, Clone)]
+pub struct WifiNet {
+    pub ssid: String,
+    pub signal: u32,
+    pub security: String,
+    pub connected: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SystemSnapshot {
+    pub wifi_enabled: bool,
+    pub wifi_nets: Vec<WifiNet>,
+    pub connected_ssid: Option<String>,
+    pub volume_pct: u32,
+    pub volume_muted: bool,
+    pub battery_pct: u32,
+    pub battery_charging: bool,
+}
+
+static SYSTEM_CACHE: OnceLock<Arc<RwLock<SystemSnapshot>>> = OnceLock::new();
+
+fn get_cache() -> &'static Arc<RwLock<SystemSnapshot>> {
+    SYSTEM_CACHE.get_or_init(|| {
+        let cache = Arc::new(RwLock::new(SystemSnapshot::default()));
+        let cache_clone = cache.clone();
+
+        // Hilo en segundo plano que actualiza el estado del sistema sin bloquear GTK
+        thread::spawn(move || {
+            loop {
+                let snapshot = fetch_system_info_raw();
+                if let Ok(mut lock) = cache_clone.write() {
+                    *lock = snapshot;
+                }
+                thread::sleep(Duration::from_secs(4));
+            }
+        });
+
+        cache
+    })
+}
+
+/// Fuerza una actualización rápida en segundo plano (p.ej. al hacer click en conectar o toggle)
+pub fn trigger_system_refresh() {
+    let cache = get_cache().clone();
+    thread::spawn(move || {
+        let snapshot = fetch_system_info_raw();
+        if let Ok(mut lock) = cache.write() {
+            *lock = snapshot;
+        }
+    });
+}
+
+/// Función interna ejecutada únicamente en segundo plano
+fn fetch_system_info_raw() -> SystemSnapshot {
+    let wifi_on = nmcli_wifi_enabled_raw();
+    let wifi_nets = if wifi_on { wifi_list_raw() } else { Vec::new() };
+    let connected_ssid = wifi_nets.iter().find(|n| n.connected).map(|n| n.ssid.clone());
+    let (vol_pct, vol_muted) = volume_state_raw();
+    let (batt_pct, batt_charging) = battery_state_raw();
+
+    SystemSnapshot {
+        wifi_enabled: wifi_on,
+        wifi_nets,
+        connected_ssid,
+        volume_pct: vol_pct,
+        volume_muted: vol_muted,
+        battery_pct: batt_pct,
+        battery_charging: batt_charging,
+    }
+}
+
+/// Ejecuta nmcli y devuelve stdout como String
 fn nmcli(args: &[&str]) -> Result<String, String> {
     let out = Command::new("nmcli")
         .args(args)
@@ -14,11 +94,14 @@ fn nmcli(args: &[&str]) -> Result<String, String> {
     }
 }
 
-/// ¿Está el radio WiFi activado?
-pub fn wifi_enabled() -> bool {
+fn nmcli_wifi_enabled_raw() -> bool {
     nmcli(&["radio", "wifi"])
         .map(|s| s.trim() == "enabled")
         .unwrap_or(false)
+}
+
+pub fn wifi_enabled() -> bool {
+    get_cache().read().ok().map(|c| c.wifi_enabled).unwrap_or(false)
 }
 
 pub fn wifi_radio(on: bool) {
@@ -27,19 +110,10 @@ pub fn wifi_radio(on: bool) {
     } else {
         let _ = nmcli(&["radio", "wifi", "off"]);
     }
+    trigger_system_refresh();
 }
 
-/// Red WiFi: ssid, señal (%), seguridad (WPA2, Abierta...), conectada.
-#[derive(Debug, Clone)]
-pub struct WifiNet {
-    pub ssid: String,
-    pub signal: u32,
-    pub security: String,
-    pub connected: bool,
-}
-
-/// Lista las redes WiFi visibles (nmcli -t -e yes -f SSID,SIGNAL,SECURITY,ACTIVE).
-pub fn wifi_list() -> Vec<WifiNet> {
+fn wifi_list_raw() -> Vec<WifiNet> {
     let out = match nmcli(&["-t", "-e", "yes", "-f", "SSID,SIGNAL,SECURITY,ACTIVE", "dev", "wifi", "list"]) {
         Ok(s) => s,
         Err(_) => return Vec::new(),
@@ -47,7 +121,6 @@ pub fn wifi_list() -> Vec<WifiNet> {
 
     let mut nets = Vec::new();
     for line in out.lines() {
-        // Formato: SSID:SIGNAL:SECURITY:ACTIVE  (SSID puede contener ':' escapado como '\:')
         let mut parts = line.splitn(4, ':');
         let ssid = parts.next().unwrap_or("").replace("\\:", ":");
         let signal = parts.next().unwrap_or("0").trim().parse::<u32>().unwrap_or(0);
@@ -69,27 +142,31 @@ pub fn wifi_list() -> Vec<WifiNet> {
     nets
 }
 
-/// SSID de la red a la que estamos conectados (si hay).
-pub fn wifi_connected_ssid() -> Option<String> {
-    wifi_list().into_iter().find(|n| n.connected).map(|n| n.ssid)
+pub fn wifi_list() -> Vec<WifiNet> {
+    get_cache().read().ok().map(|c| c.wifi_nets.clone()).unwrap_or_default()
 }
 
-/// Conecta a una red WiFi; si requiere contraseña y no está guardada, usa password.
+pub fn wifi_connected_ssid() -> Option<String> {
+    get_cache().read().ok().and_then(|c| c.connected_ssid.clone())
+}
+
 pub fn wifi_connect(ssid: &str, password: Option<&str>) -> Result<(), String> {
     let mut args: Vec<&str> = vec!["dev", "wifi", "connect", ssid];
     if let Some(p) = password {
         args.push("password");
         args.push(p);
     }
-    nmcli(&args).map(|_| ())
+    let res = nmcli(&args).map(|_| ());
+    trigger_system_refresh();
+    res
 }
 
 pub fn wifi_disconnect() {
     let _ = nmcli(&["dev", "disconnect", "wifi"]);
+    trigger_system_refresh();
 }
 
-/// Estado del volumen: porcentaje y mute.
-pub fn volume_state() -> (u32, bool) {
+fn volume_state_raw() -> (u32, bool) {
     let out = Command::new("wpctl")
         .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
         .output()
@@ -110,14 +187,24 @@ pub fn volume_state() -> (u32, bool) {
     }
 }
 
+pub fn volume_state() -> (u32, bool) {
+    get_cache()
+        .read()
+        .ok()
+        .map(|c| (c.volume_pct, c.volume_muted))
+        .unwrap_or((100, false))
+}
+
 pub fn volume_set(pct: u32) {
     let _ = Command::new("wpctl")
         .args(["set-volume", "@DEFAULT_AUDIO_SINK@", &format!("{:.2}", pct as f32 / 100.0)])
         .spawn();
+    if let Ok(mut lock) = get_cache().write() {
+        lock.volume_pct = pct;
+    }
 }
 
-/// Estado de batería: porcentaje y si está cargando.
-pub fn battery_state() -> (u32, bool) {
+fn battery_state_raw() -> (u32, bool) {
     let capacity = std::fs::read_to_string("/sys/class/power_supply/BAT0/capacity")
         .ok()
         .map(|s| s.trim().to_string())
@@ -127,6 +214,14 @@ pub fn battery_state() -> (u32, bool) {
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
     (capacity.parse().unwrap_or(100), status == "Charging")
+}
+
+pub fn battery_state() -> (u32, bool) {
+    get_cache()
+        .read()
+        .ok()
+        .map(|c| (c.battery_pct, c.battery_charging))
+        .unwrap_or((100, false))
 }
 
 pub fn battery_icon(cap: u32, charging: bool) -> &'static str {

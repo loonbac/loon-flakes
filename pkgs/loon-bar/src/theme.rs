@@ -13,6 +13,26 @@ pub fn load_accent() -> String {
         .unwrap_or_else(|| "#0078d7".to_string())
 }
 
+/// Lee el CSS activo para la barra: si existe ~/.config/loon-bar/custom.css
+/// (escrito por el DevMode Web Studio), lo usa directamente; de lo contrario
+/// genera el CSS dinámico usando el acento actual.
+pub fn load_active_css() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let custom_css_path = Path::new(&home).join(".config/loon-bar/custom.css");
+
+    if custom_css_path.exists() {
+        if let Ok(css) = std::fs::read_to_string(&custom_css_path) {
+            if !css.trim().is_empty() {
+                return css;
+            }
+        }
+    }
+
+    let accent = load_accent();
+    bar_css(&accent)
+}
+
+
 /// Construye el CSS de la barra con el color de acento actual.
 /// Usa @define-color para que el acento se aplique a la underbar de la app
 /// activa, el botón "Conectar" y la red WiFi conectada.
@@ -59,7 +79,7 @@ pub fn bar_css(accent: &str) -> String {
                 background-color: rgba(255, 255, 255, 0.04);
                 color: rgba(255, 255, 255, 0.85);
                 font-size: 12px;
-                border-bottom: 2px solid rgba(255, 255, 255, 0.35); /* underbar inactiva */
+                border-bottom: 3px solid rgba(255, 255, 255, 0.35); /* underbar inactiva */
                 min-height: 40px;
             }}
             .taskbar-item:hover {{

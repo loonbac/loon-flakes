@@ -26,7 +26,7 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use theme::{bar_css, load_accent};
+use theme::{bar_css, load_accent, load_active_css};
 
 fn main() {
     // GTK4 requiere init explícito antes de tocar CssProvider/widgets
@@ -49,8 +49,7 @@ fn main() {
     app.connect_startup({
         let provider = provider.clone();
         move |_| {
-            let accent = load_accent();
-            let css = bar_css(&accent);
+            let css = load_active_css();
             let p = provider.borrow();
             p.load_from_data(&css);
 
@@ -155,20 +154,22 @@ fn main() {
         // El IPC real lo hace el hilo poller (niri.rs); aquí solo se
         // repinta si el snapshot cambió.
         let provider = provider.clone();
-        let mut last_accent_mtime: Option<std::time::SystemTime> = None;
+        let mut last_css_mtime: Option<std::time::SystemTime> = None;
         let mut last_seq: u64 = u64::MAX;
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-            // Vigilar el archivo de acento: si cambió (otro wallpaper),
-            // recargar el CSS para que la barra use el color nuevo.
-            let accent_path = std::path::Path::new(
-                &std::env::var("HOME").unwrap_or_default(),
-            )
-            .join(".config/mpvpaper/accent.txt");
-            let mtime = std::fs::metadata(&accent_path).and_then(|m| m.modified()).ok();
-            if mtime != last_accent_mtime {
-                last_accent_mtime = mtime;
-                let accent = load_accent();
-                let css = bar_css(&accent);
+            // Vigilar accent.txt y custom.css: si cambian desde la web o el wallpaper,
+            // recargar el CSS en caliente al instante (<100ms).
+            let home = std::env::var("HOME").unwrap_or_default();
+            let accent_path = std::path::Path::new(&home).join(".config/mpvpaper/accent.txt");
+            let custom_css_path = std::path::Path::new(&home).join(".config/loon-bar/custom.css");
+
+            let mtime_accent = std::fs::metadata(&accent_path).and_then(|m| m.modified()).ok();
+            let mtime_custom = std::fs::metadata(&custom_css_path).and_then(|m| m.modified()).ok();
+            let current_mtime = mtime_custom.max(mtime_accent);
+
+            if current_mtime != last_css_mtime {
+                last_css_mtime = current_mtime;
+                let css = load_active_css();
                 let p = provider.borrow();
                 p.load_from_data(&css);
             }

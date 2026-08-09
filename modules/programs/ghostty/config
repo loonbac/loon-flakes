@@ -9,6 +9,9 @@
 # Quita la barra superior (titlebar) con la X y los iconos.
 window-decoration = false
 
+# Tema: GitHub Dark (solo colores; el resto del diseño no cambia).
+theme = GitHub Dark
+
 # Padding interno: separa el texto de los bordes de la ventana.
 window-padding-x = 12
 window-padding-y = 12
