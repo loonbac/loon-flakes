@@ -63,6 +63,15 @@
     source = "${pkgs.brightnessctl}/bin/brightnessctl";
   };
 
+  # ---- Variables de entorno de build (Rust/C/C++) ----
+  # En NixOS los .pc de openssl/libpq viven en outputs -dev del store; sin
+  # PKG_CONFIG_PATH los crates nativos (openssl-sys, pq-sys) no los encuentran.
+  # LD_LIBRARY_PATH es para que los binarios encuentren libssl.so en runtime.
+  environment.sessionVariables = {
+    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig";
+    LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
+  };
+
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
@@ -80,6 +89,12 @@
     gcc
     cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
     rustc
+    rustfmt            # componente fmt (cargo fmt)
+    clippy             # componente clippy (lints)
+    pkg-config         # detección de libs nativas (openssl, libpq) en builds Rust
+    openssl            # deps de openssl-sys (mdm-gestor usa jsonwebtoken/sqlx)
+    openssl.dev        # .pc files de OpenSSL para pkg-config en builds Rust
+    libpq              # deps de pq-sys (sqlx + postgres)
     claude-code
     brightnessctl
     zen-browser
