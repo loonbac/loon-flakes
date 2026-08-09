@@ -78,6 +78,8 @@
     pnpm
     go
     gcc
+    cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
+    rustc
     claude-code
     brightnessctl
     zen-browser
