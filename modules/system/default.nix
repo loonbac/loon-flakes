@@ -102,6 +102,7 @@
     vscode-insiders
     antigravity
     antigravity-cli
+    pi-coding-agent
     obs-studio
     zoom-us
     fish
