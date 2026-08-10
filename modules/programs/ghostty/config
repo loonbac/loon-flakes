@@ -26,3 +26,7 @@ background-opacity = 1
 # Atajos de ventana (pestañas nativas de ghostty).
 keybind = ctrl+shift+t=new_tab
 keybind = ctrl+shift+w=close_tab
+
+# Shader personalizado para animación y desplazamiento suave del cursor
+custom-shader = /home/loonbac/.config/ghostty/shaders/smooth_cursor.glsl
+custom-shader-animation = always
