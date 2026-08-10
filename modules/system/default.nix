@@ -102,6 +102,7 @@
       "application/x-extension-xht" = "zen.desktop";
       "image/svg+xml" = "zen.desktop";
       "image/webp" = "zen.desktop";
+      "application/vnd.mozilla.xul+xml" = "zen.desktop";
     };
   };
 
