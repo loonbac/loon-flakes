@@ -1,79 +1,42 @@
-// Config de Waybar gestionada por NixOS (loon-flakes) — Estilo Barra de Tareas Windows 10.
-// Edita este archivo en ~/.nixos/modules/programs/waybar/config.jsonc
+/*
+ * @author Muhammad Haikal Hakim
+ * @repository https://github.com/haikal-hakim/athena
+ */
 {
-    "layer": "top",
-    "position": "bottom",
-    "height": 48,
-    "spacing": 0,
-    "modules-left": [
-        "custom/start",
-        "wlr/taskbar"
-    ],
-    "modules-center": [],
-    "modules-right": [
-        "tray",
-        "network",
-        "battery",
-        "clock"
-    ],
-
-    // --- Botón de Inicio (Logo NixOS) ---
-    "custom/start": {
-        "format": "",
-        "tooltip": false,
-        "on-click": "loon-launch"
-    },
-
-    // --- Lista de Todas las Ventanas Abiertas (Barra de Tareas estilo Windows 10) ---
-    "wlr/taskbar": {
-        "format": "{icon} {title}",
-        "icon-size": 18,
-        "tooltip-format": "{title}",
-        "on-click": "activate",
-        "on-click-middle": "close",
-        "ignore-list": [
-            "loon-launch"
-        ],
-        "rewrite": {
-            "(.*) — Zen Browser": "Zen Browser",
-            "(.*) — Mozilla Firefox": "Firefox",
-            "(.*) - Visual Studio Code": "VS Code",
-            "(.*) - Ghostty": "Ghostty"
-        }
-    },
-
-    // --- Reloj Estilo Windows 10 (12 Horas AM/PM sobre Fecha) ---
-    "clock": {
-        "interval": 1,
-        "format": "{0:%I:%M %p}\n{0:%d/%m/%Y}",
-        "justify": "center",
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
-    },
-
-    // --- Red (Solo ícono, como en Windows 10) ---
-    "network": {
-        "format-wifi": "󰤨",
-        "format-ethernet": "󰈀",
-        "format-disconnected": "󰤭",
-        "tooltip-format": "{essid} ({signalStrength}%)\nIP: {ifname}"
-    },
-
-    // --- Batería (Solo ícono, como en Windows 10) ---
-    "battery": {
-        "states": {
-            "warning": 30,
-            "critical": 15
-        },
-        "format": "{icon}",
-        "format-charging": "󰂄",
-        "format-plugged": "󰚥",
-        "format-icons": ["󰂎", "󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
-        "tooltip-format": "{capacity}% ({timeTo} restante)"
-    },
-
-    // --- Bandeja del sistema ---
-    "tray": {
-        "icon-size": 18,
-        "spacing": 10
-    }
+  "layer": "top",
+  "height": 42,
+  "spacing": 6,
+  "include": [
+    "./modules/groups.jsonc",
+    "./modules/distro.jsonc",
+    "./modules/storage.jsonc",
+    "./modules/system.jsonc",
+    "./modules/power-profiles-daemon.jsonc",
+    "./modules/workspace.jsonc",
+    "./modules/idle-ihibitor.jsonc",
+    "./modules/audio.jsonc",
+    "./modules/connections.jsonc",
+    "./modules/battery.jsonc",
+    "./modules/clock.jsonc",
+    "./modules/tray-notif.jsonc"
+  ],
+  "modules-left": [
+    "group/distro-group",
+    "group/storage",
+    "group/system"
+  ],
+  "modules-center": [
+    "power-profiles-daemon",
+    "niri/workspaces",
+    "wlr/workspaces",
+    "hyprland/workspaces",
+    "idle_inhibitor"
+  ],
+  "modules-right": [
+    "group/audio",
+    "group/connections",
+    "battery",
+    "clock",
+    "group/tray-group"
+  ]
 }

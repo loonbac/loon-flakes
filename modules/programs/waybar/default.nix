@@ -14,6 +14,8 @@
   # Config gestionada por NixOS: waybar la lee desde el home (symlinks).
   environment.etc."waybar/config.jsonc".source = ./config.jsonc;
   environment.etc."waybar/style.css".source = ./style.css;
+  environment.etc."waybar/modules".source = ./modules;
+  environment.etc."waybar/tokens".source = ./tokens;
 
   # Fuerza que la config del home sean symlinks a la gestionada.
   # El dir se crea explícitamente con dueño correcto: si tmpfiles-resetup
@@ -22,5 +24,7 @@
     "d /home/loonbac/.config/waybar 0755 loonbac users -"
     "L+ /home/loonbac/.config/waybar/config.jsonc - - - - /etc/waybar/config.jsonc"
     "L+ /home/loonbac/.config/waybar/style.css - - - - /etc/waybar/style.css"
+    "L+ /home/loonbac/.config/waybar/modules - - - - /etc/waybar/modules"
+    "L+ /home/loonbac/.config/waybar/tokens - - - - /etc/waybar/tokens"
   ];
 }
