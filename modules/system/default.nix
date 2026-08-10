@@ -76,7 +76,9 @@
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
-  environment.sessionPath = [ "$HOME/.npm-global/bin" ];
+  environment.extraInit = ''
+    export PATH="$HOME/.npm-global/bin:$PATH"
+  '';
 
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
