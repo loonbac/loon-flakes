@@ -41,10 +41,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float progress = clamp(timeSinceMove / ANIMATION_DURATION, 0.0, 1.0);
     float t = easeOutCubic(progress);
 
-    // 4. Posiciones y dimensiones en píxeles (Ghostty pasa coordenadas top-down)
-    vec2 prevPos = iPreviousCursor.xy;
+    // 4. Convertir coordenadas Y top-down de Ghostty a coordenadas Y bottom-up de GLSL/Shadertoy
+    vec2 prevPos = vec2(iPreviousCursor.x, iResolution.y - iPreviousCursor.y - iPreviousCursor.w);
     vec2 prevSize = iPreviousCursor.zw;
-    vec2 currPos = iCurrentCursor.xy;
+    vec2 currPos = vec2(iCurrentCursor.x, iResolution.y - iCurrentCursor.y - iCurrentCursor.w);
     vec2 currSize = iCurrentCursor.zw;
 
     float moveDist = length(currPos - prevPos);
