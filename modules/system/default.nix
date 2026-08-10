@@ -26,6 +26,13 @@
   # ---- Configuración de Nix (Flakes y CLI moderno) ----
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # ---- Compatibilidad FHS para scripts de Node/npm (ej. gentle-pi busca /bin/tar y /usr/bin/tar) ----
+  services.envfs.enable = true;
+  systemd.tmpfiles.rules = [
+    "L+ /bin/tar - - - - ${pkgs.gnutar}/bin/tar"
+    "L+ /usr/bin/tar - - - - ${pkgs.gnutar}/bin/tar"
+  ];
+
   # ---- Keyring del sistema (requisito de Settings Sync de VS Code) ----
   # Sin un Secret Service (org.freedesktop.secrets) en el bus de sesión,
   # VS Code no puede guardar el token de sincronización y Settings Sync
