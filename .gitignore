@@ -5,3 +5,7 @@
 
 # Artefactos de build de Rust (cargo)
 target/
+
+# Symlinks de result de Nix
+result
+result-*
