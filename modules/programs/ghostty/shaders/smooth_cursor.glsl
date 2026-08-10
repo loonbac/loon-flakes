@@ -17,6 +17,13 @@ float sdRoundedBox(in vec2 p, in vec2 b, in float r) {
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
+// Obtener el centro exacto del cursor en el espacio fragCoord de OpenGL
+// iCurrentCursor.xy es la esquina superior izquierda del cursor en fragCoord space,
+// por lo que el centro Y es (y - height * 0.5)
+vec2 getCursorCenter(vec4 cursor) {
+    return vec2(cursor.x + cursor.z * 0.5, cursor.y - cursor.w * 0.5);
+}
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 1. Obtener la textura renderizada por el terminal
     vec2 uv = fragCoord / iResolution.xy;
@@ -41,13 +48,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float progress = clamp(timeSinceMove / ANIMATION_DURATION, 0.0, 1.0);
     float t = easeOutCubic(progress);
 
-    // 4. Convertir coordenadas Y top-down de Ghostty a coordenadas Y bottom-up de GLSL/Shadertoy
-    vec2 prevPos = vec2(iPreviousCursor.x, iResolution.y - iPreviousCursor.y - iPreviousCursor.w);
+    // 4. Centros y dimensiones exactas del cursor anterior y actual
+    vec2 prevCenter = getCursorCenter(iPreviousCursor);
     vec2 prevSize = iPreviousCursor.zw;
-    vec2 currPos = vec2(iCurrentCursor.x, iResolution.y - iCurrentCursor.y - iCurrentCursor.w);
+    vec2 currCenter = getCursorCenter(iCurrentCursor);
     vec2 currSize = iCurrentCursor.zw;
 
-    float moveDist = length(currPos - prevPos);
+    float moveDist = length(currCenter - prevCenter);
 
     // Si el cursor no se movió de posición, no dibujamos animación sobrepuesta
     if (moveDist < 0.5) {
@@ -55,8 +62,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         return;
     }
 
-    // 5. Interpolar la posición y tamaño del cursor animado en el tiempo t
-    vec2 animPos = mix(prevPos, currPos, t);
+    // 5. Interpolar el centro y tamaño del cursor animado en el tiempo t
+    vec2 animCenter = mix(prevCenter, currCenter, t);
     vec2 animSize = mix(prevSize, currSize, t);
 
     // 6. Color del cursor (fallback si el alfa no está definido)
@@ -66,7 +73,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     }
 
     // 7. Render del bloque animado del cursor
-    vec2 animCenter = animPos + animSize * 0.5;
     vec2 p = fragCoord - animCenter;
     vec2 halfSize = animSize * 0.5;
 
@@ -76,11 +82,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 8. Dibujo de la estela sutil (trail) a lo largo del trayecto de desplazamiento
     float trailMask = 0.0;
     if (TRAIL_STRENGTH > 0.0 && moveDist > 3.0) {
-        vec2 pPrevCenter = prevPos + prevSize * 0.5;
-        vec2 pCurrCenter = currPos + currSize * 0.5;
-        
-        vec2 pa = fragCoord - pPrevCenter;
-        vec2 ba = pCurrCenter - pPrevCenter;
+        vec2 pa = fragCoord - prevCenter;
+        vec2 ba = currCenter - prevCenter;
         float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
         vec2 lineVec = pa - ba * h;
         float lineDist = length(lineVec);
