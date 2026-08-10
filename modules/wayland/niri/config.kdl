@@ -34,7 +34,7 @@ layout {
     // Requiere que el wallpaper use place-within-backdrop (ver más abajo).
     background-color "transparent"
 
-    gaps 16
+    gaps 8
 
     // Sustituye el focus-ring azul por defecto por un borde fino.
     focus-ring {
