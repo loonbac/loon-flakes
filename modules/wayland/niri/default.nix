@@ -19,7 +19,7 @@
       postBuild = ''
         rm $out/bin/niri-session
         substitute ${pkgs.niri}/bin/niri-session $out/bin/niri-session \
-          --replace-fail 'systemctl --user import-environment' 'systemctl --user import-environment 2>/dev/null'
+          --replace-fail 'systemctl --user import-environment' 'systemctl --user import-environment PATH DBUS_SESSION_BUS_ADDRESS XDG_DATA_DIRS XDG_CONFIG_DIRS XDG_RUNTIME_DIR XAUTHORITY LANG LC_ALL LC_CTYPE 2>/dev/null'
         chmod +x $out/bin/niri-session
       '';
     }).overrideAttrs (oldAttrs: {
