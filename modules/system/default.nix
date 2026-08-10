@@ -75,6 +75,9 @@
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
   };
 
+  # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
+  environment.sessionPath = [ "$HOME/.npm-global/bin" ];
+
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
