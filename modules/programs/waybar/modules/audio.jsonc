@@ -13,6 +13,8 @@
       ]
     },
     "on-click": "pavucontrol",
+    "max-volume": 100,
+    "scroll-step": 5,
     "tooltip-format": "Output: {volume}%"
   },
   "pulseaudio#microphone": {
