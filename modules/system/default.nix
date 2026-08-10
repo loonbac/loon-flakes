@@ -77,9 +77,29 @@
   # En NixOS los .pc de openssl/libpq viven en outputs -dev del store; sin
   # PKG_CONFIG_PATH los crates nativos (openssl-sys, pq-sys) no los encuentran.
   # LD_LIBRARY_PATH es para que los binarios encuentren libssl.so en runtime.
+  # ---- Variables de entorno de build y sesión ----
   environment.sessionVariables = {
     PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig";
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
+    BROWSER = "zen-browser";
+  };
+
+  # ---- Navegador por defecto global (Zen Browser) ----
+  xdg.mime = {
+    enable = true;
+    defaultApplications = {
+      "text/html" = "zen.desktop";
+      "x-scheme-handler/http" = "zen.desktop";
+      "x-scheme-handler/https" = "zen.desktop";
+      "x-scheme-handler/about" = "zen.desktop";
+      "x-scheme-handler/unknown" = "zen.desktop";
+      "application/x-extension-htm" = "zen.desktop";
+      "application/x-extension-html" = "zen.desktop";
+      "application/x-extension-shtml" = "zen.desktop";
+      "application/xhtml+xml" = "zen.desktop";
+      "application/x-extension-xhtml" = "zen.desktop";
+      "application/x-extension-xht" = "zen.desktop";
+    };
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
