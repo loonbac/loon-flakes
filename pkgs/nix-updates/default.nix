@@ -156,7 +156,7 @@ def main():
                 for pl in pkg_lines[:4]:
                     print("\033[36m│\033[0m  %s" % pl)
                 print("\033[36m│\033[0m  \033[90m... y %d más\033[0m" % (len(pkg_lines) - 4))
-        print("\033[36m│\033[0m  \033[1;33m⚡ %s\033[0m" % format_count(count))
+        print("\033[36m│\033[0m  \033[1;33m󰚰 %s\033[0m" % format_count(count))
         print("\033[36m╰─\033[0m \033[90mEjecuta '\033[1;32mnix-updates\033[0m\033[90m' para ver el resumen o '\033[1;32mrebuild update\033[0m\033[90m' para aplicar.\033[0m\n")
 
 if __name__ == "__main__":
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
     case "$CMD" in
       check|--check|-c)
-        echo "🔍 Buscando actualizaciones de NixOS..."
+        echo -e "\033[36m󰍉\033[0m Buscando actualizaciones de NixOS..."
         mkdir -p "$FLAKE_CACHE"
         
         # Sincronizar la config local a la caché excluyendo artefactos pesados
@@ -185,32 +185,31 @@ if __name__ == "__main__":
           --exclude='.git' \
           --exclude='target' \
           --exclude='result' \
-          "$FLAKE_DIR/" "$FLAKE_CACHE/"
+          "$FLAKE_DIR/" "$FLAKE_CACHE/" >/dev/null 2>&1
 
         if [ ! -d "$FLAKE_CACHE/.git" ]; then
-          ${pkgs.git}/bin/git -C "$FLAKE_CACHE" init -q
+          ${pkgs.git}/bin/git -C "$FLAKE_CACHE" init -q >/dev/null 2>&1
         fi
-        ${pkgs.git}/bin/git -C "$FLAKE_CACHE" add -A
+        ${pkgs.git}/bin/git -C "$FLAKE_CACHE" add -A >/dev/null 2>&1
 
-        echo "📦 Actualizando flake inputs..."
-        if ! ${pkgs.nix}/bin/nix flake update --flake "$FLAKE_CACHE"; then
-          echo "⚠️ No se pudieron actualizar los inputs de Nix (¿sin conexión a internet?)." >&2
+        echo -e "\033[34m󱓞\033[0m Actualizando flake inputs..."
+        if ! ${pkgs.nix}/bin/nix flake update --flake "$FLAKE_CACHE" >/dev/null 2>&1; then
+          echo -e "\033[31m󰀦 Error al actualizar los inputs de Nix (¿sin conexión a internet?).\033[0m" >&2
           exit 1
         fi
 
-        echo "⚙️ Evaluando nueva generación de NixOS..."
+        echo -e "\033[35m󰒓\033[0m Evaluando nueva generación de NixOS..."
         rm -f "$RESULT_LINK"
         if ! ${pkgs.nix}/bin/nix build "$FLAKE_CACHE#nixosConfigurations.loon-laptop.config.system.build.toplevel" --out-link "$RESULT_LINK" >/dev/null 2>&1; then
-          echo "⚠️ Error al evaluar la nueva generación." >&2
+          echo -e "\033[31m󰀦 Error al evaluar la nueva generación.\033[0m" >&2
           exit 1
         fi
 
-        echo "📊 Comparando versiones de paquetes..."
-        ${pkgs.nvd}/bin/nvd diff /run/current-system "$RESULT_LINK" > "$CACHE_DIR/diff.raw"
+        echo -e "\033[33m󰈙\033[0m Comparando versiones de paquetes..."
+        ${pkgs.nvd}/bin/nvd diff /run/current-system "$RESULT_LINK" > "$CACHE_DIR/diff.raw" 2>/dev/null
 
-        ${pkgs.python3}/bin/python3 ${pythonScript} parse
-        echo "✅ Verificación completada."
-        echo ""
+        ${pkgs.python3}/bin/python3 ${pythonScript} parse >/dev/null
+        echo -e "\033[32m󰄬\033[0m Verificación completada.\n"
         if [ -f "$CACHE_DIR/summary.txt" ]; then
           cat "$CACHE_DIR/summary.txt"
         fi
