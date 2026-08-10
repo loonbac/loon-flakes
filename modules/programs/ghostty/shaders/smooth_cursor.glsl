@@ -23,7 +23,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec4 terminalColor = texture(iChannel0, uv);
 
     // Si el cursor no está visible o no hay cambio, retornar la textura base
-    if (!iCursorVisible) {
+    if (iCursorVisible == 0) {
         fragColor = terminalColor;
         return;
     }
