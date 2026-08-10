@@ -11,6 +11,22 @@
 {
   programs.niri = {
     enable = true;
+    # Parcheamos niri-session envolviendo el paquete con symlinkJoin para no recompilar niri desde código fuente.
+    # Esto silencia el aviso de deprecación en stderr de `systemctl --user import-environment`.
+    package = (pkgs.symlinkJoin {
+      name = "niri-patched";
+      paths = [ pkgs.niri ];
+      postBuild = ''
+        rm $out/bin/niri-session
+        substitute ${pkgs.niri}/bin/niri-session $out/bin/niri-session \
+          --replace-fail 'systemctl --user import-environment' 'systemctl --user import-environment 2>/dev/null'
+        chmod +x $out/bin/niri-session
+      '';
+    }).overrideAttrs (oldAttrs: {
+      passthru = (pkgs.niri.passthru or { }) // {
+        providedSessions = pkgs.niri.providedSessions or [ "niri" ];
+      };
+    });
   };
 
   # Config gestionada por NixOS: niri la lee como fallback desde /etc/niri.
