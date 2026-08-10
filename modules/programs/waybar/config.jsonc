@@ -4,8 +4,8 @@
  */
 {
   "layer": "top",
-  "height": 32,
-  "spacing": 4,
+  "height": 44,
+  "spacing": 6,
   "include": [
     "./modules/groups.jsonc",
     "./modules/distro.jsonc",
