@@ -23,6 +23,9 @@
   # ---- Paquetes no libres (ej. microcode Intel) ----
   nixpkgs.config.allowUnfree = true;
 
+  # ---- Configuración de Nix (Flakes y CLI moderno) ----
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
   # ---- Keyring del sistema (requisito de Settings Sync de VS Code) ----
   # Sin un Secret Service (org.freedesktop.secrets) en el bus de sesión,
   # VS Code no puede guardar el token de sincronización y Settings Sync
