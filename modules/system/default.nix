@@ -73,10 +73,6 @@
     source = "${pkgs.brightnessctl}/bin/brightnessctl";
   };
 
-  # ---- Variables de entorno de build (Rust/C/C++) ----
-  # En NixOS los .pc de openssl/libpq viven en outputs -dev del store; sin
-  # PKG_CONFIG_PATH los crates nativos (openssl-sys, pq-sys) no los encuentran.
-  # LD_LIBRARY_PATH es para que los binarios encuentren libssl.so en runtime.
   # ---- Variables de entorno de build y sesión ----
   environment.sessionVariables = {
     PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig";
