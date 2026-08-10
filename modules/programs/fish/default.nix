@@ -13,6 +13,11 @@
       # Quita el banner "Welcome to fish" al abrir una consola.
       set fish_greeting
 
+      # Banner de actualizaciones de paquetes disponibles en NixOS (si existen).
+      if type -q nix-updates
+        nix-updates banner
+      end
+
       # Detección automática de binarios: agrega los dirs existentes.
       for dir in \
         ~/.npm-global/bin \

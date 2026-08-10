@@ -154,6 +154,10 @@
     (pkgs.callPackage ../../pkgs/loon-launch { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
+    # Herramienta de diferencia de versiones Nix/NixOS.
+    nvd
+    # Gestor y comprobador de actualizaciones custom en segundo plano.
+    (pkgs.callPackage ../../pkgs/nix-updates { })
 
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
