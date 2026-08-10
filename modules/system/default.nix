@@ -84,6 +84,7 @@
     git
     gh
     btop
+    bat                # alternativa moderna a cat con resaltado de sintaxis
     poppler-utils      # pdftotext, pdfinfo, etc.
     python3            # intérprete de Python
     uv                 # gestor de Python (venv + paquetes)
