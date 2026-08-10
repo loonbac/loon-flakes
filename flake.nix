@@ -77,7 +77,6 @@
       packages.${system} = {
         rebuild = pkgs.callPackage ./pkgs/rebuild { };
         loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
-        loon-bar = pkgs.callPackage ./pkgs/loon-bar { };
         niri-cycle = pkgs.callPackage ./pkgs/niri-cycle { };
         accent-wallpaper = pkgs.callPackage ./pkgs/accent-wallpaper { };
         mpvpaper-wallpaper = pkgs.callPackage ./pkgs/mpvpaper-wallpaper {

@@ -55,8 +55,8 @@ layout {
 spawn-at-startup "mpvpaper-wallpaper"
 // Lanza el fondo estático del backdrop (imagen, fondo de todo).
 spawn-at-startup "niri-backdrop"
-// Lanza la barra de estado loon-bar (Rust GTK4 custom con IPC de Niri).
-spawn-at-startup "loon-bar"
+// Lanza la barra de estado Waybar.
+spawn-at-startup "waybar"
 // Mantiene el portapapeles Wayland al cerrar la app dueña (p. ej. tras
 // copiar una captura con la UI de niri y cerrarla, sigue pegable en otros
 // programas). Sin esto, Ctrl+V falla al cerrar la app que copió.

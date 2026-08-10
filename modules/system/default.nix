@@ -111,8 +111,6 @@
     (pkgs.callPackage ../../pkgs/niri-cycle { })
     # App launcher custom del flake (Super+Space en niri).
     (pkgs.callPackage ../../pkgs/loon-launch { })
-    # Barra de tareas nativa custom (estilo Windows 10 con IPC niri).
-    (pkgs.callPackage ../../pkgs/loon-bar { })
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
 
