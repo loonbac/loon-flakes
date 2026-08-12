@@ -16,24 +16,24 @@ use crate::ui::banner::build_banner;
 use crate::ui::grid::{build_grid, GridRefs};
 use crate::ui::keys::setup_key_controller;
 use crate::ui::styles::setup_styles;
-use glib::prelude::ObjectExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const WINDOW_QDATA: &str = "loonlaunch-window";
+/// Ventana del daemon y guard de vida de la app, conservados entre toggles.
+/// thread_local es seguro porque todo corre en el hilo de GTK; guardar la
+/// ventana en qdata con ptr::read corrompía el refcount del wrapper.
+thread_local! {
+    static WINDOW: RefCell<Option<gtk4::ApplicationWindow>> = RefCell::new(None);
+    // El guard no es Send/Sync ni Clone: se retiene aquí aparte.
+    static HOLD: RefCell<Option<gtk4::gio::ApplicationHoldGuard>> = RefCell::new(None);
+}
 
 /// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
 pub fn build_ui(app: &gtk4::Application) {
-    // La ventana vive como qdata de la app (no se destruye al perder el foco;
-    // active_window() sería None en cuanto se cierra).
-    let win: Option<gtk4::ApplicationWindow> =
-        unsafe { app.data::<gtk4::ApplicationWindow>(WINDOW_QDATA) }.map(|p| unsafe {
-            std::ptr::read(p.as_ptr())
-        });
-    if let Some(win) = win {
+    if let Some(win) = WINDOW.with(|w| w.borrow().clone()) {
         // Ya construida: toggle. Si estaba visible, ocultar; si no, mostrar.
-        // Usar hide() (no close(), que destruye la ventana y deja el qdata
-        // apuntando a un objeto finalizado).
+        // Usar hide() (no close(), que destruye la ventana y dejaría el
+        // estado apuntando a un objeto finalizado).
         if win.is_visible() {
             win.hide();
         } else {
@@ -55,8 +55,6 @@ pub fn build_ui(app: &gtk4::Application) {
         .decorated(false)
         .build();
     window.set_size_request(680, 350);
-    // Guardar la ventana como qdata de la app para recuperarla en toggles.
-    unsafe { app.set_data(WINDOW_QDATA, window.clone()) };
 
     let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
@@ -136,12 +134,8 @@ pub fn build_ui(app: &gtk4::Application) {
 
     setup_styles(&window);
 
-    // El guard retiene la app hasta el cierre del proceso; se guarda en un
-    // thread_local (el guard no es Send/Sync) para que no se dropee al
-    // salir de build_ui (la app moriría al ocultar la ventana).
-    thread_local! {
-        static HOLD: RefCell<Option<gtk4::gio::ApplicationHoldGuard>> = RefCell::new(None);
-    }
+    // Conservar la ventana + guard de vida de la app para los toggles.
+    WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     HOLD.with(|h| *h.borrow_mut() = Some(app.hold()));
 }
 
