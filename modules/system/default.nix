@@ -158,6 +158,9 @@
     nvd
     # Gestor y comprobador de actualizaciones custom en segundo plano.
     (pkgs.callPackage ../../pkgs/nix-updates { })
+        # Toggle de autenticación SSH: `nixos-ssh` pregunta password/cert
+        # y aplica la config (misma lógica que el comando `rebuild`).
+        (pkgs.callPackage ../../pkgs/nixos-ssh { })
 
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper

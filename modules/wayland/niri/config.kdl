@@ -66,12 +66,16 @@ spawn-at-startup "wl-clip-persist" "--clipboard" "both"
 // (workaround para el bug de Chromium/Electron que no pega imágenes externas).
 spawn-at-startup "sh" "-c" "wl-paste --type text --watch cliphist store"
 spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
+// Launcher persistente: arranca oculto en segundo plano para que el bind
+// Super+Space (abajo) lo muestre al instante, sin re-inicializar GTK.
+spawn-at-startup "loon-launch"
 
 binds {
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
     // Pon tus videos en ~/Videos/Wallpapers. Con Super+B se reproduce el
     // video seteado (o el único). Para elegir: mpvpaper-wallpaper set NOMBRE.
     Super+Return { spawn "ghostty"; }
+    // Launcher: toggle del daemon persistente (arranca con spawn-at-startup).
     Super+Space { spawn "loon-launch"; }
     // Explorador de archivos (Nautilus) con Super+E, como en Windows.
     Super+E { spawn "nautilus"; }

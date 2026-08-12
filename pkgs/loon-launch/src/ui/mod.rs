@@ -1,4 +1,8 @@
 // Módulo UI: arma la ventana completa del launcher.
+//
+// El launcher es un daemon: la ventana se construye UNA vez y queda oculta.
+// Cada activate (bind Super+Space) alterna visibilidad: si está visible la
+// oculta y cierra (esc), si está oculta la presenta y enfoca la búsqueda.
 mod banner;
 mod grid;
 mod keys;
@@ -17,8 +21,20 @@ use crate::ui::styles::setup_styles;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
 pub fn build_ui(app: &gtk4::Application) {
-    // Modo oscuro global de libadwaita.
+    let window = app.active_window();
+    if let Some(win) = window {
+        // Ya construida: toggle. Si estaba visible, cerrar; si no, mostrar.
+        if win.is_visible() {
+            win.close();
+        } else {
+            present_and_focus(&win);
+        }
+        return;
+    }
+
+    // Primera vez: construir la ventana oculta (no se presenta todavía).
     let style = adw::StyleManager::default();
     style.set_color_scheme(adw::ColorScheme::ForceDark);
 
@@ -46,11 +62,6 @@ pub fn build_ui(app: &gtk4::Application) {
     // Cargar apps y poblar el grid inicial.
     let all_apps = load_apps();
     let power = power_actions();
-
-    // Mostrar la ventana ANTES de poblar el grid: el filtrado + creación
-    // de celdas (aunque sea rápido) no debe retrasar la primera aparición.
-    window.present();
-    grid_refs.grid.grab_focus();
 
     // Estado de selección y de items actuales.
     let sel_idx = Rc::new(RefCell::new(0));
@@ -114,4 +125,30 @@ pub fn build_ui(app: &gtk4::Application) {
     window.add_controller(focus_controller);
 
     setup_styles(&window);
+
+    // Mantener la instancia viva: la ventana se cierra al perder el foco,
+    // pero la app no debe terminar. Con destroy-with-parent la ventana se
+    // recrea en el siguiente activate.
+    window.set_destroy_with_parent(true);
+    app.hold();
+}
+
+/// Presenta la ventana y enfoca la búsqueda, lista para escribir.
+fn present_and_focus(window: &gtk4::Window) {
+    window.present();
+    // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
+    // previo seleccionado para poder sobrescribir de un tirón.
+    let mut stack = vec![window.upcast_ref::<gtk4::Widget>().clone()];
+    while let Some(w) = stack.pop() {
+        if let Ok(entry) = w.clone().downcast::<gtk4::Entry>() {
+            entry.grab_focus();
+            entry.select_region(0, -1);
+            return;
+        }
+        let mut child = w.first_child();
+        while let Some(c) = child {
+            stack.push(c.clone());
+            child = c.next_sibling();
+        }
+    }
 }

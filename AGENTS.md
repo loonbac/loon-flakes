@@ -102,6 +102,14 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
 2. Si es nuevo, registrarlo en `modules/services/default.nix` (`imports = [ ... ]`).
 3. `rebuild` + commit/push.
 
+### Toggle de autenticación SSH (`nixos-ssh`)
+
+El servidor SSH tiene un modo de autenticación conmutable entre `password`
+y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
+- Cambiarlo a mano: escribir `password` o `cert` en ese archivo y `rebuild`.
+- Recomendado: usar el comando `nixos-ssh` (menú interactivo + aplica solo).
+- El default del módulo (si falta el archivo/está inválido) es `cert` (seguro).
+
 ### Editar el launcher Rust (loon-launch)
 
 - **Código**: `pkgs/loon-launch/src/main.rs` (Rust, GTK4 + libadwaita).

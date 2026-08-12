@@ -75,6 +75,24 @@ rebuild update   # actualiza nixpkgs y los flakes (flake update) y aplica
 
 ---
 
+## Comando custom: `nixos-ssh`
+
+Toggle de autenticación del servidor OpenSSH. Pregunta si se quiere entrar
+por contraseña o por clave (certificado) y aplica la config con el mismo
+`nixos-rebuild switch` que `rebuild`.
+
+```bash
+nixos-ssh        # menú: password | cert | cancelar
+```
+
+- Muestra el modo actual antes de preguntar.
+- Escribe el modo en `modules/services/openssh/ssh-auth-mode` y aplica.
+- Si el rebuild falla, revierte el archivo de estado al modo anterior.
+- El módulo cae a `cert` (seguro: solo claves) si el archivo falta o inválido.
+- Código en `pkgs/nixos-ssh/default.nix`; instalado en `modules/system/default.nix`.
+
+---
+
 ## Paquetes del flake (`pkgs/`)
 
 ### `loon-launch` — app launcher (Super+Space)

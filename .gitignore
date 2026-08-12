@@ -9,3 +9,5 @@ target/
 # Symlinks de result de Nix
 result
 result-*
+# Local Pi runtime state
+.atl/
