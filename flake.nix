@@ -88,7 +88,7 @@
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
         zen-browser = zen-browser.packages.${system}.default;
-        nix-updates = pkgs.callPackage ./pkgs/nix-updates { };
+        nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
             # Toggle de autenticación SSH (password | cert) con aplicación del flake.
             nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
       };

@@ -6,6 +6,6 @@
   imports = [
     ./openssh
     ./tailscale
-    ./nix-updates
+    ./nixos-updates
   ];
 }

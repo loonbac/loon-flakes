@@ -157,7 +157,7 @@
     # Herramienta de diferencia de versiones Nix/NixOS.
     nvd
     # Gestor y comprobador de actualizaciones custom en segundo plano.
-    (pkgs.callPackage ../../pkgs/nix-updates { })
+    (pkgs.callPackage ../../pkgs/nixos-updates { })
         # Toggle de autenticación SSH: `nixos-ssh` pregunta password/cert
         # y aplica la config (misma lógica que el comando `rebuild`).
         (pkgs.callPackage ../../pkgs/nixos-ssh { })

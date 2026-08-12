@@ -14,8 +14,8 @@
       set fish_greeting
 
       # Banner de actualizaciones de paquetes disponibles en NixOS (si existen).
-      if type -q nix-updates
-        nix-updates banner
+      if type -q nixos-updates
+        nixos-updates banner
       end
 
       # Detección automática de binarios: agrega los dirs existentes.

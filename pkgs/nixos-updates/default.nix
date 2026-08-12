@@ -1,9 +1,9 @@
-# Comando custom `nix-updates`: comprueba y muestra las actualizaciones de
+# Comando custom `nixos-updates`: comprueba y muestra las actualizaciones de
 # paquetes disponibles entre la configuración actual de NixOS y remote nixpkgs.
 { pkgs, lib }:
 
 let
-  pythonScript = pkgs.writeText "nix-updates-formatter.py" ''
+  pythonScript = pkgs.writeText "nixos-updates-formatter.py" ''
 import sys
 import re
 from pathlib import Path
@@ -98,7 +98,7 @@ def format_count(count):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "parse"
-    cache_dir = Path.home() / ".cache" / "nix-updates"
+    cache_dir = Path.home() / ".cache" / "nixos-updates"
     diff_file = cache_dir / "diff.raw"
     count_file = cache_dir / "count"
     summary_file = cache_dir / "summary.txt"
@@ -156,17 +156,16 @@ def main():
                 for pl in pkg_lines[:4]:
                     print("\033[36m│\033[0m  %s" % pl)
                 print("\033[36m│\033[0m  \033[90m... y %d más\033[0m" % (len(pkg_lines) - 4))
-        print("\033[36m│\033[0m  \033[1;33m󰚰 %s\033[0m" % format_count(count))
-        print("\033[36m╰─\033[0m \033[90mEjecuta '\033[1;32mnix-updates\033[0m\033[90m' para ver el resumen o '\033[1;32mrebuild update\033[0m\033[90m' para aplicar.\033[0m\n")
+        print("\033[36m╰─\033[0m \033[90mEjecuta '\033[1;32mnixos-updates\033[0m\033[90m' para ver el resumen.\033[0m\n")
 
 if __name__ == "__main__":
     main()
 '';
 
-  script = pkgs.writeShellScriptBin "nix-updates" ''
+  script = pkgs.writeShellScriptBin "nixos-updates" ''
     set -euo pipefail
 
-    CACHE_DIR="$HOME/.cache/nix-updates"
+    CACHE_DIR="$HOME/.cache/nixos-updates"
     FLAKE_DIR="$HOME/.nixos"
     FLAKE_CACHE="$CACHE_DIR/flake"
     RESULT_LINK="$CACHE_DIR/result"
@@ -232,7 +231,7 @@ if __name__ == "__main__":
           cat "$CACHE_DIR/summary.txt"
         else
           echo "No se han verificado actualizaciones aún."
-          echo "Ejecuta 'nix-updates check' para realizar la primera búsqueda."
+          echo "Ejecuta 'nixos-updates check' para realizar la primera búsqueda."
         fi
         ;;
     esac
