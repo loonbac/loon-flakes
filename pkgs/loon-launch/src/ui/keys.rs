@@ -82,7 +82,8 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
 
             match key {
                 Key::Escape => {
-                    state.window.close();
+                    // Ocultar (no destruir: la ventana debe seguir viva).
+                    state.window.hide();
                     glib::Propagation::Stop
                 }
                 Key::Down => {

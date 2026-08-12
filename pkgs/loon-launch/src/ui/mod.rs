@@ -12,22 +12,30 @@ use gtk4::prelude::*;
 use libadwaita as adw;
 
 use crate::apps::{load_apps, power_actions};
-use crate::filter::{apply_backspace, apply_char};
-use crate::models::Item;
 use crate::ui::banner::build_banner;
 use crate::ui::grid::{build_grid, GridRefs};
 use crate::ui::keys::setup_key_controller;
 use crate::ui::styles::setup_styles;
+use glib::prelude::ObjectExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+const WINDOW_QDATA: &str = "loonlaunch-window";
+
 /// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
 pub fn build_ui(app: &gtk4::Application) {
-    let window = app.active_window();
-    if let Some(win) = window {
-        // Ya construida: toggle. Si estaba visible, cerrar; si no, mostrar.
+    // La ventana vive como qdata de la app (no se destruye al perder el foco;
+    // active_window() sería None en cuanto se cierra).
+    let win: Option<gtk4::ApplicationWindow> =
+        unsafe { app.data::<gtk4::ApplicationWindow>(WINDOW_QDATA) }.map(|p| unsafe {
+            std::ptr::read(p.as_ptr())
+        });
+    if let Some(win) = win {
+        // Ya construida: toggle. Si estaba visible, ocultar; si no, mostrar.
+        // Usar hide() (no close(), que destruye la ventana y deja el qdata
+        // apuntando a un objeto finalizado).
         if win.is_visible() {
-            win.close();
+            win.hide();
         } else {
             present_and_focus(&win);
         }
@@ -47,6 +55,8 @@ pub fn build_ui(app: &gtk4::Application) {
         .decorated(false)
         .build();
     window.set_size_request(680, 350);
+    // Guardar la ventana como qdata de la app para recuperarla en toggles.
+    unsafe { app.set_data(WINDOW_QDATA, window.clone()) };
 
     let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     window.set_child(Some(&vbox));
@@ -95,13 +105,13 @@ pub fn build_ui(app: &gtk4::Application) {
             let idx = *sel_idx.borrow();
             if idx >= 0 && (idx as usize) < items.len() {
                 let item = &items[idx as usize];
-                // Ejecutar el comando de forma independiente.
+                // Ejecutar la app seleccionada y ocultar el launcher.
                 let exec = item.exec.clone();
                 std::thread::spawn(move || {
                     let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
                 });
             }
-            window.close();
+            window.hide();
         })
     };
 
@@ -116,25 +126,27 @@ pub fn build_ui(app: &gtk4::Application) {
     };
     setup_key_controller(&window, keys_state);
 
-    // Cerrar si la ventana pierde el foco (click fuera de ella).
+    // Ocultar si la ventana pierde el foco (click fuera de ella).
     let focus_controller = gtk4::EventControllerFocus::new();
     focus_controller.connect_leave({
         let window = window.clone();
-        move |_| window.close()
+        move |_| window.hide()
     });
     window.add_controller(focus_controller);
 
     setup_styles(&window);
 
-    // Mantener la instancia viva: la ventana se cierra al perder el foco,
-    // pero la app no debe terminar. Con destroy-with-parent la ventana se
-    // recrea en el siguiente activate.
-    window.set_destroy_with_parent(true);
-    app.hold();
+    // El guard retiene la app hasta el cierre del proceso; se guarda en un
+    // thread_local (el guard no es Send/Sync) para que no se dropee al
+    // salir de build_ui (la app moriría al ocultar la ventana).
+    thread_local! {
+        static HOLD: RefCell<Option<gtk4::gio::ApplicationHoldGuard>> = RefCell::new(None);
+    }
+    HOLD.with(|h| *h.borrow_mut() = Some(app.hold()));
 }
 
 /// Presenta la ventana y enfoca la búsqueda, lista para escribir.
-fn present_and_focus(window: &gtk4::Window) {
+fn present_and_focus(window: &gtk4::ApplicationWindow) {
     window.present();
     // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
     // previo seleccionado para poder sobrescribir de un tirón.
