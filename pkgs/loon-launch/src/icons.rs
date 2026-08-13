@@ -21,7 +21,12 @@ pub fn resolve_icon(icon: &str) -> Option<gtk4::IconPaintable> {
     }
 
     let theme = ICON_THEME.with(|t| t.borrow().clone()).unwrap_or_else(|| {
-        let t = IconTheme::new();
+        // Tema global de GTK: usa el tema activo del sistema (Papirus-Dark)
+        // y los search paths de iconos. IconTheme::new() crea un tema
+        // aislado sin esos paths, y por eso no resolvía system-* ni otros.
+        let display = gtk4::gdk::Display::default()
+            .expect("no display disponible para resolver iconos");
+        let t = gtk4::IconTheme::for_display(&display);
         ICON_THEME.with(|c| *c.borrow_mut() = Some(t.clone()));
         t
     });
