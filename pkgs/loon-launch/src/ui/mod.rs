@@ -12,6 +12,7 @@ use gtk4::prelude::*;
 use libadwaita as adw;
 
 use crate::apps::{load_apps, power_actions};
+use crate::models::Item;
 use crate::ui::banner::build_banner;
 use crate::ui::grid::{build_grid, GridRefs};
 use crate::ui::keys::setup_key_controller;
@@ -30,6 +31,10 @@ thread_local! {
 
 /// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
 pub fn build_ui(app: &gtk4::Application) {
+    // Lista de apps y acciones de poder, recargadas en cada apertura.
+    let all_apps = Rc::new(RefCell::new(load_apps()));
+    let power = Rc::new(RefCell::new(power_actions()));
+
     if let Some(win) = WINDOW.with(|w| w.borrow().clone()) {
         // Ya construida: toggle. Si estaba visible, ocultar; si no, mostrar.
         // Usar hide() (no close(), que destruye la ventana y dejaría el
@@ -37,7 +42,7 @@ pub fn build_ui(app: &gtk4::Application) {
         if win.is_visible() {
             win.hide();
         } else {
-            present_and_focus(&win);
+            present_and_focus(&win, &all_apps);
         }
         return;
     }
@@ -67,15 +72,11 @@ pub fn build_ui(app: &gtk4::Application) {
     let grid_refs = build_grid();
     vbox.append(&grid_refs.scrolled);
 
-    // Cargar apps y poblar el grid inicial.
-    let all_apps = load_apps();
-    let power = power_actions();
-
     // Estado de selección y de items actuales.
     let sel_idx = Rc::new(RefCell::new(0));
     let current_items = Rc::new(RefCell::new(grid_refs.repopulate(
-        &all_apps,
-        &power,
+        &all_apps.borrow(),
+        &power.borrow(),
         "",
         &sel_idx,
     )));
@@ -89,7 +90,9 @@ pub fn build_ui(app: &gtk4::Application) {
         let sel_idx = sel_idx.clone();
         move |entry| {
             let q = entry.text().to_string();
-            *current_items.borrow_mut() = grid_refs.repopulate(&all_apps, &power, &q, &sel_idx);
+            let apps = all_apps.borrow();
+            let power = power.borrow();
+            *current_items.borrow_mut() = grid_refs.repopulate(&apps, &power, &q, &sel_idx);
         }
     });
 
@@ -140,7 +143,10 @@ pub fn build_ui(app: &gtk4::Application) {
 }
 
 /// Presenta la ventana y enfoca la búsqueda, lista para escribir.
-fn present_and_focus(window: &gtk4::ApplicationWindow) {
+/// Recarga la lista de apps primero: así las apps nuevas instaladas con
+/// rebuild aparecen sin reiniciar el daemon.
+fn present_and_focus(window: &gtk4::ApplicationWindow, all_apps: &Rc<RefCell<Vec<Item>>>) {
+    *all_apps.borrow_mut() = load_apps();
     window.present();
     // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
     // limpio para abrir siempre "fresco".
