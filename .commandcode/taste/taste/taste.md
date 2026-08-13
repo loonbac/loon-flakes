@@ -196,7 +196,7 @@ ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a
 - Cierra cada cambio de su repo `~/.nixos` con un commit de conventional commits (fix:/feat:) y el trailer `Co-authored-by: CommandCodeBot <noreply@commandcode.ai>`, ejecutado como `git -c user.name="loonbac" -c user.email="loonbac@users.noreply.github.com" commit -F - <<'EOF' ... EOF` seguido de `git push origin master`. Confidence: 0.6
 - Espera que, antes de responder a una petición, el agente consulte el historial de sesiones previas vía mem_context: su mensaje abre con la instrucción explícita "CRITICAL FIRST ACTION — before responding, call mem_context to check for prior session history" y el agente la ejecutó como primer paso. Confidence: 0.6
 - Al preguntar cuál es el mejor paquete para su instalación/configuración de NixOS (p. ej. un daemon de notificaciones: "que paquete podria ser el mejor para mi instalacion y configuracion de nixos?"), espera una recomendación basada en su setup real, no genérica: el agente revisó sus módulos existentes (niri en `modules/wayland/`, waybar con `swaync-client` ya preparado en `tray-notif.jsonc`) y eligió/instaló SwayNC por encajar directo con lo ya declarado, en vez de recomendar el daemon más popular (mako/dunst) sin mirar la config. Confidence: 0.5
-- Cuando un cambio toca varios archivos/componentes de su config (p. ej. renombrar un comando/paquete que afecta `pkgs/`, el módulo de servicio, systemd, fish, flake y el cache), espera que primero se presente el plan completo y correcto (plan mode + archivo de plan) y recién después se aplique: lo pidió explícitamente con "haz el plan primero todo correctamente y luego lo aplicas", y lo reafirmó en el cambio de waybar/swaync con "planificalo y luego proseguimos"; también lo pide para cambios MÍNIMOS de un solo archivo en su app propia ("planea el cambio" al pedir el fix de limpiar la búsqueda del launcher): entrar en plan mode, escribir el plan y recién aplicarlo, sin saltarse el plan por ser un cambio chico. Confidence: 0.75
+- Cuando un cambio toca varios archivos/componentes de su config (p. ej. renombrar un comando/paquete que afecta `pkgs/`, el módulo de servicio, systemd, fish, flake y el cache), espera que primero se presente el plan completo y correcto (plan mode + archivo de plan) y recién después se aplique: lo pidió explícitamente con "haz el plan primero todo correctamente y luego lo aplicas", y lo reafirmó en el cambio de waybar/swaync con "planificalo y luego proseguimos"; también lo pide para cambios MÍNIMOS de un solo archivo en su app propia ("planea el cambio" al pedir el fix de limpiar la búsqueda del launcher, y "planealo y aplica" para el fix de los iconos del modo de poder): entrar en plan mode, escribir el plan y recién aplicarlo, sin saltarse el plan por ser un cambio chico. Confidence: 0.8
 - Cuando pide "planea el cambio", el plan se escribe como archivo Markdown en `~/.commandcode/plans/<slug>.md` (p. ej. `loon-launch-limpiar-busqueda-al-abrir.md`) con el formato: problema → enfoque (con la justificación de por qué ese enfoque cubre todo) → cambio concreto con archivo y snippet → verificación (build/tests, smoke test con el socket de niri, `nix build .#<paquete>` + rebuild, commit + push siguiendo AGENTS.md); y tras aprobar el plan se aplica exactamente ese cambio. Confidence: 0.7
 - Quiere los banners de estado del sistema (p. ej. el de actualizaciones de NixOS) minimalistas: pidió eliminar la línea de conteo "N actualizaciones disponibles" y reducir el pie a UNA sola acción (`Ejecuta 'nixos-updates' para ver el resumen`), sin alternativas redundantes como "o 'rebuild update' para aplicar". Confidence: 0.6
 - Al renombrar un comando/paquete de su NixOS prefiere el rename COMPLETO y consistente en todo el sistema (binario, carpeta `pkgs/`, módulo `services/`, servicio/timer systemd y cache `~/.cache/...`), no solo el binario: eligió la opción "Todo el sistema" sobre "Solo el comando". Confidence: 0.55
@@ -252,6 +252,18 @@ ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a
 x a 60px). Confidence: 0.8
 ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 es laterales reducidos de 140px a 60px). Confidence: 0.8
+el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+rgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+0px a 60px). Confidence: 0.8
+es laterales reducidos de 140px a 60px). Confidence: 0.8
+el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+rgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+er (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
+px). Confidence: 0.8
 el banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 ocupando casi todo el ancho del banner (márgenes laterales reducidos de 140px a 60px). Confidence: 0.8
 rgenes laterales reducidos de 140px a 60px). Confidence: 0.8

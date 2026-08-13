@@ -145,6 +145,7 @@
     pi-coding-agent
     obs-studio
     zoom-us
+    onlyoffice-desktopeditors
     fish
     psmisc             # killall, pstree, fuser
     yazi
