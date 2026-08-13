@@ -57,6 +57,9 @@ spawn-at-startup "mpvpaper-wallpaper"
 spawn-at-startup "niri-backdrop"
 // Lanza la barra de estado Waybar.
 spawn-at-startup "waybar"
+// Daemon de notificaciones (SwayNC): captura las notificaciones del sistema
+// y las muestra como popups; el icono del tray en waybar lo controla.
+spawn-at-startup "swaync"
 // Mantiene el portapapeles Wayland al cerrar la app dueña (p. ej. tras
 // copiar una captura con la UI de niri y cerrarla, sigue pegable en otros
 // programas). Sin esto, Ctrl+V falla al cerrar la app que copió.
@@ -93,6 +96,10 @@ binds {
     // una app (p. ej. Equibop/Discord) no acepta Ctrl+V de imágenes externas
     // (bug de Chromium); eliges la captura del historial y se copia de nuevo.
     Super+Shift+V { spawn-sh "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"; }
+
+    // Centro de notificaciones (SwayNC): abre/cierra el panel con las
+    // notificaciones acumuladas (el icono del tray en waybar también).
+    Super+N { spawn "swaync-client" "-t" "-sw"; }
 
     // Brillo de pantalla con las teclas multimedia Fn+F6 / Fn+F7.
     // brightnessctl necesita root para escribir en /sys/class/backlight.

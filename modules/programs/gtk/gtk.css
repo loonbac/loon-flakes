@@ -1,7 +1,7 @@
 /* gtk.css gestionado por NixOS (módulo programs/gtk).
    El color de acento (--accent) lo sobreescribe accent-wallpaper con el
    color más llamativo del wallpaper (ver pkgs/accent-wallpaper). */
-@define-color accent #0078d7;
+@define-color accent #5e81ac;
 
 /* Nautilus: barra lateral y fondo en tono acorde al tema oscuro. */
 .nautilus-window .sidebar {

@@ -26,5 +26,9 @@
     "L+ /home/loonbac/.config/waybar/style.css - - - - /etc/waybar/style.css"
     "L+ /home/loonbac/.config/waybar/modules - - - - /etc/waybar/modules"
     "L+ /home/loonbac/.config/waybar/tokens - - - - /etc/waybar/tokens"
+    # Acento dinámico del wallpaper: lo escribe accent-wallpaper (archivo
+    # real del usuario, NO symlink). Este default (f = crea si no existe)
+    # evita que el @import de style.css falle en el primer boot.
+    "f /home/loonbac/.config/waybar/accent.css 0644 loonbac users - @define-color accent #5e81ac;\n@define-color on_accent #ffffff;\n"
   ];
 }

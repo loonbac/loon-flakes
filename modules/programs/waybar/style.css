@@ -4,6 +4,10 @@
 @import "tokens/widget.css";
 @import "tokens/batt-clock.css";
 @import "tokens/slider.css";
+/* Acento dinámico del wallpaper (lo escribe accent-wallpaper). Ruta absoluta
+   a propósito: style.css es symlink a /etc/waybar/style.css y el @import
+   relativo se resolvería contra el dir del archivo físico. */
+@import "/home/loonbac/.config/waybar/accent.css";
 
 * {
   margin: 0;

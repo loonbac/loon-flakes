@@ -143,12 +143,14 @@ pub fn build_ui(app: &gtk4::Application) {
 fn present_and_focus(window: &gtk4::ApplicationWindow) {
     window.present();
     // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
-    // previo seleccionado para poder sobrescribir de un tirón.
+    // limpio para abrir siempre "fresco".
     let mut stack = vec![window.upcast_ref::<gtk4::Widget>().clone()];
     while let Some(w) = stack.pop() {
         if let Ok(entry) = w.clone().downcast::<gtk4::Entry>() {
+            // Limpiar la búsqueda anterior (el signal `changed` re-puebla
+            // el grid con todas las apps y resetea la selección).
+            entry.set_text("");
             entry.grab_focus();
-            entry.select_region(0, -1);
             return;
         }
         let mut child = w.first_child();

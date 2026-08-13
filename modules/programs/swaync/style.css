@@ -1,0 +1,95 @@
+/* style.css de SwayNC gestionado por NixOS (módulo programs/swaync).
+   Lenguaje visual igual a waybar: fondo surface_container, esquinas de 20px,
+   borde y detalles con el acento dinámico del wallpaper (accent.css).
+   Ruta absoluta a propósito: style.css es un symlink a /etc/swaync/style.css
+   y el @import relativo se resolvería contra el dir del archivo físico. */
+@import "/home/loonbac/.config/swaync/accent.css";
+
+@define-color background #0f1416;    /* surface de matugen */
+@define-color surface #1b2023;       /* surface_container */
+@define-color surface_high #252b2d;  /* surface_container_high */
+@define-color text #dee3e6;          /* on_surface */
+@define-color text_dim #bfc8cc;      /* on_surface_variant */
+@define-color critical #f38ba8;      /* mismo rojo que state.css de waybar */
+
+* {
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 13px;
+}
+
+/* ===== Popup de notificación ===== */
+.notification {
+  background-color: @surface;
+  border-radius: 16px;
+  border: 1px solid alpha(@accent, 0.35);
+  padding: 12px 14px;
+  color: @text;
+}
+.notification.low     { border-color: alpha(@accent, 0.2); }
+.notification.normal  { border-color: alpha(@accent, 0.35); }
+.notification.critical { border-color: @critical; }
+
+.notification .notification-title {
+  color: @text;
+  font-weight: bold;
+}
+.notification .notification-content { color: @text_dim; }
+.notification .notification-time {
+  color: @text_dim;
+  font-size: 11px;
+}
+.notification .close-button {
+  color: @text_dim;
+  background: transparent;
+  border-radius: 8px;
+}
+.notification .close-button:hover { background: @surface_high; color: @text; }
+
+/* Botones de acción */
+.notification-action-buttons { margin-top: 8px; }
+.notification-action {
+  background-color: @surface_high;
+  color: @text;
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.notification-action:hover { background-color: @accent; color: @on_accent; }
+
+/* Barra de progreso (descargas, medios) */
+.notification progressbar trough {
+  background-color: @surface_high;
+  border-radius: 8px;
+  min-height: 6px;
+}
+.notification progressbar progress {
+  background-color: @accent;
+  border-radius: 8px;
+}
+
+.notification-body-image { border-radius: 12px; }
+
+/* ===== Centro de control ===== */
+.control-center {
+  background-color: @background;
+  border-radius: 20px;
+  border: 1px solid alpha(@accent, 0.35);
+  padding: 14px;
+  color: @text;
+}
+
+.control-center-header { padding: 0 4px 8px 4px; }
+.control-center-header .control-center-title { color: @text; font-weight: bold; }
+.control-center-header .control-center-clear-all { color: @accent; }
+
+.control-center .notification { margin: 4px 0; border-radius: 16px; }
+.control-center .notification-row:hover { background: transparent; }
+
+/* Widget "no molestar" */
+.dnd-button {
+  background-color: @surface;
+  color: @text_dim;
+  border-radius: 14px;
+  margin-bottom: 8px;
+}
+.dnd-button:hover { color: @text; }
+.dnd-button.dnd-active { background-color: @accent; color: @on_accent; }

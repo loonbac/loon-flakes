@@ -92,11 +92,12 @@
   margin: 3px 4px;
   background-color: @surface_container;
   border-radius: 20px;
+  border: 1px solid alpha(@accent, 0.28);
 }
 
 #custom-tray-arrow {
   padding: 5px 14px 5px 10px;
-  color: @primary;
+  color: @accent;
 }
 
 #tray {

@@ -2,8 +2,11 @@
 #
 # Toma un frame del video del fondo (con ffmpeg), analiza sus colores
 # (imagemagick) y escribe:
-#   ~/.config/mpvpaper/accent.txt  -> hex del color más llamativo (ej. #ff5722)
-#   ~/.config/niri/accent.kdl      -> override de niri (border active-color)
+#   ~/.config/mpvpaper/accent.txt    -> hex del color más llamativo (ej. #ff5722)
+#   ~/.config/niri/accent.kdl        -> override de niri (border active-color)
+#   ~/.config/gtk-4.0/gtk.css        -> override de apps GTK (selección)
+#   ~/.config/waybar/accent.css      -> acento de waybar (workspace activo, tray)
+#   ~/.config/swaync/accent.css      -> acento de notificaciones (SwayNC)
 #
 # "El más llamativo" = el color más saturado × brillante, descartando los
 # casi negros (para que el acento sea vivo, no un gris oscuro).
@@ -19,6 +22,8 @@ let
   accentFile = "$HOME/.config/mpvpaper/accent.txt";
   accentKdl = "$HOME/.config/niri/accent.kdl";
   gtkCss = "$HOME/.config/gtk-4.0/gtk.css";
+  waybarAccentCss = "$HOME/.config/waybar/accent.css";
+  swayncAccentCss = "$HOME/.config/swaync/accent.css";
 in
 pkgs.writeShellScriptBin "accent-wallpaper" ''
   set -euo pipefail
@@ -28,8 +33,12 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   ACCENT="${accentFile}"
   KDL="${accentKdl}"
   GTK_CSS="${gtkCss}"
+  WAYBAR_ACCENT="${waybarAccentCss}"
+  SWAYNC_ACCENT="${swayncAccentCss}"
   FFMPEG="${pkgs.ffmpeg}/bin/ffmpeg"
   MAGICK="${pkgs.imagemagick}/bin/magick"
+  WAYBAR="${pkgs.waybar}/bin/waybar"
+  SWAYNC_CLIENT="${pkgs.swaynotificationcenter}/bin/swaync-client"
 
   pick_video() {
     if [ -f "$STATE" ]; then
@@ -50,6 +59,15 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
       \#??????) echo "$h";;
       *) echo "$h";;
     esac
+  }
+
+  # Texto legible sobre el acento: blanco si el acento es oscuro, negro si
+  # es claro (luma perceptiva ITU-R BT.709; umbral 150 = sesgo a blanco).
+  on_accent() {
+    local hex="$1"
+    local r=$(( 16#''${hex:1:2} )); local g=$(( 16#''${hex:3:2} )); local b=$(( 16#''${hex:5:2} ))
+    local luma=$(( (r*299 + g*587 + b*114) / 1000 ))
+    [ "$luma" -gt 150 ] && echo "#000000" || echo "#ffffff"
   }
 
   analyze() {
@@ -108,15 +126,39 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     exit 1
   fi
 
-  mkdir -p "$(dirname "$ACCENT")" "$(dirname "$KDL")"
+  mkdir -p "$(dirname "$ACCENT")" "$(dirname "$KDL")" \
+           "$(dirname "$WAYBAR_ACCENT")" "$(dirname "$SWAYNC_ACCENT")"
 
-  # Escribir si cambió, o si el gtk.css aún no existe (primera vez).
-  if [ ! -f "$ACCENT" ] || [ "$(cat "$ACCENT" 2>/dev/null || true)" != "$HEX" ] || [ ! -f "$GTK_CSS" ]; then
+  # Escribir si cambió, o si algún output no tiene el hex actual (primera vez
+  # tras este upgrade: tmpfiles crea los accent.css con el default #5e81ac).
+  if [ ! -f "$ACCENT" ] || [ "$(cat "$ACCENT" 2>/dev/null || true)" != "$HEX" ] \
+     || ! grep -q "$HEX" "$GTK_CSS" 2>/dev/null \
+     || ! grep -q "$HEX" "$WAYBAR_ACCENT" 2>/dev/null \
+     || ! grep -q "$HEX" "$SWAYNC_ACCENT" 2>/dev/null; then
     echo "$HEX" > "$ACCENT"
     printf 'layout {\n    border {\n        active-color "%s"\n    }\n}\n' "$HEX" > "$KDL"
     # gtk.css: color de acento para apps GTK (Nautilus selección, etc.).
     mkdir -p "$(dirname "$GTK_CSS")"
     printf '@define-color accent %s;\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {\n    background-color: @accent;\n    color: #ffffff;\n}\n' "$HEX" > "$GTK_CSS"
+    # Acento para waybar y SwayNC (archivos reales del usuario; el default
+    # inicial lo crea tmpfiles en el boot).
+    ON_ACCENT="$(on_accent "$HEX")"
+    printf '@define-color accent %s;\n@define-color on_accent %s;\n' "$HEX" "$ON_ACCENT" > "$WAYBAR_ACCENT"
+    printf '@define-color accent %s;\n@define-color on_accent %s;\n' "$HEX" "$ON_ACCENT" > "$SWAYNC_ACCENT"
     echo "Acento: $HEX"
+
+    # ---- Propagación en vivo ----
+    # niri recarga accent.kdl solo (lo vigila). GTK no aplica en vivo.
+    # waybar: restart controlado — recarga config.jsonc + style.css (incluido
+    # accent.css). niri no lo respawnea (spawn-at-startup solo al inicio de
+    # sesión), por eso lo relanzamos con setsid. Alternativa ligera si la
+    # versión instalada refresca CSS con señal: killall -SIGUSR2 waybar.
+    if pgrep -x waybar >/dev/null 2>&1; then
+      pkill -x waybar
+      sleep 0.3
+      setsid "$WAYBAR" >/dev/null 2>&1 &
+    fi
+    # swaync: recarga config + CSS en el daemon en ejecución.
+    "$SWAYNC_CLIENT" -R 2>/dev/null || true
   fi
 ''

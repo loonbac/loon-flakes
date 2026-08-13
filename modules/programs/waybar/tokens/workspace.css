@@ -20,8 +20,8 @@
 #workspaces button.active {
   padding: 0 12px;
   margin: 0 2px;
-  background-color: @primary;
-  color: @on_primary;
+  background-color: @accent;
+  color: @on_accent;
 }
 
 #workspaces button.special {
@@ -34,8 +34,8 @@
 }
 
 #workspaces button.active:hover {
-  background-color: @primary;
-  color: @on_primary;
+  background-color: @accent;
+  color: @on_accent;
 }
 
 #workspaces button.empty {

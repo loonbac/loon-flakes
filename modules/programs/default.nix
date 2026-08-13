@@ -7,6 +7,7 @@
     ./fish
     ./ghostty
     ./waybar
+    ./swaync
     ./equibop
     ./nautilus
     ./gtk
