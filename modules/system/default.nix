@@ -145,12 +145,13 @@
     pi-coding-agent
     obs-studio
     zoom-us
-    # ONLYOFFICE: wrapper que apunta a XWayland (xwayland-satellite) porque
-    # su Qt embebido no soporta Wayland (QT_QPA_PLATFORM=xcb forzado en nixpkgs).
-    (pkgs.callPackage ../../pkgs/onlyoffice-fix { })
+    # ONLYOFFICE: usa el X11 display :0 del xwayland-satellite nativo de niri
+    # (su Qt embebido no soporta Wayland; niri exporta DISPLAY=:0 a la sesión).
+    # El paquete original trae su .desktop para que aparezca en loon-launch.
+    onlyoffice-desktopeditors
     # XWayland rootless: display X11 para apps que solo soportan X11/Qt-xcb
-    # (ONLYOFFICE incluye Qt embebido sin soporte Wayland). Lo lanza niri
-    # en spawn-at-startup (config.kdl) y crea el socket /tmp/.X11-unix/X0.
+    # (ONLYOFFICE incluye Qt embebido sin soporte Wayland). niri lo lanza
+    # automáticamente (socket activation, display :0) si está en PATH.
     xwayland-satellite
     fish
     psmisc             # killall, pstree, fuser
