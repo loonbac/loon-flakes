@@ -145,6 +145,9 @@
     pi-coding-agent
     obs-studio
     zoom-us
+    # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
+    # ver y controlar el PC desde otros dispositivos.
+    moonlight-qt
     # ONLYOFFICE: usa el X11 display :0 del xwayland-satellite nativo de niri
     # (su Qt embebido no soporta Wayland; niri exporta DISPLAY=:0 a la sesión).
     # El paquete original trae su .desktop para que aparezca en loon-launch.
