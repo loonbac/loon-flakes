@@ -25,6 +25,12 @@ use std::rc::Rc;
 /// ventana en qdata con ptr::read corrompía el refcount del wrapper.
 thread_local! {
     static WINDOW: RefCell<Option<gtk4::ApplicationWindow>> = RefCell::new(None);
+    // Refs del grid para repoblar al presentar (misma vida que la ventana).
+    static GRID_REFS: RefCell<Option<GridRefs>> = RefCell::new(None);
+    // Items mostrados actualmente (los que ejecuta `run_selected`).
+    static CURRENT_ITEMS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
+    // Índice de selección compartido con la navegación de teclado.
+    static SEL_IDX: RefCell<Option<Rc<RefCell<i32>>>> = RefCell::new(None);
     // El guard no es Send/Sync ni Clone: se retiene aquí aparte.
     static HOLD: RefCell<Option<gtk4::gio::ApplicationHoldGuard>> = RefCell::new(None);
 }
@@ -71,15 +77,18 @@ pub fn build_ui(app: &gtk4::Application) {
     // Grid de apps con scroll horizontal.
     let grid_refs = build_grid();
     vbox.append(&grid_refs.scrolled);
+    GRID_REFS.with(|g| *g.borrow_mut() = Some(grid_refs.clone()));
 
     // Estado de selección y de items actuales.
     let sel_idx = Rc::new(RefCell::new(0));
+    SEL_IDX.with(|s| *s.borrow_mut() = Some(sel_idx.clone()));
     let current_items = Rc::new(RefCell::new(grid_refs.repopulate(
         &all_apps.borrow(),
         &power.borrow(),
         "",
         &sel_idx,
     )));
+    CURRENT_ITEMS.with(|c| *c.borrow_mut() = Some(current_items.clone()));
 
     // Al escribir, re-filtrar el grid.
     entry.connect_changed({
@@ -144,9 +153,40 @@ pub fn build_ui(app: &gtk4::Application) {
 
 /// Presenta la ventana y enfoca la búsqueda, lista para escribir.
 /// Recarga la lista de apps primero: así las apps nuevas instaladas con
-/// rebuild aparecen sin reiniciar el daemon.
+/// rebuild aparecen sin reiniciar el daemon. Se repuebla el grid de forma
+/// explícita (no depende del signal `changed` de la entry: si la búsqueda
+/// ya estaba vacía, `set_text("")` no dispara el signal y el grid
+/// conservaría los items viejos).
 fn present_and_focus(window: &gtk4::ApplicationWindow, all_apps: &Rc<RefCell<Vec<Item>>>) {
+    // Recargar la lista de apps: las apps nuevas instaladas con rebuild
+    // aparecen sin reiniciar el daemon.
     *all_apps.borrow_mut() = load_apps();
+
+    // Repoblar el grid de forma explícita. No se depende del signal
+    // `changed` de la entry: si la búsqueda ya estaba vacía, `set_text("")`
+    // no lo dispara y el grid conservaría los items viejos. Se reutiliza el
+    // mismo sel_idx (el Rc original) para no desincronizar la navegación.
+    let apps = all_apps.borrow();
+    let power = power_actions();
+    let sel_idx = SEL_IDX.with(|s| {
+        s.borrow()
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| Rc::new(RefCell::new(0)))
+    });
+    let shown = GRID_REFS.with(|g| {
+        g.borrow()
+            .as_ref()
+            .map(|grid_refs| grid_refs.repopulate(&apps, &power, "", &sel_idx))
+            .unwrap_or_default()
+    });
+    CURRENT_ITEMS.with(|c| {
+        if let Some(items) = c.borrow().as_ref() {
+            *items.borrow_mut() = shown;
+        }
+    });
+    drop(apps);
+
     window.present();
     // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
     // limpio para abrir siempre "fresco".
