@@ -112,6 +112,7 @@ tooltip label {
 #mpris,
 #memory,
 #backlight,
+#custom-backlight,
 #bluetooth,
 #pulseaudio,
 #custom-omarchy,
@@ -173,7 +174,8 @@ tooltip label {
 }
 
 /* Backlight */
-#backlight {
+#backlight,
+#custom-backlight {
   color: @foreground;
 }
 

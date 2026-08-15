@@ -83,7 +83,7 @@
           accent-wallpaper = pkgs.callPackage ./pkgs/accent-wallpaper { };
         };
         # Tema de cursor Vision (blanco/negro) — paquetes propios del flake.
-        vision-cursor = pkgs.callPackage ./pkgs/vision-cursor { };
+        vision-cursor = (pkgs.callPackage ./pkgs/vision-cursor { }).white;
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
@@ -92,6 +92,10 @@
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
         # Notificador de batería baja crítica (<=10%)
         battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
+        # Lanza apps de Android (Waydroid) levantando contenedor+sesión bajo demanda.
+        waydroid-app = pkgs.callPackage ./pkgs/waydroid-app { };
+        # Control de brillo con suelo mínimo del 10% remapeado a 0%
+        screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
       };
 
       nixosConfigurations = {

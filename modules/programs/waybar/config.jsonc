@@ -34,7 +34,7 @@
   "group/right1": {
     "orientation": "inherit",
     "modules": [
-      "backlight",
+      "custom/backlight",
       "bluetooth",
       "pulseaudio#output",
       "pulseaudio#input",
@@ -133,13 +133,20 @@
     "spacing": 8
   },
 
-  "backlight": {
-    "device": "intel_backlight",
-    "format": "{icon} {percent}%",
-    "tooltip-format": "Brillo: {percent}%",
-    "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "on-scroll-up": "brightnessctl set +5%",
-    "on-scroll-down": "brightnessctl --min-value=9600 set 5%-"
+  "custom/backlight": {
+    "format": "{icon} {text}",
+    "format-icons": {
+      "low": "󰃞",
+      "medium": "󰃟",
+      "high": "󰃠"
+    },
+    "return-type": "json",
+    "exec": "screen-brightness json",
+    "on-scroll-up": "screen-brightness up 5",
+    "on-scroll-down": "screen-brightness down 5",
+    "signal": 8,
+    "interval": 1,
+    "tooltip": true
   },
 
   "bluetooth": {

@@ -175,6 +175,7 @@
     xwayland-satellite
     fish
     psmisc             # killall, pstree, fuser
+    lzip               # compresión lz (requisito de waydroid_script)
     yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
@@ -192,6 +193,8 @@
         # Alertas de batería baja crítica (<=10%)
         libnotify
         (pkgs.callPackage ../../pkgs/battery-notify { })
+        # Control de brillo con escala 0%-100% remapeada
+        (pkgs.callPackage ../../pkgs/screen-brightness { })
 
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper

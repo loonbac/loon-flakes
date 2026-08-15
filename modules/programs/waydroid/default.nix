@@ -18,6 +18,10 @@
 # red del contenedor a nftables y arranca sin ip_tables.
 { config, lib, pkgs, ... }:
 
+let
+  # Wrapper que levanta contenedor+sesión bajo demanda (paquete del flake).
+  waydroid-app = pkgs.callPackage ../../../pkgs/waydroid-app { };
+in
 {
   virtualisation.waydroid.enable = true;
   virtualisation.waydroid.package = pkgs.waydroid-nftables;
@@ -29,5 +33,44 @@
 
   users.users.loonbac.extraGroups = [ "waydroid" ];
 
-  environment.systemPackages = [ pkgs.waydroid ];
+  environment.systemPackages = [ pkgs.waydroid waydroid-app ];
+
+  # Arrancar el contenedor al boot: sí, pero SIN ventana. Es lo que permite
+  # que "abrir TikTok" funcione de una — el contenedor está listo y solo hay
+  # que levantar la sesión (rápido). Sin esto, la primera apertura tardaría
+  # en bootear Android.
+  systemd.services.waydroid-container.wantedBy = lib.mkForce [ "multi-user.target" ];
+
+  # El wrapper waydroid-app necesita arrancar el contenedor sin contraseña
+  # cuando está caído (systemctl start waydroid-container).
+  security.polkit.extraConfig = ''
+    polkit.addRule(function(action, subject) {
+      if (action.id == "org.freedesktop.systemd1.manage-units" &&
+          subject.user == "loonbac" &&
+          action.lookup("unit") == "waydroid-container.service") {
+        return polkit.Result.YES;
+      }
+    });
+  '';
+
+  # .desktop persistente para TikTok: lanza vía waydroid-app (levanta
+  # contenedor+sesión bajo demanda). El .desktop que genera Waydroid en
+  # ~/.local/share/applications apunta a `waydroid app launch` directo, que
+  # falla si la sesión no está corriendo.
+  environment.etc."waydroid/tiktok.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=TikTok
+    Comment=Android TikTok (Waydroid)
+    Exec=waydroid-app com.zhiliaoapp.musically
+    Icon=/home/loonbac/.local/share/waydroid/data/icons/com.zhiliaoapp.musically.png
+    Categories=X-WayDroid-App;
+    Terminal=false
+  '';
+
+  # Instalar el .desktop en el home del usuario (ruta absoluta: systemd no
+  # expande ~ en tmpfiles).
+  systemd.tmpfiles.rules = [
+    "L+ /home/loonbac/.local/share/applications/tiktok.desktop - - - - /etc/waydroid/tiktok.desktop"
+  ];
 }
