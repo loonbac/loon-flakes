@@ -21,141 +21,142 @@ let
   backdropState = "$HOME/.config/mpvpaper/backdrop.txt";
 
   paletteExtractor = pkgs.writeText "extract-palette.py" ''
-    import sys
-    import os
-    import subprocess
-    import colorsys
+import sys
+import os
+import subprocess
+import colorsys
 
-    def hex_to_rgb(h):
-        h = h.lstrip('#')
-        return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+def hex_to_rgb(h):
+    h = h.lstrip('#')
+    return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
 
-    def rgb_to_hex(r, g, b):
-        return '#{:02X}{:02X}{:02X}'.format(
-            max(0, min(255, int(round(r * 255)))),
-            max(0, min(255, int(round(g * 255)))),
-            max(0, min(255, int(round(b * 255))))
-        )
+def rgb_to_hex(r, g, b):
+    return '#{:02X}{:02X}{:02X}'.format(
+        max(0, min(255, int(round(r * 255)))),
+        max(0, min(255, int(round(g * 255)))),
+        max(0, min(255, int(round(g * 255))))
+    )
 
-    def get_luma(r, g, b):
-        return 0.299 * r + 0.587 * g + 0.114 * b
+def get_luma(r, g, b):
+    return 0.299 * r + 0.587 * g + 0.114 * b
 
-    def main():
-        if len(sys.argv) < 2:
-            sys.exit(1)
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(1)
+    
+    img_path = sys.argv[1]
+    home = os.environ.get('HOME', '/home/loonbac')
+    magick_bin = sys.argv[2] if len(sys.argv) > 2 else "magick"
+    
+    cmd = [magick_bin, img_path, '-colors', '16', '-format', '%c', 'histogram:info:']
+    try:
+        out = subprocess.check_output(cmd, text=True)
+    except Exception as e:
+        print(f"Error ejecutando ImageMagick: {e}", file=sys.stderr)
+        sys.exit(1)
         
-        img_path = sys.argv[1]
-        home = os.environ.get('HOME', '/home/loonbac')
-        magick_bin = sys.argv[2] if len(sys.argv) > 2 else "magick"
-        
-        cmd = [magick_bin, img_path, '-colors', '16', '-format', '%c', 'histogram:info:']
+    colors = []
+    for line in out.strip().splitlines():
+        parts = line.strip().split()
+        if not parts:
+            continue
         try:
-            out = subprocess.check_output(cmd, text=True)
-        except Exception as e:
-            print(f"Error ejecutando ImageMagick: {e}", file=sys.stderr)
-            sys.exit(1)
-            
-        colors = []
-        for line in out.strip().splitlines():
-            parts = line.strip().split()
-            if not parts:
-                continue
-            try:
-                count = int(parts[0].rstrip(':'))
-            except ValueError:
-                continue
-            hex_candidates = [p for p in parts if p.startswith('#')]
-            if not hex_candidates:
-                continue
-            hex_val = hex_candidates[0][:7].upper()
-            if len(hex_val) != 7:
-                continue
-            try:
-                r, g, b = hex_to_rgb(hex_val)
-            except Exception:
-                continue
-            h, s, v = colorsys.rgb_to_hsv(r, g, b)
-            luma = get_luma(r, g, b)
-            colors.append({'count': count, 'hex': hex_val, 'r': r, 'g': g, 'b': b, 'h': h, 's': s, 'v': v, 'luma': luma})
-            
-        if not colors:
-            print("No se pudieron extraer colores", file=sys.stderr)
-            sys.exit(1)
-            
-        # 1. Accent: color más llamativo (alta saturación y buen brillo)
-        accent_candidates = [c for c in colors if c['s'] >= 0.20 and 0.25 <= c['luma'] <= 0.85]
-        if accent_candidates:
-            accent_candidates.sort(key=lambda c: (c['s'] ** 1.2) * c['luma'] * (c['count'] ** 0.3), reverse=True)
-            accent = accent_candidates[0]
-        else:
-            colors_by_sat = sorted(colors, key=lambda c: c['s'] * c['luma'], reverse=True)
-            accent = colors_by_sat[0] if colors_by_sat else {'hex': '#5E81AC', 'r': 0.37, 'g': 0.51, 'b': 0.67, 'h': 0.58, 's': 0.45, 'v': 0.67, 'luma': 0.5}
-            
-        accent_hex = accent['hex']
-        accent_h = accent.get('h', 0.58)
+            count = int(parts[0].rstrip(':'))
+        except ValueError:
+            continue
+        hex_candidates = [p for p in parts if p.startswith('#')]
+        if not hex_candidates:
+            continue
+        hex_val = hex_candidates[0][:7].upper()
+        if len(hex_val) != 7:
+            continue
+        try:
+            r, g, b = hex_to_rgb(hex_val)
+        except Exception:
+            continue
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+        luma = get_luma(r, g, b)
+        colors.append({'count': count, 'hex': hex_val, 'r': r, 'g': g, 'b': b, 'h': h, 's': s, 'v': v, 'luma': luma})
         
-        # 2. Highlight / Color secundario de acento
-        highlight_candidates = [c for c in colors if c['hex'] != accent_hex and abs(c['h'] - accent_h) > 0.08 and c['s'] >= 0.15]
-        if highlight_candidates:
-            highlight_candidates.sort(key=lambda c: c['s'] * c['luma'], reverse=True)
-            highlight_hex = highlight_candidates[0]['hex']
-        else:
-            h_shift = (accent_h + 0.33) % 1.0
-            hr, hg, hb = colorsys.hsv_to_rgb(h_shift, max(0.4, accent.get('s', 0.4)), max(0.6, accent.get('v', 0.6)))
-            highlight_hex = rgb_to_hex(hr, hg, hb)
-            
-        # 3. Background y Surface: tono oscuro profundo y elegante derivado del wallpaper
-        dark_colors = [c for c in colors if c['luma'] < 0.30]
-        if dark_colors:
-            dark_colors.sort(key=lambda c: c['count'], reverse=True)
-            base_dark = dark_colors[0]
-            dh, ds, dv = colorsys.rgb_to_hsv(base_dark['r'], base_dark['g'], base_dark['b'])
-            bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.10)
-            surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.16)
-        else:
-            bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.10)
-            surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.16)
-            
-        bg_hex = rgb_to_hex(bg_r, bg_g, bg_b)
-        surface_hex = rgb_to_hex(surface_r, surface_g, surface_b)
+    if not colors:
+        print("No se pudieron extraer colores", file=sys.stderr)
+        sys.exit(1)
         
-        # 4. Foreground: blanco roto nítido tintado con el matiz del wallpaper
-        fg_r, fg_g, fg_b = colorsys.hsv_to_rgb(accent_h, 0.06, 0.94)
-        fg_hex = rgb_to_hex(fg_r, fg_g, fg_b)
+    # 1. Accent: color más llamativo (alta saturación y buen brillo)
+    accent_candidates = [c for c in colors if c['s'] >= 0.20 and 0.25 <= c['luma'] <= 0.85]
+    if accent_candidates:
+        accent_candidates.sort(key=lambda c: (c['s'] ** 1.2) * c['luma'] * (c['count'] ** 0.3), reverse=True)
+        accent = accent_candidates[0]
+    else:
+        colors_by_sat = sorted(colors, key=lambda c: c['s'] * c['luma'], reverse=True)
+        accent = colors_by_sat[0] if colors_by_sat else {'hex': '#5E81AC', 'r': 0.37, 'g': 0.51, 'b': 0.67, 'h': 0.58, 's': 0.45, 'v': 0.67, 'luma': 0.5}
         
-        # 5. Muted / Color sutil
-        muted_r, muted_g, muted_b = colorsys.hsv_to_rgb(accent_h, 0.15, 0.55)
-        muted_hex = rgb_to_hex(muted_r, muted_g, muted_b)
+    accent_hex = accent['hex']
+    accent_h = accent.get('h', 0.58)
+    
+    # 2. Highlight / Color secundario de acento
+    highlight_candidates = [c for c in colors if c['hex'] != accent_hex and abs(c['h'] - accent_h) > 0.08 and c['s'] >= 0.15]
+    if highlight_candidates:
+        highlight_candidates.sort(key=lambda c: c['s'] * c['luma'], reverse=True)
+        highlight_hex = highlight_candidates[0]['hex']
+    else:
+        h_shift = (accent_h + 0.33) % 1.0
+        hr, hg, hb = colorsys.hsv_to_rgb(h_shift, max(0.4, accent.get('s', 0.4)), max(0.6, accent.get('v', 0.6)))
+        highlight_hex = rgb_to_hex(hr, hg, hb)
         
-        # 6. Alertas / Estados
-        warn_r, warn_g, warn_b = colorsys.hsv_to_rgb(0.10, 0.70, 0.90)
-        crit_r, crit_g, crit_b = colorsys.hsv_to_rgb(0.97, 0.65, 0.90)
-        warn_hex = rgb_to_hex(warn_r, warn_g, warn_b)
-        crit_hex = rgb_to_hex(crit_r, crit_g, crit_b)
+    # 3. Background y Surface: tono oscuro profundo y elegante derivado del wallpaper
+    dark_colors = [c for c in colors if c['luma'] < 0.30]
+    if dark_colors:
+        dark_colors.sort(key=lambda c: c['count'], reverse=True)
+        base_dark = dark_colors[0]
+        dh, ds, dv = colorsys.rgb_to_hsv(base_dark['r'], base_dark['g'], base_dark['b'])
+        bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.10)
+        surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.16)
+    else:
+        bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.10)
+        surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.16)
         
-        on_accent_hex = '#000000' if accent['luma'] > 0.55 else '#FFFFFF'
+    bg_hex = rgb_to_hex(bg_r, bg_g, bg_b)
+    surface_hex = rgb_to_hex(surface_r, surface_g, surface_b)
+    
+    # 4. Foreground: blanco roto nítido tintado con el matiz del wallpaper
+    fg_r, fg_g, fg_b = colorsys.hsv_to_rgb(accent_h, 0.06, 0.94)
+    fg_hex = rgb_to_hex(fg_r, fg_g, fg_b)
+    
+    # 5. Muted / Color sutil
+    muted_r, muted_g, muted_b = colorsys.hsv_to_rgb(accent_h, 0.15, 0.55)
+    muted_hex = rgb_to_hex(muted_r, muted_g, muted_b)
+    
+    # 6. Alertas / Estados
+    warn_r, warn_g, warn_b = colorsys.hsv_to_rgb(0.10, 0.70, 0.90)
+    crit_r, crit_g, crit_b = colorsys.hsv_to_rgb(0.97, 0.65, 0.90)
+    warn_hex = rgb_to_hex(warn_r, warn_g, warn_b)
+    crit_hex = rgb_to_hex(crit_r, crit_g, crit_b)
+    
+    on_accent_hex = '#000000' if accent['luma'] > 0.55 else '#FFFFFF'
+    
+    # Rutas de destino
+    accent_txt_path = os.path.join(home, '.config/mpvpaper/accent.txt')
+    niri_kdl_path = os.path.join(home, '.config/niri/accent.kdl')
+    gtk_css_path = os.path.join(home, '.config/gtk-4.0/gtk.css')
+    waybar_colors_path = os.path.join(home, '.config/waybar/colors.css')
+    waybar_accent_path = os.path.join(home, '.config/waybar/accent.css')
+    swaync_accent_path = os.path.join(home, '.config/swaync/accent.css')
+    hypr_colors_path = os.path.join(home, '.config/hypr/colors.conf')
+    
+    for p in [accent_txt_path, niri_kdl_path, gtk_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path, hypr_colors_path]:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
         
-        # Rutas de destino
-        accent_txt_path = os.path.join(home, '.config/mpvpaper/accent.txt')
-        niri_kdl_path = os.path.join(home, '.config/niri/accent.kdl')
-        gtk_css_path = os.path.join(home, '.config/gtk-4.0/gtk.css')
-        waybar_colors_path = os.path.join(home, '.config/waybar/colors.css')
-        waybar_accent_path = os.path.join(home, '.config/waybar/accent.css')
-        swaync_accent_path = os.path.join(home, '.config/swaync/accent.css')
+    with open(accent_txt_path, 'w') as f:
+        f.write(accent_hex + '\n')
         
-        for p in [accent_txt_path, niri_kdl_path, gtk_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path]:
-            os.makedirs(os.path.dirname(p), exist_ok=True)
-            
-        with open(accent_txt_path, 'w') as f:
-            f.write(accent_hex + '\n')
-            
-        with open(niri_kdl_path, 'w') as f:
-            f.write(f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
-            
-        with open(gtk_css_path, 'w') as f:
-            f.write(f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
-            
-        waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
+    with open(niri_kdl_path, 'w') as f:
+        f.write(f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
+        
+    with open(gtk_css_path, 'w') as f:
+        f.write(f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
+        
+    waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
 @define-color background {bg_hex};
 @define-color background_alt {surface_hex};
 @define-color surface {surface_hex};
@@ -185,20 +186,36 @@ let
 @define-color color14 {highlight_hex};
 @define-color color15 {fg_hex};
 """
-        with open(waybar_colors_path, 'w') as f:
-            f.write(waybar_colors_content)
-            
-        with open(waybar_accent_path, 'w') as f:
-            f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
-            
-        with open(swaync_accent_path, 'w') as f:
-            f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
-            
-        print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
+    with open(waybar_colors_path, 'w') as f:
+        f.write(waybar_colors_content)
+        
+    with open(waybar_accent_path, 'w') as f:
+        f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+        
+    with open(swaync_accent_path, 'w') as f:
+        f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+        
+    hypr_colors_content = f"""# Paleta dinámica generada desde el wallpaper
+$accent = rgb({accent_hex.lstrip('#')})
+$accent_alpha = rgba({accent_hex.lstrip('#')}ff)
+$on_accent = rgb({on_accent_hex.lstrip('#')})
+$background = rgb({bg_hex.lstrip('#')})
+$surface = rgb({surface_hex.lstrip('#')})
+$surface_alpha = rgba({surface_hex.lstrip('#')}cc)
+$foreground = rgb({fg_hex.lstrip('#')})
+$highlight = rgb({highlight_hex.lstrip('#')})
+$muted = rgb({muted_hex.lstrip('#')})
+$warning = rgb({warn_hex.lstrip('#')})
+$critical = rgb({crit_hex.lstrip('#')})
+"""
+    with open(hypr_colors_path, 'w') as f:
+        f.write(hypr_colors_content)
+        
+    print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
 
-    if __name__ == "__main__":
-        main()
-  '';
+if __name__ == "__main__":
+    main()
+'';
 in
 pkgs.writeShellScriptBin "accent-wallpaper" ''
   set -euo pipefail

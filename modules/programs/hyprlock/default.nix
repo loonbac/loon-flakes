@@ -23,5 +23,7 @@
     "d /home/loonbac/.config/hypr 0755 loonbac users -"
     "L+ /home/loonbac/.config/hypr/hyprlock.conf - - - - /etc/hypr/hyprlock.conf"
     "L+ /home/loonbac/.config/hypr/hypridle.conf - - - - /etc/hypr/hypridle.conf"
+    # Acento dinámico: lo escribe accent-wallpaper; este default evita que el source falle en el primer boot.
+    "f /home/loonbac/.config/hypr/colors.conf 0644 loonbac users - $accent = rgb(5e81ac)\n$accent_alpha = rgba(5e81acff)\n$on_accent = rgb(ffffff)\n$background = rgb(1e1e2e)\n$surface = rgb(2e3440)\n$surface_alpha = rgba(2e3440cc)\n$foreground = rgb(eceff4)\n$highlight = rgb(88c0d0)\n$muted = rgb(d8dee9)\n$warning = rgb(ebcb8b)\n$critical = rgb(bf616a)\n"
   ];
 }
