@@ -19,12 +19,23 @@
 { config, lib, pkgs, ... }:
 
 let
+  # waydroid parcheado con nftables y con shebangs apuntando al shell de Nix
+  waydroidPkg = pkgs.waydroid-nftables.overrideAttrs (old: {
+    postFixup = (old.postFixup or "") + ''
+      if [ -f "$out/lib/waydroid/data/scripts/.waydroid-net.sh-wrapped" ]; then
+        sed -i '1s|^#!/bin/sh|#!${pkgs.bash}/bin/sh|' "$out/lib/waydroid/data/scripts/.waydroid-net.sh-wrapped"
+      fi
+    '';
+  });
+
   # Wrapper que levanta contenedor+sesión bajo demanda (paquete del flake).
-  waydroid-app = pkgs.callPackage ../../../pkgs/waydroid-app { };
+  waydroid-app = pkgs.callPackage ../../../pkgs/waydroid-app {
+    waydroid = waydroidPkg;
+  };
 in
 {
   virtualisation.waydroid.enable = true;
-  virtualisation.waydroid.package = pkgs.waydroid-nftables;
+  virtualisation.waydroid.package = waydroidPkg;
 
   # Acceso al contenedor sin sudo: el cliente waydroid habla por D-Bus con el
   # servicio waydroid-container y los nodos /dev/binder* (controlados por
@@ -33,7 +44,7 @@ in
 
   users.users.loonbac.extraGroups = [ "waydroid" ];
 
-  environment.systemPackages = [ pkgs.waydroid waydroid-app ];
+  environment.systemPackages = [ waydroidPkg waydroid-app ];
 
   # Arrancar el contenedor al boot: sí, pero SIN ventana. Es lo que permite
   # que "abrir TikTok" funcione de una — el contenedor está listo y solo hay

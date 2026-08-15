@@ -11,7 +11,7 @@
 #   - El usuario puede controlar waydroid-container sin sudo vía polkit
 #     (regla en modules/programs/waydroid/default.nix).
 #   - El contenedor debe estar inicializado (waydroid init ya hecho).
-{ pkgs, lib }:
+{ pkgs, lib, waydroid ? pkgs.waydroid-nftables }:
 
 pkgs.writeShellScriptBin "waydroid-app" ''
   set -eu
@@ -22,7 +22,7 @@ pkgs.writeShellScriptBin "waydroid-app" ''
     exit 1
   fi
 
-  WAYDROID="${pkgs.waydroid-nftables}/bin/waydroid"
+  WAYDROID="${waydroid}/bin/waydroid"
   SLEEP="${pkgs.coreutils}/bin/sleep"
 
   # 1. Contenedor: si el servicio no está activo, arrancarlo.

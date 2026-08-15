@@ -34,7 +34,6 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # ---- Compatibilidad FHS para scripts de Node/npm (ej. gentle-pi busca /bin/tar y /usr/bin/tar) ----
-  services.envfs.enable = true;
   systemd.tmpfiles.rules = [
     "L+ /bin/tar - - - - ${pkgs.gnutar}/bin/tar"
     "L+ /usr/bin/tar - - - - ${pkgs.gnutar}/bin/tar"

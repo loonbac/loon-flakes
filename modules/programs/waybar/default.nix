@@ -30,7 +30,7 @@ in
     # Paleta dinámica del wallpaper: la escribe accent-wallpaper (archivo
     # real del usuario, NO symlink). Estos defaults (f = crea si no existe)
     # evitan que el @import de style.css falle en el primer boot.
-    "f /home/loonbac/.config/waybar/colors.css 0644 loonbac users - @define-color background #11181A;\n@define-color background_alt #1B2629;\n@define-color surface #1B2629;\n@define-color foreground #F0EDE1;\n@define-color accent #AB9A5E;\n@define-color on_accent #000000;\n@define-color highlight #7679C6;\n@define-color muted #8C8877;\n@define-color warning #E6A545;\n@define-color critical #E6506B;\n@define-color transparent transparent;\n"
-    "f /home/loonbac/.config/waybar/accent.css 0644 loonbac users - @define-color accent #AB9A5E;\n@define-color on_accent #000000;\n"
+    "f /home/loonbac/.config/waybar/colors.css 0644 loonbac users - @define-color background #11181A; @define-color background_alt #1B2629; @define-color surface #1B2629; @define-color foreground #F0EDE1; @define-color accent #AB9A5E; @define-color on_accent #000000; @define-color highlight #7679C6; @define-color muted #8C8877; @define-color warning #E6A545; @define-color critical #E6506B; @define-color transparent transparent;"
+    "f /home/loonbac/.config/waybar/accent.css 0644 loonbac users - @define-color accent #AB9A5E; @define-color on_accent #000000;"
   ];
 }

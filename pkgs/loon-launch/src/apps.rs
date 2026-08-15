@@ -30,8 +30,13 @@ pub fn load_apps() -> Vec<Item> {
         }
     }
 
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    apps.dedup_by(|a, b| a.name == b.name && a.exec == b.exec);
+    apps.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then_with(|| b.exec.contains("waydroid-app").cmp(&a.exec.contains("waydroid-app")))
+    });
+    apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
     apps
 }
 

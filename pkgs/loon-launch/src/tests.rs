@@ -87,3 +87,28 @@ fn char_and_backspace_edit_text() {
     assert_eq!(apply_backspace("gho"), "gh");
     assert_eq!(apply_backspace(""), "");
 }
+
+#[test]
+fn dedup_prefers_waydroid_app_wrapper() {
+    let mut apps = vec![
+        Item {
+            name: "TikTok".to_string(),
+            exec: "waydroid app launch com.zhiliaoapp.musically".to_string(),
+            icon: "x".to_string(),
+        },
+        Item {
+            name: "TikTok".to_string(),
+            exec: "waydroid-app com.zhiliaoapp.musically".to_string(),
+            icon: "x".to_string(),
+        },
+    ];
+    apps.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then_with(|| b.exec.contains("waydroid-app").cmp(&a.exec.contains("waydroid-app")))
+    });
+    apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
+    assert_eq!(apps.len(), 1);
+    assert_eq!(apps[0].exec, "waydroid-app com.zhiliaoapp.musically");
+}

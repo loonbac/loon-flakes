@@ -25,6 +25,6 @@
     "L+ /home/loonbac/.config/swaync/style.css - - - - /etc/swaync/style.css"
     # Acento dinámico: lo escribe accent-wallpaper; este default (f = crea si
     # no existe, no pisa) evita que el @import falle en el primer boot.
-    "f /home/loonbac/.config/swaync/accent.css 0644 loonbac users - @define-color accent #5e81ac;\n@define-color on_accent #ffffff;\n"
+    "f /home/loonbac/.config/swaync/accent.css 0644 loonbac users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
   ];
 }
