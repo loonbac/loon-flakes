@@ -2,9 +2,22 @@
   "reload_style_on_change": true,
   "position": "top",
   "margin-top": 6,
+  "margin-left": 10,
+  "margin-right": 10,
   "height": 42,
-  "width": 1420,
   "spacing": 8,
+
+  "modules-left": [
+    "group/left1"
+  ],
+
+  "modules-center": [
+    "niri/workspaces"
+  ],
+
+  "modules-right": [
+    "group/right1"
+  ],
 
   "group/left1": {
     "orientation": "inherit",
@@ -17,12 +30,6 @@
       "custom/updates"
     ]
   },
-
-  "modules-center": [
-    "group/left1",
-    "niri/workspaces",
-    "group/right1"
-  ],
 
   "group/right1": {
     "orientation": "inherit",
