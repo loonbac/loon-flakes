@@ -82,14 +82,23 @@
   },
 
   "clock": {
-    "format": " {:%H:%M}",
-    "format-alt": " {:%A, %d %B %Y - %H:%M}",
-    "tooltip-format": "<tt><small>{calendar}</small></tt>",
+    "locale": "es_PE.UTF-8",
+    "format": " {:%I:%M %p}",
+    "format-alt": " {:%A, %d de %B de %Y - %I:%M %p}",
+    "tooltip-format": "<tt><span size='14000'>{calendar}</span></tt>",
     "calendar": {
       "mode": "month",
-      "weeks-pos": "right",
       "mode-mon-col": 3,
-      "on-click-right": "mode"
+      "weeks-pos": "right",
+      "on-scroll": 1,
+      "on-click-right": "mode",
+      "format": {
+        "months": "<span color='#AB9A5E'><b>{}</b></span>",
+        "days": "<span>{}</span>",
+        "weeks": "<span color='#7679C6'><b>W{}</b></span>",
+        "weekdays": "<span color='#AB9A5E'><b>{}</b></span>",
+        "today": "<span color='#E6506B'><b><u>{}</u></b></span>"
+      }
     }
   },
 

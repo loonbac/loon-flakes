@@ -13,18 +13,19 @@ window#waybar {
   background-color: transparent;
 }
 
-/* --- Tooltips --- */
+/* --- Tooltips y Calendario --- */
 tooltip {
-  padding: 8px 12px;
-  background-color: alpha(@surface, 0.95);
-  border: 1px solid alpha(@foreground, 0.3);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px alpha(#000000, 0.6);
-  font-size: 12.5px;
+  padding: 12px 18px;
+  background-color: alpha(@surface, 0.96);
+  border: 1px solid alpha(@foreground, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px alpha(#000000, 0.7);
 }
 
 tooltip label {
   color: @foreground;
+  font-family: 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', monospace;
+  font-size: 15px;
   font-weight: 500;
 }
 
