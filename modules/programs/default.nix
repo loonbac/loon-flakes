@@ -12,5 +12,6 @@
     ./nautilus
     ./gtk
     ./hyprlock
+    ./waydroid
   ];
 }

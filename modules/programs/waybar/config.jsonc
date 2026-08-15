@@ -139,7 +139,7 @@
     "tooltip-format": "Brillo: {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
     "on-scroll-up": "brightnessctl set +5%",
-    "on-scroll-down": "brightnessctl set 5%-"
+    "on-scroll-down": "brightnessctl --min-value=9600 set 5%-"
   },
 
   "bluetooth": {

@@ -109,7 +109,8 @@ binds {
 
     // Brillo de pantalla con las teclas multimedia Fn+F6 / Fn+F7.
     // brightnessctl necesita root para escribir en /sys/class/backlight.
-    XF86MonBrightnessDown { spawn-sh "brightnessctl set 10%-"; }
+    // --min-value fija el 10% como suelo mínimo para que la pantalla nunca se apague por completo.
+    XF86MonBrightnessDown { spawn-sh "brightnessctl --min-value=$(($(brightnessctl max) / 10)) set 10%-"; }
     XF86MonBrightnessUp { spawn-sh "brightnessctl set +10%"; }
 
     // Volumen con las teclas multimedia Fn+F2 / Fn+F3 (pipewire).
