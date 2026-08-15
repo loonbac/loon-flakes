@@ -1,4 +1,5 @@
 # Taste
+- Prefiere correr software en Linux de la forma más nativa posible, evitando emuladores/virtualización cuando existe una alternativa de ejecución prácticamente nativa: al querer usar apps de Android preguntó explícitamente por una vía "prácticamente nativa sin emulador" (→ Waydroid, Android userspace en contenedor LXC sobre el kernel del host, en lugar de un emulador). Confidence: 0.5
 - Prefiere comunicarse en español. Confidence: 0.95
 - Cuando pide instalar un tema de cursor descargado, quiere que quede como el cursor por defecto de TODO el sistema, no solo instalado ("instales y dejes por defecto como mi cursor para mi sistema"): se declara como paquete propio del flake (`pkgs/vision-cursor/`), se registra en `systemPackages`, y se aplica por defecto en el bloque `cursor` de niri y en `environment.sessionVariables` (`XCURSOR_THEME`/`XCURSOR_SIZE`/`GTK_CURSOR_THEME`). Confidence: 0.7
 - Su carpeta de descargas es `~/Descargas` (no `~/Downloads`), por la localización en español del sistema; cuando pide instalar algo "que está en descargas", buscarla ahí. Confidence: 0.7

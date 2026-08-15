@@ -45,8 +45,8 @@ pkgs.writeShellScriptBin "battery-notify" ''
               -a "Alerta de Batería" \
               -i "battery-empty" \
               -t 55000 \
-              "🚨 ¡¡BATERÍA CRÍTICA (''${CAPACITY}%) - CONECTA EL DISPOSITIVO AHORA MISMO!! 🚨" \
-              "⚠️ ADVERTENCIA URGENTE: El nivel de energía ha caído peligrosamente al ''${CAPACITY}%. Tu equipo se apagará en cualquier momento y perderás todo tu trabajo y tareas en progreso no guardadas. ¡Por favor, conecta el cargador o adaptador de corriente de inmediato!"
+              "🚨 ¡BATERÍA CRÍTICA (''${CAPACITY}%)! 🚨" \
+              "¡Conecta el cargador AHORA MISMO antes de que se apague el equipo!"
 
             LAST_NOTIFIED="$NOW"
             WAS_CRITICAL=1
@@ -62,9 +62,9 @@ pkgs.writeShellScriptBin "battery-notify" ''
             -u normal \
             -a "Alerta de Batería" \
             -i "battery-charging" \
-            -t 6000 \
-            "🔌 Cargador Conectado" \
-            "El dispositivo se está cargando correctamente (Nivel actual: ''${CAPACITY}%)."
+            -t 5000 \
+            "🔌 Cargador conectado" \
+            "Cargando batería (''${CAPACITY}%)."
           WAS_CRITICAL=0
         fi
         LAST_NOTIFIED=0
