@@ -1,106 +1,39 @@
-# Waybar
+# Waybar (Tema V2.8 HANCORE + Paleta Dinámica)
 
-### Full Dekstop
-<img width="2880" height="1800" alt="full_desktop_waybar" src="https://github.com/user-attachments/assets/c9ee976f-83c0-4dfd-95c5-a5d0de4bc33c" />
-
-### Showcase
-https://github.com/user-attachments/assets/150b7b3d-9b5d-4a0f-a7a4-47977d99e9e5
+Configuración de Waybar gestionada por NixOS, basada en el tema **V2.8** de [HANCORE-linux/waybar-themes](https://github.com/HANCORE-linux/waybar-themes) y adaptada para el compositor **Niri** con extracción de paleta completa dinámica desde el wallpaper.
 
 ---
 
-### Structure
+### Estructura
 
 ```
-waybar/
-├── config.jsonc                     # Entry point, loads all modules
-├── style.css                        # Main stylesheet
-├── modules/
-│   ├── audio.jsonc
-│   ├── battery.jsonc
-│   ├── clock.jsonc
-│   ├── connections.jsonc
-│   ├── distro.jsonc                 < Applications embedded
-│   ├── groups.jsonc                 # Drawer grouping
-│   ├── idle-inhibitor.jsonc
-│   ├── power-profiles-daemon.jsonc
-│   ├── storage.jsonc
-│   ├── system.jsonc
-│   ├── tray-notif.jsonc             # Tray + SwayNC
-│   └── workspace.jsonc
-└── tokens/                          # CSS variables
-    ├── colors.css                   < edit colors here
-    ├── batt-clock.css
-    ├── slider.css
-    ├── state.css
-    ├── widget.css
-    └── workspace.css
+modules/programs/waybar/
+├── default.nix        # Módulo NixOS (symlinks, tmpfiles y defaults)
+├── config.jsonc       # Configuración principal de Waybar
+├── style.css          # Estilos CSS (importa paleta dinámica)
+└── README.md          # Esta documentación
 ```
 
 ---
 
-### Dependencies
+### Paleta Dinámica basada en el Wallpaper
 
-| Package | Purpose |
-| --- | --- |
-| [SwayNC](https://github.com/ErikReider/SwayNotificationCenter) | Notification center |
-| [nm-applet](https://wiki.archlinux.org/title/NetworkManager) | Network manager |
-| [blueman](https://wiki.archlinux.org/title/Blueman) | Bluetooth manager |
-| [pipewire](https://wiki.archlinux.org/title/PipeWire) / [pulseaudio](https://wiki.archlinux.org/title/PulseAudio) | Audio |
+El script `accent-wallpaper` analiza el fondo de pantalla actual (video mpvpaper o imagen estática) y genera en `~/.config/waybar/colors.css` la paleta completa:
 
-### Installation
-```bash
-git clone https://github.com/haikal-hakim/athena.git
-cd athena
-cp -r .config/waybar ~/.config/waybar
-```
----
-
->[!IMPORTANT]
->Open file `waybar/modules/clock`, and change this;
-
-```bash
-{
-  "clock": {
-    "timezone": "REGION/CITY",
-    "format": "󰃱 <span size='11pt'>{:%H.%M }</span>",
-    "format-alt": "󰃱 <span size='11pt'>{:%d %B %Y}</span>",
-    "tooltip-format": "<tt><small>{calendar}</small></tt>"
-  }
-}
-```
+- `@background`: Tono oscuro profundo y elegante extraído de la base del wallpaper.
+- `@surface` / `@background_alt`: Tono intermedio para tooltips y capas elevadas.
+- `@foreground`: Texto claro nítido y de alto contraste tintado armónicamente.
+- `@accent`: Color más llamativo y saturado del wallpaper.
+- `@on_accent`: Color de texto contrastante sobre el acento (`#000000` o `#ffffff`).
+- `@highlight`: Segundo color de acento / matiz secundario.
+- `@muted`: Color tenue para elementos secundarios.
+- `@warning` / `@critical`: Colores de estado armónicos.
+- `@color0` a `@color15`: Paleta ANSI completa derivada del fondo.
 
 ---
 
-### Modules
+### Comandos útiles
 
-| Module | Interaction | Action |
-| --- | --- | --- |
-| Network | Left click | Show `nm-applet` in tray|
-| | Right click | Hide `nm-applet` in tray|
-| | Scroll up | Enable Wi-Fi |
-| | Scroll down | Disable Wi-Fi |
-| Bluetooth | Left click | Open `blueman-manager` |
-| | Right click | Toggle power on/off |
-| SwayNC | Left click | Open/close panel |
-| | Right click | Toggle Do Not Disturb |
-| Power Profiles | Click | Toggle Saver > Balance > Performance |
-| Idle Inhibitor | Click | Toggle screen dimming |
-
----
-
-### Colors
-
-Edit `tokens/colors.css` to match your preference.
-
-> [!TIP]
-> For automatic color generation from your wallpaper, see `.config/matugen` and `.config/zsh`.
-
----
-
-## Acknowledgments
-* **[Waybar](https://github.com/Alexays/Waybar)** - Created by **Alexays**. Huge thanks for this amazing and highly customizable status bar.
-* All the contributors who have made Waybar what it is today.
-* I personally customized this configuration to fit the **Athena** desktop.
-
----
-Developed by Muhammad Haikal Hakim.
+- `accent-wallpaper`: Extrae y aplica inmediatamente la paleta del wallpaper activo, reiniciando Waybar en vivo.
+- `accent-wallpaper from VIDEO_O_IMAGEN`: Analiza y aplica la paleta de un archivo específico.
+- `omarchy-restart-waybar`: Reinicia Waybar de forma limpia en segundo plano.

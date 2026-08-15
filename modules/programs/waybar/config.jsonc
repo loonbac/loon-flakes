@@ -1,42 +1,252 @@
-/*
- * @author Muhammad Haikal Hakim
- * @repository https://github.com/haikal-hakim/athena
- */
 {
-  "layer": "top",
-  "height": 36,
-  "spacing": 5,
-  "include": [
-    "./modules/groups.jsonc",
-    "./modules/distro.jsonc",
-    "./modules/storage.jsonc",
-    "./modules/system.jsonc",
-    "./modules/power-profiles-daemon.jsonc",
-    "./modules/workspace.jsonc",
-    "./modules/idle-ihibitor.jsonc",
-    "./modules/audio.jsonc",
-    "./modules/connections.jsonc",
-    "./modules/battery.jsonc",
-    "./modules/clock.jsonc",
-    "./modules/tray-notif.jsonc"
-  ],
-  "modules-left": [
-    "group/distro-group",
-    "group/storage",
-    "group/system"
-  ],
+  "reload_style_on_change": true,
+  "position": "top",
+  "margin-top": 1,
+  "height": 0,
+  "width": 740,
+  "margin-bottom": 1,
+
+  "group/left1": {
+    "orientation": "inherit",
+    "modules": [
+      "custom/omarchy",
+      "clock",
+      "idle_inhibitor",
+      "mpris",
+      "tray",
+      "custom/updates"
+    ]
+  },
+
   "modules-center": [
-    "power-profiles-daemon",
+    "group/left1",
     "niri/workspaces",
-    "wlr/workspaces",
-    "hyprland/workspaces",
-    "idle_inhibitor"
+    "group/right1"
   ],
-  "modules-right": [
-    "group/audio",
-    "group/connections",
-    "battery",
-    "clock",
-    "group/tray-group"
-  ]
+
+  "group/right1": {
+    "orientation": "inherit",
+    "modules": [
+      "backlight",
+      "bluetooth",
+      "pulseaudio#output",
+      "pulseaudio#input",
+      "power-profiles-daemon",
+      "network",
+      "memory",
+      "cpu",
+      "battery"
+    ]
+  },
+
+  "niri/workspaces": {
+    "format": "{icon}",
+    "format-icons": {
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "10"
+    }
+  },
+
+  "custom/omarchy": {
+    "format": "󱄅",
+    "on-click": "loon-launch",
+    "on-click-right": "ghostty",
+    "tooltip-format": "Loon Launch\n\nSuper + Space"
+  },
+
+  "custom/updates": {
+    "format": "{icon}",
+    "return-type": "json",
+    "format-icons": {
+      "has-updates": " 󰏖",
+      "updated": ""
+    },
+    "exec-if": "which nixos-updates",
+    "exec": "sh -c 'COUNT=$(nixos-updates count 2>/dev/null || echo 0); [ \"$COUNT\" -gt 0 ] && echo \"{\\\"text\\\": \\\"$COUNT\\\", \\\"alt\\\": \\\"has-updates\\\", \\\"tooltip\\\": \\\"$COUNT actualizaciones de NixOS disponibles\\\"}\" || echo \"{\\\"text\\\": \\\"\\\", \\\"alt\\\": \\\"updated\\\", \\\"tooltip\\\": \\\"Sistema al día\\\"}\"'",
+    "interval": 3600,
+    "on-click": "ghostty -e nixos-updates show"
+  },
+
+  "cpu": {
+    "interval": 2,
+    "format": " {usage}%",
+    "on-click": "ghostty -e btop"
+  },
+
+  "memory": {
+    "interval": 2,
+    "format": " {used:0.1f}G",
+    "on-click": "ghostty -e btop"
+  },
+
+  "clock": {
+    "format": " {:%H:%M}",
+    "format-alt": "{:%A, %d %B %Y - %H:%M}",
+    "tooltip-format": "<tt><small>{calendar}</small></tt>",
+    "calendar": {
+      "mode": "month",
+      "weeks-pos": "right",
+      "mode-mon-col": 3,
+      "on-click-right": "mode"
+    }
+  },
+
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "󰛊",
+      "deactivated": "󰾫"
+    }
+  },
+
+  "power-profiles-daemon": {
+    "format": "{icon}",
+    "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+    "tooltip": true,
+    "format-icons": {
+      "default": "󰓅",
+      "performance": "󰓅",
+      "balanced": "󰾅",
+      "power-saver": "󰾆"
+    }
+  },
+
+  "network": {
+    "format-icons": [
+      "󰤯",
+      "󰤟",
+      "󰤢",
+      "󰤥",
+      "󰤨"
+    ],
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "spacing": 1
+  },
+
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-discharging": "{capacity}% {icon}",
+    "format-charging": "{capacity}% {icon}",
+    "format-plugged": "",
+    "format-icons": {
+      "charging": [
+        "󰢜",
+        "󰂆",
+        "󰂇",
+        "󰂈",
+        "󰢝",
+        "󰂉",
+        "󰢞",
+        "󰂊",
+        "󰂋",
+        "󰂅"
+      ],
+      "default": [
+        "󰁺",
+        "󰁻",
+        "󰁼",
+        "󰁽",
+        "󰁾",
+        "󰁿",
+        "󰂀",
+        "󰂁",
+        "󰂂",
+        "󰁹"
+      ]
+    },
+    "format-full": "󰂅 {capacity}%",
+    "tooltip-format-discharging": "{timeTo}",
+    "tooltip-format-charging": "{timeTo}",
+    "interval": 5,
+    "states": {
+      "warning": 20,
+      "critical": 10
+    }
+  },
+
+  "bluetooth": {
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-off": "󰂲",
+    "format-connected": "󰂱",
+    "tooltip-format": "Devices connected: {num_connections}"
+  },
+
+  "backlight": {
+    "device": "intel_backlight",
+    "format": "{icon}",
+    "tooltip-format": "{percent}%",
+    "format-icons": [
+      "🌑",
+      "🌘",
+      "🌗",
+      "🌖",
+      "🌕"
+    ],
+    "on-scroll-up": "brightnessctl set +5%",
+    "on-scroll-down": "brightnessctl set 5%-"
+  },
+
+  "pulseaudio#input": {
+    "format-source": "",
+    "format-source-muted": " ",
+    "format": "{format_source}",
+    "tooltip-format": "{format_source} {source_volume}%",
+    "scroll-step": 2,
+    "smooth-scrolling-threshold": 1,
+    "max-volume": 100,
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+    "on-scroll-up": "wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SOURCE@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 2%-"
+  },
+
+  "pulseaudio#output": {
+    "format": "{icon}",
+    "tooltip-format": "{icon}  {volume}%",
+    "format-muted": " off",
+    "format-icons": {
+      "default": [""]
+    },
+    "max-volume": 100,
+    "scroll-step": 2,
+    "smooth-scrolling-threshold": 1,
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-scroll-up": "wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
+  },
+
+  "tray": {
+    "icon-size": 11,
+    "spacing": 5
+  },
+
+  "mpris": {
+    "format": "󰋎",
+    "format-paused": "<span color='grey'>{status_icon}</span>",
+    "max-length": 20,
+    "interval": 1,
+    "player-icons": {
+      "default": "⏸",
+      "mpv": "🎵"
+    },
+    "status-icons": {
+      "paused": ""
+    },
+    "ignored-players": ["firefox", "chromium", "brave"]
+  }
 }

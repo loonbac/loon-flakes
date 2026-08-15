@@ -1,164 +1,287 @@
-# Script "accent-wallpaper": extrae el color de acento del wallpaper animado.
+# Script "accent-wallpaper": extrae la paleta completa de colores del wallpaper activo.
 #
-# Toma un frame del video del fondo (con ffmpeg), analiza sus colores
-# (imagemagick) y escribe:
-#   ~/.config/mpvpaper/accent.txt    -> hex del color más llamativo (ej. #ff5722)
+# Toma un frame del fondo (video o imagen), analiza sus colores (ImageMagick + Python)
+# y genera una paleta completa armónica que escribe en:
+#   ~/.config/mpvpaper/accent.txt    -> hex del color de acento principal
 #   ~/.config/niri/accent.kdl        -> override de niri (border active-color)
 #   ~/.config/gtk-4.0/gtk.css        -> override de apps GTK (selección)
-#   ~/.config/waybar/accent.css      -> acento de waybar (workspace activo, tray)
+#   ~/.config/waybar/colors.css      -> paleta completa para Waybar (background, surface, foreground, accent, highlight, warning, critical, color0-15)
+#   ~/.config/waybar/accent.css      -> compatibilidad de acento Waybar
 #   ~/.config/swaync/accent.css      -> acento de notificaciones (SwayNC)
 #
-# "El más llamativo" = el color más saturado × brillante, descartando los
-# casi negros (para que el acento sea vivo, no un gris oscuro).
-#
 # Uso:
-#   accent-wallpaper             # usa el video seteado (state de mpvpaper)
-#   accent-wallpaper from VIDEO  # analiza un video específico
+#   accent-wallpaper             # usa el wallpaper seteado (mpvpaper o backdrop)
+#   accent-wallpaper from VIDEO  # analiza un video/imagen específico
 { pkgs, lib }:
 
 let
   wallpapersDir = "$HOME/Videos/Wallpapers";
+  backdropDir = "$HOME/Pictures/Wallpaper";
   stateFile = "$HOME/.config/mpvpaper/current.txt";
-  accentFile = "$HOME/.config/mpvpaper/accent.txt";
-  accentKdl = "$HOME/.config/niri/accent.kdl";
-  gtkCss = "$HOME/.config/gtk-4.0/gtk.css";
-  waybarAccentCss = "$HOME/.config/waybar/accent.css";
-  swayncAccentCss = "$HOME/.config/swaync/accent.css";
+  backdropState = "$HOME/.config/mpvpaper/backdrop.txt";
+
+  paletteExtractor = pkgs.writeText "extract-palette.py" ''
+    import sys
+    import os
+    import subprocess
+    import colorsys
+
+    def hex_to_rgb(h):
+        h = h.lstrip('#')
+        return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+
+    def rgb_to_hex(r, g, b):
+        return '#{:02X}{:02X}{:02X}'.format(
+            max(0, min(255, int(round(r * 255)))),
+            max(0, min(255, int(round(g * 255)))),
+            max(0, min(255, int(round(b * 255))))
+        )
+
+    def get_luma(r, g, b):
+        return 0.299 * r + 0.587 * g + 0.114 * b
+
+    def main():
+        if len(sys.argv) < 2:
+            sys.exit(1)
+        
+        img_path = sys.argv[1]
+        home = os.environ.get('HOME', '/home/loonbac')
+        magick_bin = sys.argv[2] if len(sys.argv) > 2 else "magick"
+        
+        cmd = [magick_bin, img_path, '-colors', '16', '-format', '%c', 'histogram:info:']
+        try:
+            out = subprocess.check_output(cmd, text=True)
+        except Exception as e:
+            print(f"Error ejecutando ImageMagick: {e}", file=sys.stderr)
+            sys.exit(1)
+            
+        colors = []
+        for line in out.strip().splitlines():
+            parts = line.strip().split()
+            if not parts:
+                continue
+            try:
+                count = int(parts[0].rstrip(':'))
+            except ValueError:
+                continue
+            hex_candidates = [p for p in parts if p.startswith('#')]
+            if not hex_candidates:
+                continue
+            hex_val = hex_candidates[0][:7].upper()
+            if len(hex_val) != 7:
+                continue
+            try:
+                r, g, b = hex_to_rgb(hex_val)
+            except Exception:
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r, g, b)
+            luma = get_luma(r, g, b)
+            colors.append({'count': count, 'hex': hex_val, 'r': r, 'g': g, 'b': b, 'h': h, 's': s, 'v': v, 'luma': luma})
+            
+        if not colors:
+            print("No se pudieron extraer colores", file=sys.stderr)
+            sys.exit(1)
+            
+        # 1. Accent: color más llamativo (alta saturación y buen brillo)
+        accent_candidates = [c for c in colors if c['s'] >= 0.20 and 0.25 <= c['luma'] <= 0.85]
+        if accent_candidates:
+            accent_candidates.sort(key=lambda c: (c['s'] ** 1.2) * c['luma'] * (c['count'] ** 0.3), reverse=True)
+            accent = accent_candidates[0]
+        else:
+            colors_by_sat = sorted(colors, key=lambda c: c['s'] * c['luma'], reverse=True)
+            accent = colors_by_sat[0] if colors_by_sat else {'hex': '#5E81AC', 'r': 0.37, 'g': 0.51, 'b': 0.67, 'h': 0.58, 's': 0.45, 'v': 0.67, 'luma': 0.5}
+            
+        accent_hex = accent['hex']
+        accent_h = accent.get('h', 0.58)
+        
+        # 2. Highlight / Color secundario de acento
+        highlight_candidates = [c for c in colors if c['hex'] != accent_hex and abs(c['h'] - accent_h) > 0.08 and c['s'] >= 0.15]
+        if highlight_candidates:
+            highlight_candidates.sort(key=lambda c: c['s'] * c['luma'], reverse=True)
+            highlight_hex = highlight_candidates[0]['hex']
+        else:
+            h_shift = (accent_h + 0.33) % 1.0
+            hr, hg, hb = colorsys.hsv_to_rgb(h_shift, max(0.4, accent.get('s', 0.4)), max(0.6, accent.get('v', 0.6)))
+            highlight_hex = rgb_to_hex(hr, hg, hb)
+            
+        # 3. Background y Surface: tono oscuro profundo y elegante derivado del wallpaper
+        dark_colors = [c for c in colors if c['luma'] < 0.30]
+        if dark_colors:
+            dark_colors.sort(key=lambda c: c['count'], reverse=True)
+            base_dark = dark_colors[0]
+            dh, ds, dv = colorsys.rgb_to_hsv(base_dark['r'], base_dark['g'], base_dark['b'])
+            bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.10)
+            surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(dh, min(ds, 0.35), 0.16)
+        else:
+            bg_r, bg_g, bg_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.10)
+            surface_r, surface_g, surface_b = colorsys.hsv_to_rgb(accent_h, 0.20, 0.16)
+            
+        bg_hex = rgb_to_hex(bg_r, bg_g, bg_b)
+        surface_hex = rgb_to_hex(surface_r, surface_g, surface_b)
+        
+        # 4. Foreground: blanco roto nítido tintado con el matiz del wallpaper
+        fg_r, fg_g, fg_b = colorsys.hsv_to_rgb(accent_h, 0.06, 0.94)
+        fg_hex = rgb_to_hex(fg_r, fg_g, fg_b)
+        
+        # 5. Muted / Color sutil
+        muted_r, muted_g, muted_b = colorsys.hsv_to_rgb(accent_h, 0.15, 0.55)
+        muted_hex = rgb_to_hex(muted_r, muted_g, muted_b)
+        
+        # 6. Alertas / Estados
+        warn_r, warn_g, warn_b = colorsys.hsv_to_rgb(0.10, 0.70, 0.90)
+        crit_r, crit_g, crit_b = colorsys.hsv_to_rgb(0.97, 0.65, 0.90)
+        warn_hex = rgb_to_hex(warn_r, warn_g, warn_b)
+        crit_hex = rgb_to_hex(crit_r, crit_g, crit_b)
+        
+        on_accent_hex = '#000000' if accent['luma'] > 0.55 else '#FFFFFF'
+        
+        # Rutas de destino
+        accent_txt_path = os.path.join(home, '.config/mpvpaper/accent.txt')
+        niri_kdl_path = os.path.join(home, '.config/niri/accent.kdl')
+        gtk_css_path = os.path.join(home, '.config/gtk-4.0/gtk.css')
+        waybar_colors_path = os.path.join(home, '.config/waybar/colors.css')
+        waybar_accent_path = os.path.join(home, '.config/waybar/accent.css')
+        swaync_accent_path = os.path.join(home, '.config/swaync/accent.css')
+        
+        for p in [accent_txt_path, niri_kdl_path, gtk_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path]:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            
+        with open(accent_txt_path, 'w') as f:
+            f.write(accent_hex + '\n')
+            
+        with open(niri_kdl_path, 'w') as f:
+            f.write(f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
+            
+        with open(gtk_css_path, 'w') as f:
+            f.write(f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
+            
+        waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
+@define-color background {bg_hex};
+@define-color background_alt {surface_hex};
+@define-color surface {surface_hex};
+@define-color foreground {fg_hex};
+@define-color accent {accent_hex};
+@define-color on_accent {on_accent_hex};
+@define-color highlight {highlight_hex};
+@define-color muted {muted_hex};
+@define-color warning {warn_hex};
+@define-color critical {crit_hex};
+@define-color transparent transparent;
+
+@define-color color0 {bg_hex};
+@define-color color1 {crit_hex};
+@define-color color2 {accent_hex};
+@define-color color3 {warn_hex};
+@define-color color4 {highlight_hex};
+@define-color color5 {muted_hex};
+@define-color color6 {highlight_hex};
+@define-color color7 {fg_hex};
+@define-color color8 {surface_hex};
+@define-color color9 {crit_hex};
+@define-color color10 {accent_hex};
+@define-color color11 {warn_hex};
+@define-color color12 {highlight_hex};
+@define-color color13 {muted_hex};
+@define-color color14 {highlight_hex};
+@define-color color15 {fg_hex};
+"""
+        with open(waybar_colors_path, 'w') as f:
+            f.write(waybar_colors_content)
+            
+        with open(waybar_accent_path, 'w') as f:
+            f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+            
+        with open(swaync_accent_path, 'w') as f:
+            f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+            
+        print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
+
+    if __name__ == "__main__":
+        main()
+  '';
 in
 pkgs.writeShellScriptBin "accent-wallpaper" ''
   set -euo pipefail
 
   DIR="${wallpapersDir}"
+  BACKDROP_DIR="${backdropDir}"
   STATE="${stateFile}"
-  ACCENT="${accentFile}"
-  KDL="${accentKdl}"
-  GTK_CSS="${gtkCss}"
-  WAYBAR_ACCENT="${waybarAccentCss}"
-  SWAYNC_ACCENT="${swayncAccentCss}"
+  BACKDROP_STATE="${backdropState}"
   FFMPEG="${pkgs.ffmpeg}/bin/ffmpeg"
   MAGICK="${pkgs.imagemagick}/bin/magick"
+  PYTHON="${pkgs.python3}/bin/python3"
   WAYBAR="${pkgs.waybar}/bin/waybar"
   SWAYNC_CLIENT="${pkgs.swaynotificationcenter}/bin/swaync-client"
 
-  pick_video() {
+  pick_target() {
+    # 1. State de video (mpvpaper)
     if [ -f "$STATE" ]; then
       NAME="$(cat "$STATE")"
       [ -f "$DIR/$NAME" ] && { echo "$DIR/$NAME"; return; }
     fi
-    # Sin state (o borrado): primer video disponible.
-    find "$DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' -o -iname '*.gif' \) -printf '%p\n' | sort | head -1
+    # 2. State de imagen backdrop
+    if [ -f "$BACKDROP_STATE" ]; then
+      NAME="$(cat "$BACKDROP_STATE")"
+      [ -f "$BACKDROP_DIR/$NAME" ] && { echo "$BACKDROP_DIR/$NAME"; return; }
+    fi
+    # 3. Primer video disponible
+    VID="$(find "$DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' -o -iname '*.gif' \) -printf '%p\n' 2>/dev/null | sort | head -1 || true)"
+    [ -n "$VID" ] && { echo "$VID"; return; }
+    # 4. Primera imagen disponible
+    find "$BACKDROP_DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -printf '%p\n' 2>/dev/null | sort | head -1 || true
   }
 
-  # Convierte "#rrggbbaa" (o "#aarrggbb") de ImageMagick a "#rrggbb".
-  normalize_hex() {
-    local h="$1"
-    case "$h" in
-      # srgba(...): lo manejamos antes; aquí solo hex.
-      \#??????????) echo "#''${h:1:2}''${h:3:2}''${h:5:2}";; # 8 dígitos: rrggbbaa
-      \#????????) echo "#''${h:1:2}''${h:3:2}''${h:5:2}";;   # 8 dígitos (aarrggbb)
-      \#??????) echo "$h";;
-      *) echo "$h";;
-    esac
-  }
-
-  # Texto legible sobre el acento: blanco si el acento es oscuro, negro si
-  # es claro (luma perceptiva ITU-R BT.709; umbral 150 = sesgo a blanco).
-  on_accent() {
-    local hex="$1"
-    local r=$(( 16#''${hex:1:2} )); local g=$(( 16#''${hex:3:2} )); local b=$(( 16#''${hex:5:2} ))
-    local luma=$(( (r*299 + g*587 + b*114) / 1000 ))
-    [ "$luma" -gt 150 ] && echo "#000000" || echo "#ffffff"
-  }
-
-  analyze() {
-    local video="$1"
-    # Variable global única (posix sh no tiene local en trap; y con set -u
-    # el trap no debe ver la variable sin definir).
-    ACCENT_TMP="$(mktemp -d)"
-    trap 'rm -rf "$ACCENT_TMP"' EXIT
-    frame="$ACCENT_TMP/frame.png"
-
-    # Frame a los 2 segundos (lejos del fade-in), redimensionado para que el
-    # análisis sea rápido y representativo.
-    "$FFMPEG" -v error -y -ss 2 -i "$video" -frames:v 1 -vf "scale=96:54" "$frame"
-
-    # Histograma de los 8 colores dominantes. Formato por línea, ej:
-    #   12345: (16,16,16)  #101010  srgb(6.3%,6.3%,6.3%)
-    "$MAGICK" "$frame" -colors 8 -format "%c" histogram:info: | while IFS= read -r line; do
-      # Extraer el hex (#rrggbb) y el peso (primer número antes de ':').
-      weight="''${line%%:*}"
-      hex="$(printf '%s' "$line" | grep -oE '#[0-9a-fA-F]{6}' | head -1)"
-      [ -z "$hex" ] && continue
-      r=$(( 16#''${hex:1:2} )); g=$(( 16#''${hex:3:2} )); b=$(( 16#''${hex:5:2} ))
-      # Brillo percibido (0-255) y saturación aproximada (max-min)/max.
-      max=$r; [ "$g" -gt "$max" ] && max=$g; [ "$b" -gt "$max" ] && max=$b
-      min=$r; [ "$g" -lt "$min" ] && min=$g; [ "$b" -lt "$min" ] && min=$b
-      bright=$(( (r*299 + g*587 + b*114) / 1000 ))
-      sat=$(( max==0 ? 0 : (max-min)*100/max ))
-      # Score: saturación × brillo; descartar casi negros y grises.
-      if [ "$bright" -gt 64 ] && [ "$sat" -gt 30 ]; then
-        score=$(( sat * bright ))
-        printf '%s %s\n' "$score" "$hex"
-      fi
-    done | sort -rn | head -1 | awk '{print $2}'
-  }
-
-  VIDEO=""
+  TARGET=""
   case "''${1:-}" in
     from)
-      VIDEO="''${2:-}"
-      [ -z "$VIDEO" ] && { echo "Uso: accent-wallpaper from VIDEO" >&2; exit 1; }
-      # Si es nombre simple (sin /), busca en la carpeta de wallpapers.
-      case "$VIDEO" in
+      TARGET="''${2:-}"
+      [ -z "$TARGET" ] && { echo "Uso: accent-wallpaper from ARCHIVO" >&2; exit 1; }
+      case "$TARGET" in
         */*) ;;
-        *) [ -f "$DIR/$VIDEO" ] && VIDEO="$DIR/$VIDEO" || { echo "No existe: $VIDEO" >&2; exit 1; } ;;
+        *)
+          if [ -f "$DIR/$TARGET" ]; then
+            TARGET="$DIR/$TARGET"
+          elif [ -f "$BACKDROP_DIR/$TARGET" ]; then
+            TARGET="$BACKDROP_DIR/$TARGET"
+          else
+            echo "No existe: $TARGET" >&2
+            exit 1
+          fi
+          ;;
       esac
       ;;
     *)
-      VIDEO="$(pick_video)"
-      [ -z "$VIDEO" ] && { echo "No hay videos en $DIR" >&2; exit 1; }
+      TARGET="$(pick_target)"
+      [ -z "$TARGET" ] && { echo "No se encontraron wallpapers en $DIR ni en $BACKDROP_DIR" >&2; exit 1; }
       ;;
   esac
 
-  HEX="$(analyze "$VIDEO")"
-  if [ -z "$HEX" ]; then
-    echo "No se pudo extraer un color llamativo (¿video muy oscuro?)" >&2
-    exit 1
+  ACCENT_TMP="$(mktemp -d)"
+  trap 'rm -rf "$ACCENT_TMP"' EXIT
+  FRAME="$ACCENT_TMP/frame.png"
+
+  # Extraer frame si es video, o redimensionar si es imagen estática
+  case "''${TARGET##*.}" in
+    mp4|webm|mkv|mov|gif|MP4|WEBM|MKV|MOV|GIF)
+      "$FFMPEG" -v error -y -ss 2 -i "$TARGET" -frames:v 1 -vf "scale=96:54" "$FRAME" 2>/dev/null || \
+      "$FFMPEG" -v error -y -ss 0 -i "$TARGET" -frames:v 1 -vf "scale=96:54" "$FRAME"
+      ;;
+    *)
+      "$MAGICK" "$TARGET" -resize 96x54\! "$FRAME"
+      ;;
+  esac
+
+  # Extraer la paleta y escribir los archivos de configuración
+  "$PYTHON" "${paletteExtractor}" "$FRAME" "$MAGICK"
+
+  # ---- Propagación en vivo ----
+  # Reiniciar waybar para aplicar nueva paleta de inmediato
+  if pgrep -x waybar >/dev/null 2>&1; then
+    pkill -x waybar || true
+    sleep 0.2
+    setsid "$WAYBAR" >/dev/null 2>&1 &
   fi
 
-  mkdir -p "$(dirname "$ACCENT")" "$(dirname "$KDL")" \
-           "$(dirname "$WAYBAR_ACCENT")" "$(dirname "$SWAYNC_ACCENT")"
-
-  # Escribir si cambió, o si algún output no tiene el hex actual (primera vez
-  # tras este upgrade: tmpfiles crea los accent.css con el default #5e81ac).
-  if [ ! -f "$ACCENT" ] || [ "$(cat "$ACCENT" 2>/dev/null || true)" != "$HEX" ] \
-     || ! grep -q "$HEX" "$GTK_CSS" 2>/dev/null \
-     || ! grep -q "$HEX" "$WAYBAR_ACCENT" 2>/dev/null \
-     || ! grep -q "$HEX" "$SWAYNC_ACCENT" 2>/dev/null; then
-    echo "$HEX" > "$ACCENT"
-    printf 'layout {\n    border {\n        active-color "%s"\n    }\n}\n' "$HEX" > "$KDL"
-    # gtk.css: color de acento para apps GTK (Nautilus selección, etc.).
-    mkdir -p "$(dirname "$GTK_CSS")"
-    printf '@define-color accent %s;\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {\n    background-color: @accent;\n    color: #ffffff;\n}\n' "$HEX" > "$GTK_CSS"
-    # Acento para waybar y SwayNC (archivos reales del usuario; el default
-    # inicial lo crea tmpfiles en el boot).
-    ON_ACCENT="$(on_accent "$HEX")"
-    printf '@define-color accent %s;\n@define-color on_accent %s;\n' "$HEX" "$ON_ACCENT" > "$WAYBAR_ACCENT"
-    printf '@define-color accent %s;\n@define-color on_accent %s;\n' "$HEX" "$ON_ACCENT" > "$SWAYNC_ACCENT"
-    echo "Acento: $HEX"
-
-    # ---- Propagación en vivo ----
-    # niri recarga accent.kdl solo (lo vigila). GTK no aplica en vivo.
-    # waybar: restart controlado — recarga config.jsonc + style.css (incluido
-    # accent.css). niri no lo respawnea (spawn-at-startup solo al inicio de
-    # sesión), por eso lo relanzamos con setsid. Alternativa ligera si la
-    # versión instalada refresca CSS con señal: killall -SIGUSR2 waybar.
-    if pgrep -x waybar >/dev/null 2>&1; then
-      pkill -x waybar
-      sleep 0.3
-      setsid "$WAYBAR" >/dev/null 2>&1 &
-    fi
-    # swaync: recarga config + CSS en el daemon en ejecución.
-    "$SWAYNC_CLIENT" -R 2>/dev/null || true
-  fi
+  # Recargar notificaciones SwayNC
+  "$SWAYNC_CLIENT" -R 2>/dev/null || true
 ''
