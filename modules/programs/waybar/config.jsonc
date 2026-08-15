@@ -75,11 +75,9 @@
       "has-updates": "󰏖",
       "updated": ""
     },
-    "exec-if": "which nixos-updates",
-    "exec": "sh -c 'COUNT=$(nixos-updates count 2>/dev/null || echo 0); [ \"$COUNT\" -gt 0 ] && echo \"{\\\"text\\\": \\\"$COUNT\\\", \\\"alt\\\": \\\"has-updates\\\", \\\"tooltip\\\": \\\"$COUNT actualizaciones disponibles\\\"}\" || echo \"{\\\"text\\\": \\\"\\\", \\\"alt\\\": \\\"updated\\\", \\\"tooltip\\\": \\\"Sistema al día\\\"}\"'",
-    "interval": 3600,
-    "on-click": "ghostty -e sh -c 'nixos-updates show; echo \"\"; read -p \"Presiona Enter para cerrar...\" _'",
-    "on-click-right": "ghostty -e nixos-updates check"
+    "exec": "python3 -c \"import json, os, html; d=os.path.expanduser('~/.cache/nixos-updates'); cf=os.path.join(d,'count'); sf=os.path.join(d,'summary.txt'); c=0; (os.path.exists(cf) and globals().update(c=int(open(cf).read().strip() or 0))); s=open(sf).read().strip() if (c>0 and os.path.exists(sf)) else 'Sistema al día'; print(json.dumps({'text': str(c) if c>0 else '', 'alt': 'has-updates' if c>0 else 'updated', 'tooltip': f'<tt><span size=\\\"13000\\\">{html.escape(s)}</span></tt>'}))\"",
+    "interval": 300,
+    "tooltip": true
   },
 
   "clock": {
