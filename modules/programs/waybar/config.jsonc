@@ -1,10 +1,10 @@
 {
   "reload_style_on_change": true,
   "position": "top",
-  "margin-top": 1,
-  "height": 0,
-  "width": 740,
-  "margin-bottom": 1,
+  "margin-top": 6,
+  "height": 42,
+  "width": 1420,
+  "spacing": 8,
 
   "group/left1": {
     "orientation": "inherit",
@@ -31,7 +31,6 @@
       "bluetooth",
       "pulseaudio#output",
       "pulseaudio#input",
-      "power-profiles-daemon",
       "network",
       "memory",
       "cpu",
@@ -70,26 +69,14 @@
       "updated": ""
     },
     "exec-if": "which nixos-updates",
-    "exec": "sh -c 'COUNT=$(nixos-updates count 2>/dev/null || echo 0); [ \"$COUNT\" -gt 0 ] && echo \"{\\\"text\\\": \\\"$COUNT\\\", \\\"alt\\\": \\\"has-updates\\\", \\\"tooltip\\\": \\\"$COUNT actualizaciones de NixOS disponibles\\\"}\" || echo \"{\\\"text\\\": \\\"\\\", \\\"alt\\\": \\\"updated\\\", \\\"tooltip\\\": \\\"Sistema al día\\\"}\"'",
+    "exec": "sh -c 'COUNT=$(nixos-updates count 2>/dev/null || echo 0); [ \"$COUNT\" -gt 0 ] && echo \"{\\\"text\\\": \\\"$COUNT\\\", \\\"alt\\\": \\\"has-updates\\\", \\\"tooltip\\\": \\\"$COUNT actualizaciones disponibles\\\"}\" || echo \"{\\\"text\\\": \\\"\\\", \\\"alt\\\": \\\"updated\\\", \\\"tooltip\\\": \\\"Sistema al día\\\"}\"'",
     "interval": 3600,
     "on-click": "ghostty -e nixos-updates show"
   },
 
-  "cpu": {
-    "interval": 2,
-    "format": " {usage}%",
-    "on-click": "ghostty -e btop"
-  },
-
-  "memory": {
-    "interval": 2,
-    "format": " {used:0.1f}G",
-    "on-click": "ghostty -e btop"
-  },
-
   "clock": {
     "format": " {:%H:%M}",
-    "format-alt": "{:%A, %d %B %Y - %H:%M}",
+    "format-alt": " {:%A, %d %B %Y - %H:%M}",
     "tooltip-format": "<tt><small>{calendar}</small></tt>",
     "calendar": {
       "mode": "month",
@@ -104,149 +91,118 @@
     "format-icons": {
       "activated": "󰛊",
       "deactivated": "󰾫"
-    }
-  },
-
-  "power-profiles-daemon": {
-    "format": "{icon}",
-    "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
-    "tooltip": true,
-    "format-icons": {
-      "default": "󰓅",
-      "performance": "󰓅",
-      "balanced": "󰾅",
-      "power-saver": "󰾆"
-    }
-  },
-
-  "network": {
-    "format-icons": [
-      "󰤯",
-      "󰤟",
-      "󰤢",
-      "󰤥",
-      "󰤨"
-    ],
-    "format": "{icon}",
-    "format-wifi": "{icon}",
-    "format-ethernet": "󰈀",
-    "format-disconnected": "󰤮",
-    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
-    "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
-    "tooltip-format-disconnected": "Disconnected",
-    "interval": 3,
-    "spacing": 1
-  },
-
-  "battery": {
-    "format": "{capacity}% {icon}",
-    "format-discharging": "{capacity}% {icon}",
-    "format-charging": "{capacity}% {icon}",
-    "format-plugged": "",
-    "format-icons": {
-      "charging": [
-        "󰢜",
-        "󰂆",
-        "󰂇",
-        "󰂈",
-        "󰢝",
-        "󰂉",
-        "󰢞",
-        "󰂊",
-        "󰂋",
-        "󰂅"
-      ],
-      "default": [
-        "󰁺",
-        "󰁻",
-        "󰁼",
-        "󰁽",
-        "󰁾",
-        "󰁿",
-        "󰂀",
-        "󰂁",
-        "󰂂",
-        "󰁹"
-      ]
     },
-    "format-full": "󰂅 {capacity}%",
-    "tooltip-format-discharging": "{timeTo}",
-    "tooltip-format-charging": "{timeTo}",
-    "interval": 5,
-    "states": {
-      "warning": 20,
-      "critical": 10
-    }
+    "tooltip-format-activated": "Idle Inhibitor: Activo",
+    "tooltip-format-deactivated": "Idle Inhibitor: Inactivo"
+  },
+
+  "mpris": {
+    "format": "󰋎 {title}",
+    "format-paused": "<span color='grey'>{status_icon} {title}</span>",
+    "max-length": 25,
+    "interval": 1,
+    "player-icons": {
+      "default": "▶",
+      "mpv": "🎵",
+      "spotify": ""
+    },
+    "status-icons": {
+      "paused": "⏸"
+    },
+    "ignored-players": ["firefox", "chromium", "brave"]
+  },
+
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8
+  },
+
+  "backlight": {
+    "device": "intel_backlight",
+    "format": "{icon} {percent}%",
+    "tooltip-format": "Brillo: {percent}%",
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "on-scroll-up": "brightnessctl set +5%",
+    "on-scroll-down": "brightnessctl set 5%-"
   },
 
   "bluetooth": {
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-off": "󰂲",
-    "format-connected": "󰂱",
-    "tooltip-format": "Devices connected: {num_connections}"
+    "format-connected": "󰂱 {num_connections}",
+    "tooltip-format": "Dispositivos conectados: {num_connections}"
   },
 
-  "backlight": {
-    "device": "intel_backlight",
-    "format": "{icon}",
-    "tooltip-format": "{percent}%",
-    "format-icons": [
-      "🌑",
-      "🌘",
-      "🌗",
-      "🌖",
-      "🌕"
-    ],
-    "on-scroll-up": "brightnessctl set +5%",
-    "on-scroll-down": "brightnessctl set 5%-"
+  "pulseaudio#output": {
+    "format": "{icon} {volume}%",
+    "tooltip-format": "Volumen: {volume}%\n{desc}",
+    "format-muted": "󰝟 off",
+    "format-icons": {
+      "default": ["", "", ""]
+    },
+    "max-volume": 100,
+    "scroll-step": 2,
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-scroll-up": "wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
   },
 
   "pulseaudio#input": {
     "format-source": "",
-    "format-source-muted": " ",
+    "format-source-muted": "",
     "format": "{format_source}",
-    "tooltip-format": "{format_source} {source_volume}%",
+    "tooltip-format": "Micrófono: {source_volume}%",
     "scroll-step": 2,
-    "smooth-scrolling-threshold": 1,
     "max-volume": 100,
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
     "on-scroll-up": "wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SOURCE@ 2%+",
     "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 2%-"
   },
 
-  "pulseaudio#output": {
+  "network": {
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
     "format": "{icon}",
-    "tooltip-format": "{icon}  {volume}%",
-    "format-muted": " off",
+    "format-wifi": "{icon} {essid}",
+    "format-ethernet": "󰈀 {ipaddr}",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-disconnected": "Desconectado",
+    "interval": 3,
+    "spacing": 1
+  },
+
+  "memory": {
+    "interval": 2,
+    "format": " {used:0.1f}G",
+    "tooltip-format": "Memoria: {used:0.1f}GB / {total:0.1f}GB",
+    "on-click": "ghostty -e btop"
+  },
+
+  "cpu": {
+    "interval": 2,
+    "format": " {usage}%",
+    "tooltip-format": "CPU: {usage}%",
+    "on-click": "ghostty -e btop"
+  },
+
+  "battery": {
+    "format": "{icon} {capacity}%",
+    "format-discharging": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-plugged": " {capacity}%",
     "format-icons": {
-      "default": [""]
+      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
     },
-    "max-volume": 100,
-    "scroll-step": 2,
-    "smooth-scrolling-threshold": 1,
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
-    "on-scroll-up": "wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
-    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
-  },
-
-  "tray": {
-    "icon-size": 11,
-    "spacing": 5
-  },
-
-  "mpris": {
-    "format": "󰋎",
-    "format-paused": "<span color='grey'>{status_icon}</span>",
-    "max-length": 20,
-    "interval": 1,
-    "player-icons": {
-      "default": "⏸",
-      "mpv": "🎵"
-    },
-    "status-icons": {
-      "paused": ""
-    },
-    "ignored-players": ["firefox", "chromium", "brave"]
+    "format-full": "󰂅 {capacity}%",
+    "tooltip-format-discharging": "Restante: {timeTo}",
+    "tooltip-format-charging": "Cargando: {timeTo}",
+    "interval": 5,
+    "states": {
+      "warning": 20,
+      "critical": 10
+    }
   }
 }

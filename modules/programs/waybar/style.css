@@ -1,105 +1,108 @@
 @import "/home/loonbac/.config/waybar/colors.css";
 
-/* --- Global Settings --- */
+/* --- Ajustes Globales --- */
 * {
   font-family: 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'Symbols Nerd Font', sans-serif;
-  font-size: 10px;
-  font-weight: bold;
+  font-size: 13.5px;
+  font-weight: 600;
   min-height: 0px;
 }
 
-/* --- Waybar Window --- */
+/* --- Ventana Waybar --- */
 window#waybar {
   background-color: transparent;
 }
 
 /* --- Tooltips --- */
 tooltip {
-  padding: 6px 10px;
-  background: @surface;
-  border: 1px solid alpha(@foreground, 0.4);
-  border-radius: 6px;
-  box-shadow: 0 2px 8px alpha(@background, 0.6);
-  font-size: 11px;
+  padding: 8px 12px;
+  background-color: alpha(@surface, 0.95);
+  border: 1px solid alpha(@foreground, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px alpha(#000000, 0.6);
+  font-size: 12.5px;
 }
 
 tooltip label {
   color: @foreground;
-  font-weight: normal;
+  font-weight: 500;
 }
 
-/* --- Module Groups (Pills) --- */
-#left1 {
-  border-radius: 4px;
-  border: 0.5px solid alpha(@foreground, 0.8);
+/* --- Píldoras / Grupos --- */
+#left1,
+#right1 {
+  min-height: 32px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  border: 1px solid alpha(@foreground, 0.25);
   color: @foreground;
-  background-color: alpha(@background, 0.9);
-  margin-right: 2px;
+  background-color: alpha(@background, 0.88);
+  box-shadow: 0 2px 8px alpha(#000000, 0.35);
+}
+
+#left1 {
+  margin-right: 4px;
 }
 
 #right1 {
-  color: @foreground;
-  border-radius: 4px;
-  border: 0.5px solid alpha(@foreground, 0.8);
-  background-color: alpha(@background, 0.9);
-  padding-right: 2px;
-  margin-left: 2px;
+  margin-left: 4px;
 }
 
 /* --- Workspaces --- */
 #workspaces {
-  border: 0.5px solid alpha(@foreground, 0.8);
-  border-radius: 4px;
-  background-color: alpha(@background, 1);
-  margin: 0px;
-  padding: 1px 1px 1px;
-  min-height: 0px;
+  min-height: 32px;
+  border: 1px solid alpha(@foreground, 0.25);
+  border-radius: 8px;
+  background-color: alpha(@background, 0.88);
+  box-shadow: 0 2px 8px alpha(#000000, 0.35);
+  margin: 0px 4px;
+  padding: 2px 4px;
 }
 
 #workspaces button {
-  padding: 0px 14px;
-  margin: 1px 1px;
-  border-radius: 2px;
-  background-color: alpha(@foreground, 0.5);
-  color: @background;
-  transition: all 0.15s ease-in-out;
-  opacity: 0.95;
+  min-height: 24px;
+  padding: 2px 12px;
+  margin: 2px 2px;
+  border-radius: 4px;
+  background-color: alpha(@foreground, 0.15);
+  color: @foreground;
+  font-size: 13px;
+  font-weight: bold;
+  transition: all 0.2s ease-in-out;
 }
 
 #workspaces button.active,
 #workspaces button.focused {
-  color: @background;
-  padding: 0 14px;
-  margin: 1px 1px;
-  background-color: alpha(@foreground, 0.9);
-  border-radius: 2px;
-  opacity: 1.0;
-  transition: all 0.15s ease-in-out;
+  color: @on_accent;
+  padding: 2px 14px;
+  background-color: @accent;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px alpha(@accent, 0.4);
 }
 
 #workspaces button.empty {
-  background-color: alpha(@foreground, 0.4);
-  color: @foreground;
-  opacity: 0.45;
-  border-radius: 2px;
-  transition: all 0.15s ease-in-out;
+  background-color: transparent;
+  color: alpha(@foreground, 0.5);
 }
 
 #workspaces button.empty.active,
 #workspaces button.empty.focused {
-  background-color: alpha(@foreground, 0.9);
-  color: @background;
-  opacity: 1.0;
+  background-color: @accent;
+  color: @on_accent;
 }
 
-#workspaces button:hover.empty,
 #workspaces button:hover {
-  background-color: @foreground;
-  color: @background;
-  opacity: 1.0;
+  background-color: alpha(@foreground, 0.3);
+  color: @foreground;
 }
 
-/* --- General Modules --- */
+#workspaces button:hover.active,
+#workspaces button:hover.focused {
+  background-color: @accent;
+  color: @on_accent;
+}
+
+/* --- Módulos Generales --- */
 #tray,
 #cpu,
 #clock,
@@ -111,35 +114,38 @@ tooltip label {
 #bluetooth,
 #pulseaudio,
 #custom-omarchy,
-#custom-weather,
-#custom-update,
 #custom-updates,
-#idle_inhibitor,
-#custom-idle-indicator,
-#custom-notification-silencing-indicator,
-#power-profiles-daemon,
-#custom-screenrecording-indicator,
-#custom-updatespacman {
-  min-width: 10px;
-  margin: 0px 2px 0px 2px;
-  padding-left: 3px;
-  padding-right: 3px;
+#idle_inhibitor {
+  padding: 0px 6px;
+  margin: 0px 2px;
 }
 
-/* Specific Modules */
+/* Icono NixOS / Launcher */
 #custom-omarchy {
   color: @accent;
-  padding-left: 4px;
-  padding-right: 2px;
-  font-size: 11px;
+  font-size: 18px;
+  padding-left: 2px;
+  padding-right: 6px;
 }
 
+/* Reloj */
+#clock {
+  font-weight: 700;
+  color: @foreground;
+}
+
+/* Actualizaciones */
 #custom-updates {
-  padding-left: 0px;
-  padding-right: 4px;
   color: @highlight;
+  font-size: 14px;
 }
 
+/* Idle Inhibitor */
+#idle_inhibitor {
+  font-size: 15px;
+}
+
+/* Tray */
 #tray > .passive {
   -gtk-icon-effect: dim;
 }
@@ -149,110 +155,74 @@ tooltip label {
   background-color: @transparent;
 }
 
-.hidden {
-  opacity: 0;
+/* Red */
+#network {
+  color: @foreground;
+}
+#network.disconnected {
+  color: @critical;
 }
 
-#power-profiles-daemon,
-#power-profiles-daemon.performance,
-#power-profiles-daemon.balanced,
-#power-profiles-daemon.power-saver {
-  font-size: 12px;
-  margin-top: 0px;
+/* Audio */
+#pulseaudio {
+  color: @foreground;
+}
+#pulseaudio.muted {
+  color: @muted;
 }
 
+/* Backlight */
 #backlight {
-  font-size: 8px;
-  margin-top: 0px;
+  color: @foreground;
 }
 
-#idle_inhibitor {
-  padding-left: 0px;
+/* Bluetooth */
+#bluetooth {
+  color: @foreground;
+}
+#bluetooth.connected {
+  color: @highlight;
+}
+#bluetooth.disabled,
+#bluetooth.off {
+  color: @muted;
 }
 
-#custom-voxtype {
-  min-width: 12px;
-  margin: 0 0 0 2.5px;
+/* CPU y Memoria */
+#cpu {
+  color: @foreground;
+}
+#memory {
+  color: @foreground;
 }
 
-#custom-voxtype.recording {
+/* Batería */
+#battery {
+  color: @foreground;
+}
+#battery.charging {
+  color: @accent;
+}
+#battery.warning:not(.charging) {
+  color: @warning;
+}
+#battery.critical:not(.charging) {
   color: @critical;
+  animation-name: blink-critical;
+  animation-duration: 0.8s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
 }
 
-#custom-idle-indicator,
-#custom-notification-silencing-indicator {
-  min-width: 12px;
-  margin-left: 0;
-  margin-right: 0;
-  font-size: 10px;
-  padding-bottom: 0px;
+@keyframes blink-critical {
+  to {
+    color: @foreground;
+  }
 }
 
-#custom-idle-indicator.active,
-#custom-notification-silencing-indicator.active {
-  color: @critical;
-}
-
-/* Specific Animation Modules */
+/* Reproductor MPRIS */
 #mpris {
   color: @foreground;
-  animation: repeat;
-  animation-name: blink;
-  animation-duration: 3s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-}
-
-#custom-screenrecording-indicator {
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-  color: transparent;
-}
-
-#custom-screenrecording-indicator.active {
-  color: @highlight;
-  animation-name: blink-recording;
-  animation-duration: 0.5s;
-}
-
-@keyframes blink-recording {
-  to {
-    color: @background;
-  }
-}
-
-@keyframes blink {
-  to {
-    color: @muted;
-  }
-}
-
-@keyframes blink-inhibitor {
-  to {
-    color: @background;
-  }
-}
-
-#battery.warning {
-  color: @warning;
-  background-color: alpha(@background, 0.9);
-}
-
-@keyframes blink2 {
-  to {
-    background-color: transparent;
-    color: @critical;
-  }
-}
-
-#battery.critical:not(.charging) {
-  background-color: transparent;
-  color: @foreground;
-  animation-name: blink2;
-  animation-duration: 0.5s;
-  animation-timing-function: steps(12);
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
+  font-size: 12.5px;
 }
