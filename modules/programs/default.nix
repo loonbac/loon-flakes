@@ -11,5 +11,6 @@
     ./equibop
     ./nautilus
     ./gtk
+    ./hyprlock
   ];
 }

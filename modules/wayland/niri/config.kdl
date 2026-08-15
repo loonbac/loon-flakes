@@ -72,8 +72,12 @@ spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
 // Launcher persistente: arranca oculto en segundo plano para que el bind
 // Super+Space (abajo) lo muestre al instante, sin re-inicializar GTK.
 spawn-at-startup "loon-launch"
+// Daemon de inactividad (Hypridle): bloquea la sesión por tiempo o inactividad.
+spawn-at-startup "hypridle"
 
 binds {
+    // Bloquear pantalla manualmente con Super+L
+    Super+L { spawn "hyprlock"; }
     // Fondo animado con mpvpaper: video en loop detrás de las ventanas.
     // Pon tus videos en ~/Videos/Wallpapers. Con Super+B se reproduce el
     // video seteado (o el único). Para elegir: mpvpaper-wallpaper set NOMBRE.
