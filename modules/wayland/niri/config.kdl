@@ -74,6 +74,8 @@ spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
 spawn-at-startup "loon-launch"
 // Daemon de inactividad (Hypridle): bloquea la sesión por tiempo o inactividad.
 spawn-at-startup "hypridle"
+// Daemon de alertas de batería baja crítica (<=10% cada 1 minuto).
+spawn-at-startup "battery-notify"
 
 binds {
     // Bloquear pantalla manualmente con Super+L

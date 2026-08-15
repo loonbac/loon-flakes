@@ -89,8 +89,9 @@
         vscode-insiders = vscode-insiders;
         zen-browser = zen-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
-            # Toggle de autenticación SSH (password | cert) con aplicación del flake.
-            nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
+        nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
+        # Notificador de batería baja crítica (<=10%)
+        battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
       };
 
       nixosConfigurations = {

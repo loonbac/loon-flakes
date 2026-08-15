@@ -189,6 +189,9 @@
         # Toggle de autenticación SSH: `nixos-ssh` pregunta password/cert
         # y aplica la config (misma lógica que el comando `rebuild`).
         (pkgs.callPackage ../../pkgs/nixos-ssh { })
+        # Alertas de batería baja crítica (<=10%)
+        libnotify
+        (pkgs.callPackage ../../pkgs/battery-notify { })
 
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
