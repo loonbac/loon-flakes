@@ -49,5 +49,30 @@ pkgs.writeShellScriptBin "waydroid-app" ''
   fi
 
   # 3. Lanzar la app.
-  exec "$WAYDROID" app launch "$PKG"
+  "$WAYDROID" app launch "$PKG"
+
+  # 4. Monitor de apagado automático: cuando se cierre la ventana de la app
+  # (y no queden ventanas de Waydroid), apaga la sesión y el contenedor para
+  # que Android no quede en segundo plano haciendo ruidos ni gastando batería.
+  setsid nohup sh -c '
+    # Esperar hasta 30s a que aparezca la ventana
+    for _ in $(seq 1 30); do
+      if ${pkgs.niri}/bin/niri msg --json windows 2>/dev/null | grep -qi "waydroid"; then
+        break
+      fi
+      ${pkgs.coreutils}/bin/sleep 1
+    done
+
+    # Mientras haya alguna ventana de Waydroid abierta, seguir esperando
+    while ${pkgs.niri}/bin/niri msg --json windows 2>/dev/null | grep -qi "waydroid"; do
+      ${pkgs.coreutils}/bin/sleep 2
+    done
+
+    # Margen de gracia antes de apagar
+    ${pkgs.coreutils}/bin/sleep 3
+    if ! ${pkgs.niri}/bin/niri msg --json windows 2>/dev/null | grep -qi "waydroid"; then
+      ${waydroid}/bin/waydroid session stop >/dev/null 2>&1 || true
+      systemctl stop waydroid-container >/dev/null 2>&1 || true
+    fi
+  ' >/dev/null 2>&1 < /dev/null &
 ''

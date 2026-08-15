@@ -46,11 +46,9 @@ in
 
   environment.systemPackages = [ waydroidPkg waydroid-app ];
 
-  # Arrancar el contenedor al boot: sí, pero SIN ventana. Es lo que permite
-  # que "abrir TikTok" funcione de una — el contenedor está listo y solo hay
-  # que levantar la sesión (rápido). Sin esto, la primera apertura tardaría
-  # en bootear Android.
-  systemd.services.waydroid-container.wantedBy = lib.mkForce [ "multi-user.target" ];
+  # No arrancar el contenedor al boot: solo bajo demanda cuando se abre una app.
+  # Esto evita que Android corra en segundo plano, gaste recursos o emita sonidos/notificaciones.
+  systemd.services.waydroid-container.wantedBy = lib.mkForce [ ];
 
   # El wrapper waydroid-app necesita arrancar el contenedor sin contraseña
   # cuando está caído (systemctl start waydroid-container).

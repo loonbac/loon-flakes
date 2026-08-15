@@ -151,8 +151,7 @@ window-rule {
 // loon-launch: flotante, centrado, tamaño fijo (la regla va después
 // de la genérica para sobreescribir open-maximized).
 window-rule {
-    match app-id="loon-launch"
-    match app-id="dev.loonbac.loonlaunch"
+    match app-id=r#"^(loon-launch|dev\.loonbac\.loonlaunch)$"#
 
     open-floating true
     open-maximized false
@@ -160,12 +159,9 @@ window-rule {
     default-window-height { fixed 480; }
 }
 
-// Waydroid (Android): ventana tipo teléfono vertical (TikTok fuerza
-// SCREEN_ORIENTATION_PORTRAIT). El display de Android rota a portrait
-// (ROTATION_90) y esta ventana vertical lo muestra bien parado.
+// Waydroid (Android): ventana tipo teléfono vertical
 window-rule {
-    match app-id="^waydroid"
-    match app-id="^com\\.waydroid"
+    match app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*)$"#
 
     open-floating true
     open-maximized false
