@@ -69,10 +69,10 @@
   },
 
   "custom/updates": {
-    "format": "{icon}",
+    "format": "{icon} {text}",
     "return-type": "json",
     "format-icons": {
-      "has-updates": " 󰏖",
+      "has-updates": "󰏖",
       "updated": ""
     },
     "exec-if": "which nixos-updates",
