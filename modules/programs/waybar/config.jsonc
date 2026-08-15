@@ -82,14 +82,15 @@
   },
 
   "clock": {
-    "locale": "es_PE.UTF-8",
-    "format": " {:%I:%M %p}",
-    "format-alt": " {:%A, %d de %B de %Y - %I:%M %p}",
+    "locale": "es_PE.utf8",
+    "format": " {:L%I:%M %p}",
+    "format-alt": " {:L%A, %d de %B de %Y - %I:%M %p}",
     "tooltip-format": "<tt><span size='14000'>{calendar}</span></tt>",
     "calendar": {
       "mode": "month",
       "mode-mon-col": 3,
       "weeks-pos": "right",
+      "iso8601": true,
       "on-scroll": 1,
       "on-click-right": "mode",
       "format": {

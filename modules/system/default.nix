@@ -13,6 +13,12 @@
   # ---- Zona horaria y localización ----
   time.timeZone = "America/Lima";
   i18n.defaultLocale = "es_PE.UTF-8";
+  i18n.supportedLocales = [
+    "C.UTF-8/UTF-8"
+    "en_US.UTF-8/UTF-8"
+    "es_PE.UTF-8/UTF-8"
+    "es_ES.UTF-8/UTF-8"
+  ];
 
   # Keymap de X11 y consola
   services.xserver.xkb = {
