@@ -78,7 +78,8 @@
     "exec-if": "which nixos-updates",
     "exec": "sh -c 'COUNT=$(nixos-updates count 2>/dev/null || echo 0); [ \"$COUNT\" -gt 0 ] && echo \"{\\\"text\\\": \\\"$COUNT\\\", \\\"alt\\\": \\\"has-updates\\\", \\\"tooltip\\\": \\\"$COUNT actualizaciones disponibles\\\"}\" || echo \"{\\\"text\\\": \\\"\\\", \\\"alt\\\": \\\"updated\\\", \\\"tooltip\\\": \\\"Sistema al día\\\"}\"'",
     "interval": 3600,
-    "on-click": "ghostty -e nixos-updates show"
+    "on-click": "ghostty -e sh -c 'nixos-updates show; echo \"\"; read -p \"Presiona Enter para cerrar...\" _'",
+    "on-click-right": "ghostty -e nixos-updates check"
   },
 
   "clock": {
