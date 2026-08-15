@@ -73,9 +73,9 @@
     "return-type": "json",
     "format-icons": {
       "has-updates": "󰏖",
-      "updated": ""
+      "updated": "󰏖"
     },
-    "exec": "python3 -c \"import json, os, html; d=os.path.expanduser('~/.cache/nixos-updates'); cf=os.path.join(d,'count'); sf=os.path.join(d,'summary.txt'); c=0; (os.path.exists(cf) and globals().update(c=int(open(cf).read().strip() or 0))); s=open(sf).read().strip() if (c>0 and os.path.exists(sf)) else 'Sistema al día'; print(json.dumps({'text': str(c) if c>0 else '', 'alt': 'has-updates' if c>0 else 'updated', 'tooltip': f'<tt><span size=\\\"13000\\\">{html.escape(s)}</span></tt>'}))\"",
+    "exec": "python3 -c \"import json, os, html; d=os.path.expanduser('~/.cache/nixos-updates'); cf=os.path.join(d,'count'); sf=os.path.join(d,'summary.txt'); c=0; (os.path.exists(cf) and globals().update(c=int(open(cf).read().strip() or 0))); s=open(sf).read().strip() if (os.path.exists(sf) and open(sf).read().strip()) else 'Sistema al día'; print(json.dumps({'text': str(c) if c>0 else '0', 'alt': 'has-updates' if c>0 else 'updated', 'tooltip': f'<tt><span size=\\\"13000\\\">{html.escape(s)}</span></tt>'}))\"",
     "interval": 300,
     "tooltip": true
   },
