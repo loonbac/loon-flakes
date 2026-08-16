@@ -51,10 +51,11 @@ pkgs.writeShellScriptBin "waydroid-app" ''
   setsid nohup "$WAYDROID" session start >/dev/null 2>&1 < /dev/null &
 
   # 4. Esperar a que la sesión esté RUNNING y reintentar lanzar la app
-  # hasta que ActivityManager esté listo (Android tarda unos segundos en bootear).
+  # hasta que Android esté listo y el proceso de la app esté activo.
   for _ in $(seq 1 30); do
     if "$WAYDROID" status 2>/dev/null | grep -q "Session:.*RUNNING"; then
-      if "$WAYDROID" app launch "$PKG" >/dev/null 2>&1; then
+      "$WAYDROID" app launch "$PKG" >/dev/null 2>&1 || true
+      if ${pkgs.procps}/bin/pgrep -f "$PKG" >/dev/null 2>&1; then
         exit 0
       fi
     fi
