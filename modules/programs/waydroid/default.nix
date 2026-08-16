@@ -62,7 +62,7 @@ in
     });
   '';
 
-  # .desktop persistente para TikTok: lanza vía waydroid-app (levanta
+  # .desktop persistente para TikTok y TikTok Lite: lanzan vía waydroid-app (levantan
   # contenedor+sesión bajo demanda). El .desktop que genera Waydroid en
   # ~/.local/share/applications apunta a `waydroid app launch` directo, que
   # falla si la sesión no está corriendo.
@@ -77,9 +77,21 @@ in
     Terminal=false
   '';
 
-  # Instalar el .desktop en el home del usuario (ruta absoluta: systemd no
+  environment.etc."waydroid/tiktok-lite.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=TikTok Lite
+    Comment=Android TikTok Lite (Waydroid)
+    Exec=waydroid-app com.zhiliaoapp.musically.go
+    Icon=/home/loonbac/.local/share/waydroid/data/icons/com.zhiliaoapp.musically.go.png
+    Categories=X-WayDroid-App;
+    Terminal=false
+  '';
+
+  # Instalar los .desktop en el home del usuario (ruta absoluta: systemd no
   # expande ~ en tmpfiles).
   systemd.tmpfiles.rules = [
     "L+ /home/loonbac/.local/share/applications/tiktok.desktop - - - - /etc/waydroid/tiktok.desktop"
+    "L+ /home/loonbac/.local/share/applications/tiktok-lite.desktop - - - - /etc/waydroid/tiktok-lite.desktop"
   ];
 }
