@@ -160,14 +160,14 @@ window-rule {
     default-window-height { fixed 480; }
 }
 
-// Waydroid (Android): ventana tablet
+// Waydroid (Android): ventana vertical tipo teléfono (resolución ligera)
 window-rule {
     match app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*)$"#
 
     open-floating true
     open-maximized false
-    default-column-width { fixed 1280; }
-    default-window-height { fixed 800; }
+    default-column-width { fixed 420; }
+    default-window-height { fixed 890; }
 }
 
 // loon-bar: barra de tareas Wayland Layer Shell (panel anclado en todos los
