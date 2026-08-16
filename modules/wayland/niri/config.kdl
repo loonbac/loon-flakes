@@ -140,6 +140,7 @@ binds {
 // sólido, para no tapar la transparencia de las ventanas.
 window-rule {
     match app-id=".*"
+    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch)$"#
     open-maximized true
 
     geometry-corner-radius 12
