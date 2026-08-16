@@ -30,24 +30,34 @@ pkgs.writeShellScriptBin "waydroid-app" ''
     systemctl start waydroid-container
     for _ in $(seq 1 30); do
       systemctl is-active --quiet waydroid-container && break
-      "$SLEEP" 1
+      "$SLEEP" 0.5
     done
   fi
 
-  # 2. Sesión gráfica: si no hay sesión corriendo, levantarla desacoplada.
-  if ! "$WAYDROID" status 2>/dev/null | grep -q "Session:.*RUNNING"; then
-    # Desacoplar por completo: nohup + setsid para que no muera con el wrapper
-    # ni herede su stdin (que colgaba el script esperando EOF).
-    setsid nohup "$WAYDROID" session start >/dev/null 2>&1 < /dev/null &
-    # Esperar a que Android bootee, con tope duro de 90s.
-    for _ in $(seq 1 90); do
-      if "$WAYDROID" status 2>/dev/null | grep -q "Session:.*RUNNING"; then
-        break
+  # 2. Si la sesión ya dice estar RUNNING, intentar lanzar directamente.
+  if "$WAYDROID" status 2>/dev/null | grep -q "Session:.*RUNNING"; then
+    if "$WAYDROID" app launch "$PKG" >/dev/null 2>&1; then
+      exit 0
+    fi
+    # Si falló, la sesión estaba zombi o desconectada de Wayland; limpiarla.
+    "$WAYDROID" session stop >/dev/null 2>&1 || true
+    "$SLEEP" 1
+  fi
+
+  # 3. Levantar sesión limpia desacoplada.
+  setsid nohup "$WAYDROID" session start >/dev/null 2>&1 < /dev/null &
+
+  # 4. Esperar a que la sesión esté RUNNING y reintentar lanzar la app
+  # hasta que ActivityManager esté listo (Android tarda unos segundos en bootear).
+  for _ in $(seq 1 30); do
+    if "$WAYDROID" status 2>/dev/null | grep -q "Session:.*RUNNING"; then
+      if "$WAYDROID" app launch "$PKG" >/dev/null 2>&1; then
+        exit 0
       fi
-      "$SLEEP" 1
-    done
-  fi
+    fi
+    "$SLEEP" 1
+  done
 
-  # 3. Lanzar la app.
+  # 5. Último intento si aún no salió.
   exec "$WAYDROID" app launch "$PKG"
 ''
