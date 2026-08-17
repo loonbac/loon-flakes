@@ -22,4 +22,44 @@
   systemd.tmpfiles.rules = [
     "L+ /var/lib/dms-greeter/settings.json - - - - /etc/dms-greeter/settings.json"
   ];
+
+  # --- Foto de perfil en el login (AccountsService) ---
+  # El greeter consulta org.freedesktop.Accounts (IconFile del usuario) por D-Bus.
+  # Se activa el daemon y se publica la imagen como icono del usuario.
+  services.accounts-daemon.enable = true;
+
+  # Si el usuario tiene ~/profile.* (p.ej. profile.jpeg) se usa como icono.
+  # AccountsService expone /var/lib/AccountsService/icons/<user> como IconFile.
+  systemd.services.publish-profile-icon = {
+    description = "Publica la foto de perfil en AccountsService";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "accounts-daemon.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils pkgs.imagemagick ];
+    script = ''
+      # Publica la foto como icono del usuario (legible por dms-greeter).
+      # AccountsService rechaza archivos demasiado grandes (>1MB), así que
+      # se redimensiona a 512px (JPEG, <100KB típicamente).
+      mkdir -p /var/lib/AccountsService/icons
+      profile=$(ls /home/loonbac/profile.* 2>/dev/null | head -n1)
+      if [ -n "$profile" ]; then
+        magick "$profile" -resize "512x512^" -gravity center -extent 512x512 \
+          -quality 85 /var/lib/AccountsService/icons/loonbac
+        chmod 644 /var/lib/AccountsService/icons/loonbac
+      fi
+
+      # Cuenta de usuario para AccountsService: IconFile apuntando al icono
+      # publicado. Sin esto, el daemon reporta ~/.face (no legible por el
+      # greeter, que corre como usuario dms-greeter).
+      mkdir -p /var/lib/AccountsService/users
+      cat > /var/lib/AccountsService/users/loonbac <<'EOF'
+[User]
+SystemAccount=false
+IconFile=/var/lib/AccountsService/icons/loonbac
+EOF
+    '';
+  };
 }
