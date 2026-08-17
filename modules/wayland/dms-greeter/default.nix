@@ -13,4 +13,13 @@
     # Sincroniza el tema de DankMaterialShell del usuario con el greeter.
     configHome = "/home/loonbac";
   };
+
+  # Settings versionados del greeter: el greeter lee /var/lib/dms-greeter/settings.json
+  # (blockWrites = true, solo lectura). Se instala declarativamente y se enlaza
+  # al cache dir que crea el paquete dms-shell.
+  environment.etc."dms-greeter/settings.json".source = ./settings.json;
+
+  systemd.tmpfiles.rules = [
+    "L+ /var/lib/dms-greeter/settings.json - - - - /etc/dms-greeter/settings.json"
+  ];
 }
