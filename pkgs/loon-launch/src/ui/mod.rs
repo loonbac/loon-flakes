@@ -139,6 +139,7 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
     // Ejecutar la app seleccionada.
     let run_selected: Rc<dyn Fn()> = {
         let window = window.clone();
+        let entry = entry.clone();
         let current_items = current_items.clone();
         let sel_idx = sel_idx.clone();
         Rc::new(move || {
@@ -146,6 +147,13 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
             let idx = *sel_idx.borrow();
             if idx >= 0 && (idx as usize) < items.len() {
                 let item = &items[idx as usize];
+                // Acción interna "Cambiar fondo de pantalla": pasa al modo
+                // wallpapers SIN cerrar el launcher (el '#' filtra fondos).
+                if item.exec == "wallpaper-mode" {
+                    entry.set_text("#");
+                    entry.grab_focus();
+                    return;
+                }
                 // Ejecutar la app seleccionada y ocultar el launcher.
                 let exec = item.exec.clone();
                 std::thread::spawn(move || {

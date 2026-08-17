@@ -96,6 +96,7 @@ fn parse_desktop(path: &Path) -> Option<Item> {
 
 pub fn power_actions() -> Vec<Item> {
     vec![
+        Item::app("Cambiar fondo de pantalla", "wallpaper-mode", "preferences-desktop-wallpaper"),
         Item::app("Apagar", "systemctl poweroff", "system-shutdown"),
         Item::app("Reiniciar", "systemctl reboot", "system-reboot"),
         Item::app("Hibernar", "systemctl hibernate", "system-suspend-hibernate"),
