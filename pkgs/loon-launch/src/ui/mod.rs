@@ -150,11 +150,14 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
             let action: Option<String> = {
                 let items = current_items.borrow();
                 let idx = *sel_idx.borrow();
-                if idx >= 0 && (idx as usize) < items.len() {
-                    Some(items[idx as usize].exec.clone())
-                } else {
-                    None
-                }
+                // El índice seleccionable NO incluye headers: mapear al item real.
+                let real = items
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, it)| !it.is_header)
+                    .nth(idx.max(0) as usize)
+                    .map(|(i, _)| i);
+                real.and_then(|i| items.get(i)).map(|it| it.exec.clone())
             };
 
             match action.as_deref() {

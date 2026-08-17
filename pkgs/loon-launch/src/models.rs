@@ -6,15 +6,21 @@ pub struct Item {
     pub icon: String,
     /// Si es un wallpaper: el ícono es la miniatura de la imagen/video.
     pub is_wallpaper: bool,
+    /// Cabecera de sección (no ejecutable, no seleccionable).
+    pub is_header: bool,
 }
 
 impl Item {
     pub fn app(name: impl Into<String>, exec: impl Into<String>, icon: impl Into<String>) -> Self {
-        Item { name: name.into(), exec: exec.into(), icon: icon.into(), is_wallpaper: false }
+        Item { name: name.into(), exec: exec.into(), icon: icon.into(), is_wallpaper: false, is_header: false }
     }
 
     pub fn wallpaper(name: impl Into<String>, exec: impl Into<String>, thumb: impl Into<String>) -> Self {
-        Item { name: name.into(), exec: exec.into(), icon: thumb.into(), is_wallpaper: true }
+        Item { name: name.into(), exec: exec.into(), icon: thumb.into(), is_wallpaper: true, is_header: false }
+    }
+
+    pub fn header(name: impl Into<String>) -> Self {
+        Item { name: name.into(), exec: String::new(), icon: String::new(), is_wallpaper: false, is_header: true }
     }
 }
 

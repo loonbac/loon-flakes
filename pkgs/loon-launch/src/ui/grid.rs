@@ -19,6 +19,8 @@ pub struct GridRefs {
 impl GridRefs {
     /// Limpia el grid y lo vuelve a poblar con los items que matchean `query`.
     /// Devuelve los items mostrados (para ejecutar la selección).
+    /// Las cabeceras de sección se adjuntan a lo ancho (span de columnas) y
+    /// no son seleccionables: solo los items de wallpaper/apps se numeran.
     pub fn repopulate(
         &self,
         all_apps: &[Item],
@@ -32,15 +34,50 @@ impl GridRefs {
         }
 
         let shown = filter_items(all_apps, power, wallpapers, query);
-        let new_sel = normalize_selection(*sel.borrow(), shown.len());
+        // Índices de los items seleccionables (sin cabeceras).
+        let selectable: Vec<usize> = shown
+            .iter()
+            .enumerate()
+            .filter(|(_, it)| !it.is_header)
+            .map(|(i, _)| i)
+            .collect();
+        let new_sel = normalize_selection(*sel.borrow(), selectable.len());
         *sel.borrow_mut() = new_sel;
+        let sel_item = new_sel
+            .try_into()
+            .ok()
+            .and_then(|n: usize| selectable.get(n).copied());
 
+        let mut item_idx = 0usize; // índice de item seleccionable (para columnas)
+        let mut row = 0i32; // fila base de la banda actual
+        let mut header_row = 0i32; // fila del último header
+        let mut items_in_section = 0usize; // items de la sección actual
         for (i, item) in shown.iter().enumerate() {
             let cell = make_cell(item);
-            // Columnas de ROWS filas: col 0 = filas 0..ROWS, col 1 = ROWS..2*ROWS...
-            self.grid.attach(&cell, (i / ROWS) as i32, (i % ROWS) as i32, 1, 1);
-            if i as i32 == new_sel {
-                cell.add_css_class("selected");
+            if item.is_header {
+                if items_in_section > 0 {
+                    // La banda anterior ocupó ceil(items/ROWS) filas tras su header.
+                    row = header_row + 1 + ((items_in_section + ROWS - 1) / ROWS) as i32;
+                }
+                // Cabecera: ancho completo (span de todas las columnas).
+                self.grid.attach(&cell, 0, row, 100, 1);
+                header_row = row;
+                row += 1;
+                items_in_section = 0;
+            } else {
+                // Items normales: columnas de ROWS filas dentro de la banda.
+                self.grid.attach(
+                    &cell,
+                    (item_idx / ROWS) as i32,
+                    header_row + 1 + (item_idx % ROWS) as i32,
+                    1,
+                    1,
+                );
+                if Some(i) == sel_item {
+                    cell.add_css_class("selected");
+                }
+                item_idx += 1;
+                items_in_section += 1;
             }
         }
 
@@ -71,8 +108,21 @@ pub fn build_grid() -> GridRefs {
 }
 
 /// Celda del grid: fila con ícono a la izquierda y nombre al lado.
+/// Las cabeceras de sección ocupan todo el ancho y no son seleccionables.
 fn make_cell(item: &Item) -> ListBoxRow {
     let cell = ListBoxRow::new();
+
+    if item.is_header {
+        cell.set_size_request(-1, 30);
+        cell.add_css_class("section-header-row");
+        let label = Label::new(Some(&item.name));
+        label.set_xalign(0.0);
+        label.set_margin_start(12);
+        label.add_css_class("section-header");
+        cell.set_child(Some(&label));
+        return cell;
+    }
+
     cell.set_size_request(CELL_W, ROW_H);
 
     let hbox = gtk4::Box::new(Orientation::Horizontal, 10);

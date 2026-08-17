@@ -28,12 +28,17 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
             let grid = &state.grid;
             let scrolled = &state.scrolled;
 
-            // Total de celdas visibles en el grid.
+            // Total de celdas SELECCIONABLES (las cabeceras de sección no
+            // cuentan ni se seleccionan).
             let total = || {
                 let mut n = 0;
                 let mut child = grid.first_child();
                 while let Some(c) = child {
-                    n += 1;
+                    if let Ok(row) = c.clone().downcast::<gtk4::ListBoxRow>() {
+                        if !row.has_css_class("section-header-row") {
+                            n += 1;
+                        }
+                    }
                     child = c.next_sibling();
                 }
                 n
@@ -51,15 +56,22 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
                     return;
                 }
                 *sel_ref.borrow_mut() = new_idx;
+                // Recorre SOLO los rows seleccionables (los headers no se
+                // pintan como seleccionados).
                 let children = grid_ref.observe_children();
+                let mut sel = 0i32;
                 for i in 0..children.n_items() {
                     if let Some(obj) = children.item(i) {
-                        if let Ok(w) = obj.downcast::<gtk4::Widget>() {
-                            if i as i32 == new_idx {
-                                w.add_css_class("selected");
-                            } else {
-                                w.remove_css_class("selected");
+                        if let Ok(row) = obj.downcast::<gtk4::ListBoxRow>() {
+                            if row.has_css_class("section-header-row") {
+                                continue;
                             }
+                            if sel == new_idx {
+                                row.add_css_class("selected");
+                            } else {
+                                row.remove_css_class("selected");
+                            }
+                            sel += 1;
                         }
                     }
                 }

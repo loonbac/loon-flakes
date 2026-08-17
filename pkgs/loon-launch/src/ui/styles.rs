@@ -33,6 +33,14 @@ pub fn setup_styles(window: &gtk4::ApplicationWindow) {
          .selected {
              background-color: rgba(88, 101, 242, 0.48);
              border-radius: 12px;
+         }
+         label.section-header {
+             color: rgba(255, 255, 255, 0.55);
+             font-size: 12px;
+             font-weight: 700;
+             letter-spacing: 0.5px;
+             text-transform: uppercase;
+             margin-top: 10px;
          }",
     );
     // Provider global (display) para que aplique a TODOS los widgets,
