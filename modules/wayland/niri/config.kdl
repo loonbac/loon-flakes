@@ -93,8 +93,15 @@ binds {
     Super+Q { close-window; }
     Super+F { maximize-column; }
 
-    // Cambiar de fondo animado con Super+B (usa el video seteado o el único).
-    Super+B { spawn "mpvpaper-wallpaper"; }
+    // Selector unificado de fondos: videos (animado) e imágenes (backdrop).
+    // Muestra ambos en un menú; lo elegido se aplica a su capa.
+    Super+B { spawn "wallpaper-picker"; }
+
+    // Elegir solo el fondo estático del backdrop (fuzzel + awww, transición).
+    Super+Shift+B { spawn "niri-backdrop" "pick"; }
+
+    // Siguiente fondo estático (cíclico) con Super+Shift+N.
+    Super+Shift+N { spawn "niri-backdrop" "next"; }
 
     // Captura de pantalla con Super+Shift+S: congela la pantalla, selecciona
     // el área con el mouse y Ctrl+C copia al portapapeles (sin guardar a disco).
@@ -191,14 +198,15 @@ window-rule {
 
 // mpvpaper: el video va en la capa background de CADA workspace (animado,
 // se mueve con los workspaces). El fondo estático de todo (backdrop) lo pone
-// niri-backdrop con swaybg (que sí ignora exclusive zones).
+// niri-backdrop con awww/swww (que sí ignora exclusive zones).
 // OJO: no usar place-within-backdrop aquí — mpvpaper manda exclusive_zone(-1),
 // no califica para el backdrop, y además congelaría el video (issue #4038).
 //
-// niri-backdrop: el fondo estático del backdrop (swaybg usa namespace
-// "wallpaper"). place-within-backdrop lo mueve al backdrop (fondo de todo).
+// niri-backdrop: el fondo estático del backdrop (awww-daemon con namespace
+// "wallpaper" -> app-id "awww-daemonwallpaper"). place-within-backdrop lo
+// mueve al backdrop (fondo de todo).
 layer-rule {
-    match namespace="^wallpaper$"
+    match namespace="^awww-daemonwallpaper$"
 
     place-within-backdrop true
 }

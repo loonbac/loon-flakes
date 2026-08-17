@@ -3,10 +3,18 @@
 # en el overview y a través de ventanas transparentes con xray).
 # Atrás del video animado de cada workspace, este pone una imagen fija.
 #
+# Usa swww/awww (en vez de swaybg) para tener transiciones animadas al
+# cambiar: fade, wipe, circle, grow, etc. El daemon corre con namespace
+# "wallpaper" para que el layer-rule de niri (place-within-backdrop) lo
+# mueva al backdrop. OJO: en nixpkgs 26.05 el paquete expone binarios
+# "awww"/"awww-daemon" (fork de swww); "swww" es alias del mismo paquete.
+#
 # Uso:
-#   niri-backdrop             # pone la imagen seteada (o la primera de la carpeta)
-#   niri-backdrop set IMAGEN  # setea una imagen específica de ~/Pictures/Wallpaper
-#   niri-backdrop stop        # detiene el fondo del backdrop
+#   niri-backdrop                  # pone la imagen seteada (o la primera de la carpeta)
+#   niri-backdrop set IMAGEN       # setea una imagen específica de ~/Pictures/Wallpaper
+#   niri-backdrop pick             # abre fuzzel para elegir el fondo (con transición)
+#   niri-backdrop next             # siguiente imagen de la carpeta (cíclico)
+#   niri-backdrop stop             # detiene el fondo del backdrop
 { pkgs, lib }:
 
 let
@@ -18,22 +26,64 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
 
   DIR="${wallpapersDir}"
   STATE="${stateFile}"
-  SWAYBG="${pkgs.swaybg}/bin/swaybg"
+  SWWW="${pkgs.swww}/bin/awww"
+  SWWW_DAEMON="${pkgs.swww}/bin/awww-daemon"
+  FUZZEL="${pkgs.fuzzel}/bin/fuzzel"
   IMG=""
 
-  stop_backdrop() {
-    pkill -f '[s]waybg' 2>/dev/null || true
+  # Imagen actual seteada (del state) o la primera disponible.
+  pick_image() {
+    find "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -printf '%f\n' | sort | head -1
   }
 
-  # Primera imagen disponible en la carpeta (png/jpg/jpeg/webp).
-  pick_image() {
-    find "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -printf '%p\n' | sort | head -1
+  # Lista de imágenes disponibles (nombres, ordenadas).
+  list_images() {
+    find "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -printf '%f\n' | sort
+  }
+
+  # Levanta el daemon de swww con namespace "wallpaper" si no está corriendo.
+  ensure_daemon() {
+    if ! "$SWWW" query --namespace wallpaper >/dev/null 2>&1; then
+      setsid "$SWWW_DAEMON" --namespace wallpaper >/dev/null 2>&1 &
+      # Espera a que el socket exista (máx ~2s).
+      for _ in $(seq 1 20); do
+        "$SWWW" query --namespace wallpaper >/dev/null 2>&1 && break
+        sleep 0.1
+      done
+    fi
+  }
+
+  # Aplica la imagen con transición animada (fade suave).
+  apply_wallpaper() {
+    ensure_daemon
+    "$SWWW" img --namespace wallpaper --transition-type fade --transition-duration 1.5 \
+      --resize fit "$IMG" >/dev/null 2>&1 || true
+  }
+
+  stop_backdrop() {
+    "$SWWW" kill --namespace wallpaper >/dev/null 2>&1 || true
   }
 
   case "''${1:-}" in
     stop)
       stop_backdrop
       exit 0
+      ;;
+    pick)
+      NAME="$("$FUZZEL" --dmenu --placeholder "Elige un fondo..." <<< "$(list_images)")"
+      [ -z "$NAME" ] && exit 0
+      [ -f "$DIR/$NAME" ] || { echo "No existe: $NAME" >&2; exit 1; }
+      mkdir -p "$(dirname "$STATE")"
+      echo "$NAME" > "$STATE"
+      IMG="$DIR/$NAME"
+      ;;
+    next)
+      CURRENT="$(cat "$STATE" 2>/dev/null || true)"
+      NAME="$(list_images | awk -v cur="$CURRENT" 'BEGIN{found=0} {a[NR]=$0} END{ for(i=1;i<=NR;i++){ if(a[i]==cur){ if(i<NR){print a[i+1]} else {print a[1]}; found=1; break } } if(!found && NR>0) print a[1] }')"
+      [ -z "$NAME" ] && { echo "No hay imágenes en $DIR" >&2; exit 1; }
+      mkdir -p "$(dirname "$STATE")"
+      echo "$NAME" > "$STATE"
+      IMG="$DIR/$NAME"
       ;;
     set)
       NAME="''${2:-}"
@@ -55,7 +105,5 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
 
   [ -z "$IMG" ] && { echo "No hay imagen en $DIR" >&2; exit 1; }
 
-  stop_backdrop
-  # Desacoplado: sobrevive al shell que lo lanzó.
-  setsid "$SWAYBG" -i "$IMG" -m fill >/dev/null 2>&1 &
+  apply_wallpaper
 ''
