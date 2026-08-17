@@ -51,14 +51,16 @@
         chmod 644 /var/lib/AccountsService/icons/loonbac
       fi
 
-      # Cuenta de usuario para AccountsService: IconFile apuntando al icono
+      # Cuenta de usuario para AccountsService: Icon apuntando al icono
       # publicado. Sin esto, el daemon reporta ~/.face (no legible por el
-      # greeter, que corre como usuario dms-greeter).
+      # greeter, que corre como usuario dms-greeter). La clave correcta del
+      # archivo de usuario es "Icon=" (como escribe SetIconFile por D-Bus),
+      # no "IconFile=".
       mkdir -p /var/lib/AccountsService/users
       cat > /var/lib/AccountsService/users/loonbac <<'EOF'
 [User]
 SystemAccount=false
-IconFile=/var/lib/AccountsService/icons/loonbac
+Icon=/var/lib/AccountsService/icons/loonbac
 EOF
     '';
   };
