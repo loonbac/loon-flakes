@@ -62,4 +62,35 @@ IconFile=/var/lib/AccountsService/icons/loonbac
 EOF
     '';
   };
+
+  # --- Fondo del greeter: la imagen del backdrop (detrás del video animado) ---
+  # El greeter usa greeter_wallpaper_override.jpg en su cache dir cuando
+  # greeterWallpaperPath está seteado en settings.json (declarado arriba).
+  # Se copia el wallpaper estático actual (state de niri-backdrop) convertido
+  # a JPEG; si cambias el fondo con 'niri-backdrop set', se actualiza en el
+  # próximo arranque (o reiniciando este servicio).
+  systemd.services.publish-greeter-wallpaper = {
+    description = "Publica el wallpaper del backdrop en el greeter";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils pkgs.imagemagick ];
+    script = ''
+      mkdir -p /var/lib/dms-greeter
+      state="/home/loonbac/.config/mpvpaper/backdrop.txt"
+      wallpaper=""
+      if [ -f "$state" ]; then
+        name="$(cat "$state")"
+        [ -f "/home/loonbac/Pictures/Wallpaper/$name" ] && wallpaper="/home/loonbac/Pictures/Wallpaper/$name"
+      fi
+      [ -z "$wallpaper" ] && wallpaper="$(ls /home/loonbac/Pictures/Wallpaper/*.{png,jpg,jpeg,webp} 2>/dev/null | head -n1)"
+      if [ -n "$wallpaper" ]; then
+        magick "$wallpaper" -resize "1920x1080^" -gravity center -extent 1920x1080 \
+          -quality 85 /var/lib/dms-greeter/greeter_wallpaper_override.jpg
+        chmod 644 /var/lib/dms-greeter/greeter_wallpaper_override.jpg
+      fi
+    '';
+  };
 }
