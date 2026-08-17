@@ -143,24 +143,37 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
         let current_items = current_items.clone();
         let sel_idx = sel_idx.clone();
         Rc::new(move || {
-            let items = current_items.borrow();
-            let idx = *sel_idx.borrow();
-            if idx >= 0 && (idx as usize) < items.len() {
-                let item = &items[idx as usize];
+            // Extraer la acción con el borrow ACOTADO: set_text("#") dispara
+            // el signal changed, que re-puebla el grid y hace borrow_mut de
+            // current_items; si el borrow inmutable siguiera activo aquí,
+            // paniquea (BorrowMutError) y la app crashea.
+            let action: Option<String> = {
+                let items = current_items.borrow();
+                let idx = *sel_idx.borrow();
+                if idx >= 0 && (idx as usize) < items.len() {
+                    Some(items[idx as usize].exec.clone())
+                } else {
+                    None
+                }
+            };
+
+            match action.as_deref() {
                 // Acción interna "Cambiar fondo de pantalla": pasa al modo
                 // wallpapers SIN cerrar el launcher (el '#' filtra fondos).
-                if item.exec == "wallpaper-mode" {
+                Some("wallpaper-mode") => {
                     entry.set_text("#");
                     entry.grab_focus();
-                    return;
                 }
                 // Ejecutar la app seleccionada y ocultar el launcher.
-                let exec = item.exec.clone();
-                std::thread::spawn(move || {
-                    let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
-                });
+                Some(exec) => {
+                    let exec = exec.to_string();
+                    std::thread::spawn(move || {
+                        let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
+                    });
+                    window.hide();
+                }
+                None => window.hide(),
             }
-            window.hide();
         })
     };
 
