@@ -1,8 +1,11 @@
 // Lógica pura (testeable): filtrado de apps y movimiento de selección.
 use crate::models::{Item, ROWS};
 
-/// Filtra las apps según la query. Si empieza por '>', filtra acciones de poder.
-pub fn filter_items(all_apps: &[Item], power: &[Item], query: &str) -> Vec<Item> {
+/// Filtra las apps según la query.
+/// - Si empieza por '>', filtra acciones de poder.
+/// - Si empieza por '#', filtra fondos de pantalla (wallpapers).
+/// - Si no, filtra apps por nombre.
+pub fn filter_items(all_apps: &[Item], power: &[Item], wallpapers: &[Item], query: &str) -> Vec<Item> {
     let q = query.to_lowercase();
     let mut shown: Vec<Item> = Vec::new();
 
@@ -11,6 +14,13 @@ pub fn filter_items(all_apps: &[Item], power: &[Item], query: &str) -> Vec<Item>
         for p in power {
             if filter.is_empty() || p.name.to_lowercase().contains(&filter) {
                 shown.push(p.clone());
+            }
+        }
+    } else if q.starts_with('#') {
+        let filter = q[1..].trim().to_string();
+        for w in wallpapers {
+            if filter.is_empty() || w.name.to_lowercase().contains(&filter) {
+                shown.push(w.clone());
             }
         }
     } else {

@@ -17,6 +17,7 @@ use crate::ui::banner::build_banner;
 use crate::ui::grid::{build_grid, GridRefs};
 use crate::ui::keys::setup_key_controller;
 use crate::ui::styles::setup_styles;
+use crate::wallpapers::wallpapers;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -30,6 +31,8 @@ thread_local! {
     // Apps cacheadas para el closure de búsqueda (actualizadas en cada apertura).
     static ALL_APPS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
     static POWER: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
+    // Fondos de pantalla (videos + imágenes del backdrop).
+    static WALLPAPERS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
     // Items mostrados actualmente (los que ejecuta `run_selected`).
     static CURRENT_ITEMS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
     // Índice de selección compartido con la navegación de teclado.
@@ -39,9 +42,11 @@ thread_local! {
 }
 
 /// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
-pub fn build_ui(app: &gtk4::Application) {
+/// Si `wallpaper_mode` es true, abre directo en el selector de fondos ('#').
+pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
     let fresh_apps = load_apps();
     let fresh_power = power_actions();
+    let fresh_wallpapers = wallpapers();
 
     if let Some(win) = WINDOW.with(|w| w.borrow().clone()) {
         ALL_APPS.with(|a| {
@@ -54,19 +59,26 @@ pub fn build_ui(app: &gtk4::Application) {
                 *power_rc.borrow_mut() = fresh_power;
             }
         });
+        WALLPAPERS.with(|w| {
+            if let Some(wp_rc) = w.borrow().as_ref() {
+                *wp_rc.borrow_mut() = fresh_wallpapers;
+            }
+        });
         // Ya construida: toggle. Si estaba visible, ocultar; si no, mostrar.
         if win.is_visible() {
             win.hide();
         } else {
-            present_and_focus(&win);
+            present_and_focus(&win, wallpaper_mode);
         }
         return;
     }
 
     let all_apps = Rc::new(RefCell::new(fresh_apps));
     let power = Rc::new(RefCell::new(fresh_power));
+    let wallpapers = Rc::new(RefCell::new(fresh_wallpapers));
     ALL_APPS.with(|a| *a.borrow_mut() = Some(all_apps.clone()));
     POWER.with(|p| *p.borrow_mut() = Some(power.clone()));
+    WALLPAPERS.with(|w| *w.borrow_mut() = Some(wallpapers.clone()));
 
     // Primera vez: construir la ventana oculta (no se presenta todavía).
     let style = adw::StyleManager::default();
@@ -100,7 +112,8 @@ pub fn build_ui(app: &gtk4::Application) {
     let current_items = Rc::new(RefCell::new(grid_refs.repopulate(
         &all_apps.borrow(),
         &power.borrow(),
-        "",
+        &wallpapers.borrow(),
+        if wallpaper_mode { "#" } else { "" },
         &sel_idx,
     )));
     CURRENT_ITEMS.with(|c| *c.borrow_mut() = Some(current_items.clone()));
@@ -110,13 +123,16 @@ pub fn build_ui(app: &gtk4::Application) {
         let grid_refs = grid_refs.clone();
         let all_apps = all_apps.clone();
         let power = power.clone();
+        let wallpapers = wallpapers.clone();
         let current_items = current_items.clone();
         let sel_idx = sel_idx.clone();
         move |entry| {
             let q = entry.text().to_string();
             let apps = all_apps.borrow();
             let power = power.borrow();
-            *current_items.borrow_mut() = grid_refs.repopulate(&apps, &power, &q, &sel_idx);
+            let wallpapers = wallpapers.borrow();
+            *current_items.borrow_mut() =
+                grid_refs.repopulate(&apps, &power, &wallpapers, &q, &sel_idx);
         }
     });
 
@@ -172,15 +188,27 @@ pub fn build_ui(app: &gtk4::Application) {
 /// explícita (no depende del signal `changed` de la entry: si la búsqueda
 /// ya estaba vacía, `set_text("")` no dispara el signal y el grid
 /// conservaría los items viejos).
-fn present_and_focus(window: &gtk4::ApplicationWindow) {
+fn present_and_focus(window: &gtk4::ApplicationWindow, wallpaper_mode: bool) {
     let fresh_apps = load_apps();
     let power = power_actions();
+    let fresh_wallpapers = wallpapers();
     ALL_APPS.with(|a| {
         if let Some(apps_rc) = a.borrow().as_ref() {
             *apps_rc.borrow_mut() = fresh_apps;
         }
     });
+    WALLPAPERS.with(|w| {
+        if let Some(wp_rc) = w.borrow().as_ref() {
+            *wp_rc.borrow_mut() = fresh_wallpapers;
+        }
+    });
     let apps = ALL_APPS.with(|a| a.borrow().as_ref().map(|r| r.borrow().clone()).unwrap_or_default());
+    let wallpapers = WALLPAPERS.with(|w| {
+        w.borrow()
+            .as_ref()
+            .map(|r| r.borrow().clone())
+            .unwrap_or_default()
+    });
     let sel_idx = SEL_IDX.with(|s| {
         s.borrow()
             .as_ref()
@@ -190,7 +218,15 @@ fn present_and_focus(window: &gtk4::ApplicationWindow) {
     let shown = GRID_REFS.with(|g| {
         g.borrow()
             .as_ref()
-            .map(|grid_refs| grid_refs.repopulate(&apps, &power, "", &sel_idx))
+            .map(|grid_refs| {
+                grid_refs.repopulate(
+                    &apps,
+                    &power,
+                    &wallpapers,
+                    if wallpaper_mode { "#" } else { "" },
+                    &sel_idx,
+                )
+            })
             .unwrap_or_default()
     });
     CURRENT_ITEMS.with(|c| {
@@ -206,8 +242,9 @@ fn present_and_focus(window: &gtk4::ApplicationWindow) {
     while let Some(w) = stack.pop() {
         if let Ok(entry) = w.clone().downcast::<gtk4::Entry>() {
             // Limpiar la búsqueda anterior (el signal `changed` re-puebla
-            // el grid con todas las apps y resetea la selección).
-            entry.set_text("");
+            // el grid con todas las apps y resetea la selección). En modo
+            // wallpapers dejamos el '#' para filtrar fondos.
+            entry.set_text(if wallpaper_mode { "#" } else { "" });
             entry.grab_focus();
             return;
         }

@@ -210,13 +210,6 @@
     (pkgs.callPackage ../../pkgs/niri-backdrop { })
     # Daemon de wallpapers con transiciones animadas (usado por niri-backdrop).
     swww
-    # Selector unificado de fondos: videos (animado) e imágenes (backdrop).
-    (pkgs.callPackage ../../pkgs/wallpaper-picker {
-      mpvpaper-wallpaper = pkgs.callPackage ../../pkgs/mpvpaper-wallpaper {
-        accent-wallpaper = pkgs.callPackage ../../pkgs/accent-wallpaper { };
-      };
-      niri-backdrop = pkgs.callPackage ../../pkgs/niri-backdrop { };
-    })
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
     # Portapapeles Wayland persistente: sin esto, el contenido se pierde al

@@ -93,9 +93,9 @@ binds {
     Super+Q { close-window; }
     Super+F { maximize-column; }
 
-    // Selector unificado de fondos: videos (animado) e imágenes (backdrop).
-    // Muestra ambos en un menú; lo elegido se aplica a su capa.
-    Super+B { spawn "wallpaper-picker"; }
+    // Selector de fondos integrado en loon-launch: videos (animado) e
+    // imágenes (backdrop) con miniaturas, en el launcher custom.
+    Super+B { spawn "loon-launch" "wallpapers"; }
 
     // Elegir solo el fondo estático del backdrop (fuzzel + awww, transición).
     Super+Shift+B { spawn "niri-backdrop" "pick"; }

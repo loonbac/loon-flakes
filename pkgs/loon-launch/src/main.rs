@@ -5,18 +5,23 @@
 // GtkApplication redirige las invocaciones siguientes a la instancia ya
 // corriendo (D-Bus), el launcher aparece al instante sin re-inicializar GTK.
 //
+// Si se invoca con el argumento "wallpapers", abre directo en el selector
+// de fondos de pantalla (modo '#'): videos animados e imágenes del backdrop.
+//
 // Bootstrap mínimo: inicializa GTK y arma la UI. La lógica vive en
 // módulos:
 //   - models.rs : Item y constantes de layout
 //   - apps.rs   : carga de .desktop y acciones de poder
 //   - filter.rs : filtrado y navegación de selección (lógica pura)
 //   - icons.rs  : caché y resolución de íconos
+//   - wallpapers.rs : fondos de pantalla (videos + imágenes del backdrop)
 //   - ui/       : banner, grid, teclado y estilos
 mod apps;
 mod filter;
 mod icons;
 mod models;
 mod ui;
+mod wallpapers;
 
 #[cfg(test)]
 mod tests;
@@ -24,9 +29,11 @@ mod tests;
 use gtk4::prelude::*;
 
 fn main() {
+    let wallpaper_mode = std::env::args().any(|a| a == "wallpapers");
+
     let app = gtk4::Application::builder()
         .application_id("dev.loonbac.loonlaunch")
         .build();
-    app.connect_activate(ui::build_ui);
+    app.connect_activate(move |app| ui::build_ui(app, wallpaper_mode));
     app.run();
 }

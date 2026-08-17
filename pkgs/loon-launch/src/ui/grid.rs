@@ -2,6 +2,7 @@
 use gtk4::prelude::*;
 use gtk4::{Image, Label, ListBoxRow, Orientation};
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 use crate::filter::{filter_items, normalize_selection};
@@ -22,6 +23,7 @@ impl GridRefs {
         &self,
         all_apps: &[Item],
         power: &[Item],
+        wallpapers: &[Item],
         query: &str,
         sel: &Rc<RefCell<i32>>,
     ) -> Vec<Item> {
@@ -29,7 +31,7 @@ impl GridRefs {
             self.grid.remove(&child);
         }
 
-        let shown = filter_items(all_apps, power, query);
+        let shown = filter_items(all_apps, power, wallpapers, query);
         let new_sel = normalize_selection(*sel.borrow(), shown.len());
         *sel.borrow_mut() = new_sel;
 
@@ -81,11 +83,21 @@ fn make_cell(item: &Item) -> ListBoxRow {
     hbox.set_valign(gtk4::Align::Center);
 
     let image = Image::new();
-    if let Some(icon) = resolve_icon(&item.icon) {
+    if item.is_wallpaper {
+        // Miniatura real del wallpaper (imagen o frame extraído del video).
+        let thumb_path = Path::new(&item.icon);
+        if thumb_path.is_file() {
+            if let Ok(pixbuf) =
+                gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(thumb_path, 64, 40, true)
+            {
+                image.set_from_pixbuf(Some(&pixbuf));
+            }
+        }
+    } else if let Some(icon) = resolve_icon(&item.icon) {
         image.set_paintable(Some(&icon));
     }
-    image.set_pixel_size(28);
-    image.set_size_request(28, 28);
+    image.set_pixel_size(if item.is_wallpaper { 40 } else { 28 });
+    image.set_size_request(if item.is_wallpaper { 64 } else { 28 }, 40);
     image.set_valign(gtk4::Align::Center);
     hbox.append(&image);
 

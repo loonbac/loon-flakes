@@ -6,7 +6,11 @@ use crate::filter::{
 use crate::models::{Item, ROWS};
 
 fn app(name: &str) -> Item {
-    Item { name: name.to_string(), exec: "true".to_string(), icon: "x".to_string() }
+    Item::app(name, "true", "x")
+}
+
+fn wallpaper(name: &str) -> Item {
+    Item::wallpaper(name, "true", "/tmp/thumb.jpg")
 }
 
 fn power() -> Vec<Item> {
@@ -16,7 +20,7 @@ fn power() -> Vec<Item> {
 #[test]
 fn filter_matches_by_name_case_insensitive() {
     let apps = vec![app("Firefox"), app("Ghostty"), app("VS Code")];
-    let got = filter_items(&apps, &power(), "fire");
+    let got = filter_items(&apps, &power(), &[], "fire");
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].name, "Firefox");
 }
@@ -24,22 +28,37 @@ fn filter_matches_by_name_case_insensitive() {
 #[test]
 fn filter_empty_query_returns_all() {
     let apps = vec![app("A"), app("B")];
-    let got = filter_items(&apps, &power(), "");
+    let got = filter_items(&apps, &power(), &[], "");
     assert_eq!(got.len(), 2);
 }
 
 #[test]
 fn filter_power_mode_prefix() {
     let apps = vec![app("Firefox")];
-    let got = filter_items(&apps, &power(), ">apag");
+    let got = filter_items(&apps, &power(), &[], ">apag");
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].name, "Apagar");
 }
 
 #[test]
 fn filter_power_empty_shows_all_power() {
-    let got = filter_items(&[], &power(), ">");
+    let got = filter_items(&[], &power(), &[], ">");
     assert_eq!(got.len(), power().len());
+}
+
+#[test]
+fn filter_wallpaper_mode_prefix() {
+    let wps = vec![wallpaper("▶ reze.mp4"), wallpaper("🖼 Asa.png")];
+    let got = filter_items(&[], &[], &wps, "#reze");
+    assert_eq!(got.len(), 1);
+    assert!(got[0].name.contains("reze"));
+}
+
+#[test]
+fn filter_wallpaper_empty_shows_all() {
+    let wps = vec![wallpaper("▶ a.mp4"), wallpaper("🖼 b.png")];
+    let got = filter_items(&[], &[], &wps, "#");
+    assert_eq!(got.len(), 2);
 }
 
 #[test]
@@ -91,16 +110,12 @@ fn char_and_backspace_edit_text() {
 #[test]
 fn dedup_prefers_waydroid_app_wrapper() {
     let mut apps = vec![
-        Item {
-            name: "TikTok".to_string(),
-            exec: "waydroid app launch com.zhiliaoapp.musically".to_string(),
-            icon: "x".to_string(),
-        },
-        Item {
-            name: "TikTok".to_string(),
-            exec: "waydroid-app com.zhiliaoapp.musically".to_string(),
-            icon: "x".to_string(),
-        },
+        Item::app(
+            "TikTok",
+            "waydroid app launch com.zhiliaoapp.musically",
+            "x",
+        ),
+        Item::app("TikTok", "waydroid-app com.zhiliaoapp.musically", "x"),
     ];
     apps.sort_by(|a, b| {
         a.name

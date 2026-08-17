@@ -91,15 +91,15 @@ fn parse_desktop(path: &Path) -> Option<Item> {
         exec = format!("ghostty -e {}", exec);
     }
 
-    Some(Item { name, exec, icon })
+    Some(Item::app(name, exec, icon))
 }
 
 pub fn power_actions() -> Vec<Item> {
     vec![
-        Item { name: "Apagar".to_string(), exec: "systemctl poweroff".to_string(), icon: "system-shutdown".to_string() },
-        Item { name: "Reiniciar".to_string(), exec: "systemctl reboot".to_string(), icon: "system-reboot".to_string() },
-        Item { name: "Hibernar".to_string(), exec: "systemctl hibernate".to_string(), icon: "system-suspend-hibernate".to_string() },
-        Item { name: "Suspender".to_string(), exec: "systemctl suspend".to_string(), icon: "system-suspend".to_string() },
-        Item { name: "Bloquear".to_string(), exec: "loginctl lock-session".to_string(), icon: "system-lock-screen".to_string() },
+        Item::app("Apagar", "systemctl poweroff", "system-shutdown"),
+        Item::app("Reiniciar", "systemctl reboot", "system-reboot"),
+        Item::app("Hibernar", "systemctl hibernate", "system-suspend-hibernate"),
+        Item::app("Suspender", "systemctl suspend", "system-suspend"),
+        Item::app("Bloquear", "loginctl lock-session", "system-lock-screen"),
     ]
 }
