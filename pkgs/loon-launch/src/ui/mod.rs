@@ -27,6 +27,9 @@ thread_local! {
     static WINDOW: RefCell<Option<gtk4::ApplicationWindow>> = RefCell::new(None);
     // Refs del grid para repoblar al presentar (misma vida que la ventana).
     static GRID_REFS: RefCell<Option<GridRefs>> = RefCell::new(None);
+    // Apps cacheadas para el closure de búsqueda (actualizadas en cada apertura).
+    static ALL_APPS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
+    static POWER: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
     // Items mostrados actualmente (los que ejecuta `run_selected`).
     static CURRENT_ITEMS: RefCell<Option<Rc<RefCell<Vec<Item>>>>> = RefCell::new(None);
     // Índice de selección compartido con la navegación de teclado.
@@ -37,21 +40,33 @@ thread_local! {
 
 /// Arma la UI (oculta) la primera vez y alterna visibilidad en cada activate.
 pub fn build_ui(app: &gtk4::Application) {
-    // Lista de apps y acciones de poder, recargadas en cada apertura.
-    let all_apps = Rc::new(RefCell::new(load_apps()));
-    let power = Rc::new(RefCell::new(power_actions()));
+    let fresh_apps = load_apps();
+    let fresh_power = power_actions();
 
     if let Some(win) = WINDOW.with(|w| w.borrow().clone()) {
+        ALL_APPS.with(|a| {
+            if let Some(apps_rc) = a.borrow().as_ref() {
+                *apps_rc.borrow_mut() = fresh_apps;
+            }
+        });
+        POWER.with(|p| {
+            if let Some(power_rc) = p.borrow().as_ref() {
+                *power_rc.borrow_mut() = fresh_power;
+            }
+        });
         // Ya construida: toggle. Si estaba visible, ocultar; si no, mostrar.
-        // Usar hide() (no close(), que destruye la ventana y dejaría el
-        // estado apuntando a un objeto finalizado).
         if win.is_visible() {
             win.hide();
         } else {
-            present_and_focus(&win, &all_apps);
+            present_and_focus(&win);
         }
         return;
     }
+
+    let all_apps = Rc::new(RefCell::new(fresh_apps));
+    let power = Rc::new(RefCell::new(fresh_power));
+    ALL_APPS.with(|a| *a.borrow_mut() = Some(all_apps.clone()));
+    POWER.with(|p| *p.borrow_mut() = Some(power.clone()));
 
     // Primera vez: construir la ventana oculta (no se presenta todavía).
     let style = adw::StyleManager::default();
@@ -157,17 +172,15 @@ pub fn build_ui(app: &gtk4::Application) {
 /// explícita (no depende del signal `changed` de la entry: si la búsqueda
 /// ya estaba vacía, `set_text("")` no dispara el signal y el grid
 /// conservaría los items viejos).
-fn present_and_focus(window: &gtk4::ApplicationWindow, all_apps: &Rc<RefCell<Vec<Item>>>) {
-    // Recargar la lista de apps: las apps nuevas instaladas con rebuild
-    // aparecen sin reiniciar el daemon.
-    *all_apps.borrow_mut() = load_apps();
-
-    // Repoblar el grid de forma explícita. No se depende del signal
-    // `changed` de la entry: si la búsqueda ya estaba vacía, `set_text("")`
-    // no lo dispara y el grid conservaría los items viejos. Se reutiliza el
-    // mismo sel_idx (el Rc original) para no desincronizar la navegación.
-    let apps = all_apps.borrow();
+fn present_and_focus(window: &gtk4::ApplicationWindow) {
+    let fresh_apps = load_apps();
     let power = power_actions();
+    ALL_APPS.with(|a| {
+        if let Some(apps_rc) = a.borrow().as_ref() {
+            *apps_rc.borrow_mut() = fresh_apps;
+        }
+    });
+    let apps = ALL_APPS.with(|a| a.borrow().as_ref().map(|r| r.borrow().clone()).unwrap_or_default());
     let sel_idx = SEL_IDX.with(|s| {
         s.borrow()
             .as_ref()
@@ -185,7 +198,6 @@ fn present_and_focus(window: &gtk4::ApplicationWindow, all_apps: &Rc<RefCell<Vec
             *items.borrow_mut() = shown;
         }
     });
-    drop(apps);
 
     window.present();
     // Buscar el Entry (vive dentro del banner) y enfocarlo, con el texto
