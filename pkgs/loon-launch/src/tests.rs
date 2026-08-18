@@ -1,7 +1,8 @@
 // Tests de la lógica pura del launcher (filtrado, navegación, edición).
 use crate::apps::power_actions;
 use crate::filter::{
-    apply_backspace, apply_char, filter_items, move_sel_rowwise, move_selection, normalize_selection,
+    apply_backspace, apply_char, filter_items, gallery_positions, move_sel_grid, move_sel_rowwise,
+    move_selection, normalize_selection, wallpaper_card_size,
 };
 use crate::models::{Item, ROWS};
 
@@ -126,4 +127,36 @@ fn dedup_prefers_waydroid_app_wrapper() {
     apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
     assert_eq!(apps.len(), 1);
     assert_eq!(apps[0].exec, "waydroid-app com.zhiliaoapp.musically");
+}
+
+#[test]
+fn videos_and_photos_are_two_rows() {
+    // Cada sección es UNA fila: 4 videos arriba, 1 foto abajo.
+    let pos = gallery_positions(&[4, 1], 8);
+    assert_eq!(pos, vec![(0, 0), (0, 1), (0, 2), (0, 3), (1, 0)]);
+    assert_eq!(move_sel_grid(0, 0, 1, &pos), 1);
+    assert_eq!(move_sel_grid(0, 1, 0, &pos), 4);
+    assert_eq!(move_sel_grid(3, 1, 0, &pos), 4);
+    assert_eq!(move_sel_grid(4, -1, 0, &pos), 0);
+}
+
+#[test]
+fn wallpaper_cards_fit_two_full_rows() {
+    let (w, h) = wallpaper_card_size(680, 350, 2);
+    assert!(
+        h * 2 + 80 <= 350,
+        "two full rows must fit in the window, card h={h}"
+    );
+    assert!(w * 2 + 16 + 40 <= 680, "two cards must fit in 680px, got {w}");
+    assert!(w >= 120 && h >= 72);
+}
+
+#[test]
+fn apps_grid_right_stays_on_same_row() {
+    // Column-major 4-row grid: idx 0=(0,0), 1=(1,0), 4=(0,1)
+    let pos: Vec<(i32, i32)> = (0..8).map(|i| ((i % 4) as i32, (i / 4) as i32)).collect();
+    assert_eq!(move_sel_grid(0, 1, 0, &pos), 1);
+    assert_eq!(move_sel_grid(0, 0, 1, &pos), 4);
+    assert_eq!(move_sel_grid(3, 1, 0, &pos), 3);
+    assert_eq!(move_sel_grid(0, -1, 0, &pos), 0);
 }

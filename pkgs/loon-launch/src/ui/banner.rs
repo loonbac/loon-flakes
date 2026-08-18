@@ -1,15 +1,24 @@
 // Banner del launcher: imagen de fondo fija + entry de búsqueda.
 use gtk4::prelude::*;
 
-pub fn build_banner() -> (gtk4::Overlay, gtk4::Entry) {
+use crate::models::{BANNER_H, WIN_W};
+
+pub struct BannerRefs {
+    pub root: gtk4::Overlay,
+    pub viewport: gtk4::DrawingArea,
+    pub entry: gtk4::Entry,
+}
+
+pub fn build_banner() -> BannerRefs {
     let banner = gtk4::Overlay::new();
-    banner.set_size_request(680, 180);
+    banner.set_size_request(WIN_W, BANNER_H);
+    banner.set_hexpand(true);
     banner.add_css_class("banner-viewport");
 
     let banner_viewport = gtk4::DrawingArea::new();
-    banner_viewport.set_content_width(680);
-    banner_viewport.set_content_height(180);
-    banner_viewport.set_size_request(680, 180);
+    banner_viewport.set_content_width(WIN_W);
+    banner_viewport.set_content_height(BANNER_H);
+    banner_viewport.set_size_request(WIN_W, BANNER_H);
 
     let banner_pixbuf = gtk4::gdk_pixbuf::Pixbuf::from_file(
         "/home/loonbac/Descargas/cl_aesthetic_mix58.jpg",
@@ -30,5 +39,24 @@ pub fn build_banner() -> (gtk4::Overlay, gtk4::Entry) {
     banner.add_overlay(&entry);
     banner.set_measure_overlay(&entry, false);
 
-    (banner, entry)
+    BannerRefs {
+        root: banner,
+        viewport: banner_viewport,
+        entry,
+    }
+}
+
+impl BannerRefs {
+    pub fn apply_mode(&self, wallpaper: bool) {
+        // El banner de apps no se toca. En fondos se oculta: no hay búsqueda.
+        self.root.set_visible(!wallpaper);
+        self.root.set_size_request(WIN_W, BANNER_H);
+        self.viewport.set_content_width(WIN_W);
+        self.viewport.set_content_height(BANNER_H);
+        self.viewport.set_size_request(WIN_W, BANNER_H);
+        self.entry.set_size_request(600, -1);
+        self.entry.set_placeholder_text(Some(
+            "Buscar app… (escribe '>' para acciones de poder)",
+        ));
+    }
 }

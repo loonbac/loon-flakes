@@ -6,16 +6,15 @@ use gtk4::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::filter::{apply_backspace, apply_char, move_sel_rowwise};
-use crate::models::{CELL_W, ROWS};
+use crate::filter::{apply_backspace, apply_char, move_sel_grid};
+use crate::ui::grid::GridRefs;
 
 #[derive(Clone)]
 pub struct KeyState {
-    pub grid: gtk4::Grid,
-    pub scrolled: gtk4::ScrolledWindow,
+    pub grid_refs: GridRefs,
     pub entry: gtk4::Entry,
-    pub window: gtk4::ApplicationWindow,
     pub sel_idx: Rc<RefCell<i32>>,
+    pub hide: Rc<dyn Fn()>,
     pub run_selected: Rc<dyn Fn()>,
 }
 
@@ -25,101 +24,37 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
         #[strong]
         state,
         move |_, key, _, _| {
-            let grid = &state.grid;
-            let scrolled = &state.scrolled;
-
-            // Total de celdas SELECCIONABLES (las cabeceras de sección no
-            // cuentan ni se seleccionan).
-            let total = || {
-                let mut n = 0;
-                let mut child = grid.first_child();
-                while let Some(c) = child {
-                    if let Ok(row) = c.clone().downcast::<gtk4::ListBoxRow>() {
-                        if !row.has_css_class("section-header-row") {
-                            n += 1;
-                        }
-                    }
-                    child = c.next_sibling();
-                }
-                n
-            };
-
-            // Mover la selección, repintar y hacer scroll SOLO cuando la
-            // selección sale del viewport (navegar hasta el borde y recién
-            // ahí desplazar).
-            let grid_ref = grid.clone();
-            let scrolled_ref = scrolled.clone();
-            let sel_ref = state.sel_idx.clone();
-            let apply_sel = move |new_idx: i32| {
-                if new_idx < 0 {
+            let apply_sel = {
+                let refs = state.grid_refs.clone();
+                let sel_ref = state.sel_idx.clone();
+                move |new_idx: i32| {
                     *sel_ref.borrow_mut() = new_idx;
-                    return;
-                }
-                *sel_ref.borrow_mut() = new_idx;
-                // Recorre SOLO los rows seleccionables (los headers no se
-                // pintan como seleccionados).
-                let children = grid_ref.observe_children();
-                let mut sel = 0i32;
-                for i in 0..children.n_items() {
-                    if let Some(obj) = children.item(i) {
-                        if let Ok(row) = obj.downcast::<gtk4::ListBoxRow>() {
-                            if row.has_css_class("section-header-row") {
-                                continue;
-                            }
-                            if sel == new_idx {
-                                row.add_css_class("selected");
-                            } else {
-                                row.remove_css_class("selected");
-                            }
-                            sel += 1;
-                        }
-                    }
-                }
-                // Scroll horizontal SOLO si la celda sale de la vista.
-                let col = (new_idx as usize) / ROWS;
-                let h = scrolled_ref.hadjustment();
-                let cell_x = (col as f64) * (CELL_W as f64);
-                let cell_w = CELL_W as f64;
-                let cur = h.value();
-                let page = h.page_size();
-                if cell_x < cur {
-                    // Se salió por la izquierda: volver hasta mostrarla.
-                    h.set_value(cell_x.max(h.lower()));
-                } else if cell_x + cell_w > cur + page {
-                    // Se salió por la derecha: scrollear lo mínimo para
-                    // que la celda quede completa a la vista.
-                    h.set_value((cell_x + cell_w - page).min(h.upper() - page).max(h.lower()));
+                    refs.apply_sel(new_idx);
                 }
             };
+
+            let positions = state.grid_refs.positions.borrow().clone();
+            let current = *state.sel_idx.borrow();
 
             match key {
                 Key::Escape => {
-                    // Ocultar (no destruir: la ventana debe seguir viva).
-                    state.window.hide();
+                    (state.hide)();
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    // Abajo baja por la columna (siguiente fila).
-                    let current = *state.sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, 1, total()));
+                    apply_sel(move_sel_grid(current, 1, 0, &positions));
                     glib::Propagation::Stop
                 }
                 Key::Up => {
-                    // Arriba sube por la columna (anterior fila).
-                    let current = *state.sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, -1, total()));
+                    apply_sel(move_sel_grid(current, -1, 0, &positions));
                     glib::Propagation::Stop
                 }
                 Key::Right => {
-                    // Derecha va a la siguiente columna (salta ROWS filas).
-                    let current = *state.sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, ROWS as i32, total()));
+                    apply_sel(move_sel_grid(current, 0, 1, &positions));
                     glib::Propagation::Stop
                 }
                 Key::Left => {
-                    // Izquierda va a la columna anterior.
-                    let current = *state.sel_idx.borrow();
-                    apply_sel(move_sel_rowwise(current, -(ROWS as i32), total()));
+                    apply_sel(move_sel_grid(current, 0, -1, &positions));
                     glib::Propagation::Stop
                 }
                 Key::Return | Key::KP_Enter => {
@@ -133,7 +68,6 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
                     glib::Propagation::Stop
                 }
                 _ => {
-                    // Teclas imprimibles: escribir en la barra y filtrar.
                     if let Some(c) = key.to_unicode() {
                         if !c.is_control() {
                             let text = state.entry.text().to_string();

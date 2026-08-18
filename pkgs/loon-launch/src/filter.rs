@@ -1,5 +1,5 @@
 // Lógica pura (testeable): filtrado de apps y movimiento de selección.
-use crate::models::{Item, ROWS};
+use crate::models::Item;
 
 /// Filtra las apps según la query.
 /// - Si empieza por '>', filtra acciones de poder.
@@ -55,6 +55,83 @@ pub fn move_selection(sel: i32, delta: i32, total: usize) -> i32 {
 /// - Derecha/Izquierda se mueven en saltos de ROWS (siguiente/anterior columna).
 pub fn move_sel_rowwise(sel: i32, delta: i32, total: usize) -> i32 {
     move_selection(sel, delta, total)
+}
+
+/// Tamaño 16:9 para 2 filas enteras (videos / fotos) en `area_h`.
+pub fn wallpaper_card_size(area_w: i32, area_h: i32, cols: i32) -> (i32, i32) {
+    let cols = cols.max(1);
+    let hpad = 40;
+    let gap = 16;
+    let chrome = 80;
+    let max_w = ((area_w - hpad - gap * (cols - 1)) / cols).clamp(120, 400);
+    let max_h = ((area_h - chrome) / 2).clamp(72, 180);
+    let h_from_w = (max_w * 9) / 16;
+    if h_from_w <= max_h {
+        (max_w, h_from_w)
+    } else {
+        ((max_h * 16) / 9, max_h)
+    }
+}
+
+/// Posiciones (fila, col) de una galería envuelta: cada sección arranca en
+/// una fila nueva y las cards se parten de `cols` en `cols`.
+pub fn gallery_positions(section_counts: &[usize], cols: i32) -> Vec<(i32, i32)> {
+    let cols = cols.max(1);
+    let mut out = Vec::new();
+    let mut row = 0i32;
+    for &n in section_counts {
+        if n == 0 {
+            continue;
+        }
+        for i in 0..n {
+            let col = (i as i32) % cols;
+            if i > 0 && col == 0 {
+                row += 1;
+            }
+            out.push((row, col));
+        }
+        row += 1;
+    }
+    out
+}
+
+/// Navegación 2D: `positions[i] = (row, col)` del item seleccionable i.
+/// Abajo/arriba buscan la fila siguiente en la misma columna (o la más cercana).
+/// Izquierda/derecha se mueven solo dentro de la fila. Si no hay celda, se queda.
+pub fn move_sel_grid(sel: i32, drow: i32, dcol: i32, positions: &[(i32, i32)]) -> i32 {
+    if positions.is_empty() {
+        return -1;
+    }
+    let idx = if sel < 0 { 0 } else { sel as usize };
+    if idx >= positions.len() {
+        return 0;
+    }
+    if drow == 0 && dcol == 0 {
+        return idx as i32;
+    }
+    let (r, c) = positions[idx];
+    if dcol != 0 && drow == 0 {
+        let target_c = c + dcol;
+        return positions
+            .iter()
+            .enumerate()
+            .find(|(_, &(rr, cc))| rr == r && cc == target_c)
+            .map(|(i, _)| i as i32)
+            .unwrap_or(idx as i32);
+    }
+    let mut best: Option<(i32, i32, i32)> = None;
+    for (i, &(rr, cc)) in positions.iter().enumerate() {
+        let rd = rr - r;
+        let same_dir = if drow > 0 { rd > 0 } else { rd < 0 };
+        if !same_dir {
+            continue;
+        }
+        let key = (rd.abs(), (cc - c).abs(), i as i32);
+        if best.is_none_or(|cur| key < cur) {
+            best = Some(key);
+        }
+    }
+    best.map(|(_, _, i)| i).unwrap_or(idx as i32)
 }
 
 /// Normaliza la selección tras un repopulate: si quedó fuera de rango, 0.

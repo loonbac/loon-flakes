@@ -163,8 +163,16 @@ window-rule {
 
     open-floating true
     open-maximized false
-    default-column-width { fixed 720; }
-    default-window-height { fixed 480; }
+    default-column-width { fixed 680; }
+    default-window-height { fixed 350; }
+    min-width 680
+    min-height 350
+    max-width 740
+    max-height 350
+
+    geometry-corner-radius 18
+    clip-to-geometry true
+    draw-border-with-background false
 }
 
 // Waydroid (Android): ventana vertical tipo teléfono (resolución ligera)

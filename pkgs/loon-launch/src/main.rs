@@ -29,11 +29,19 @@ mod tests;
 use gtk4::prelude::*;
 
 fn main() {
-    let wallpaper_mode = std::env::args().any(|a| a == "wallpapers");
-
     let app = gtk4::Application::builder()
         .application_id("dev.loonbac.loonlaunch")
+        .flags(gtk4::gio::ApplicationFlags::HANDLES_COMMAND_LINE)
         .build();
-    app.connect_activate(move |app| ui::build_ui(app, wallpaper_mode));
+    // command_line corre también en la instancia primaria: así Super+B
+    // (`loon-launch wallpapers`) llega al daemon y no se interpreta como archivo.
+    app.connect_command_line(|app, cmd| {
+        let wallpaper = cmd
+            .arguments()
+            .iter()
+            .any(|a| a.to_string_lossy() == "wallpapers");
+        ui::build_ui(app, wallpaper);
+        0.into()
+    });
     app.run();
 }

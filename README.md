@@ -95,28 +95,33 @@ nixos-ssh        # menú: password | cert | cancelar
 
 ## Paquetes del flake (`pkgs/`)
 
-### `loon-launch` — app launcher (Super+Space)
+### `loon-launch` — app launcher (Super+Space) y fondos (Super+B)
 
-Launcher Wayland en Rust (GTK4 + libadwaita) para niri. La ventana es fija y
-compacta: **680×350 px** de contenido. El banner ocupa 180 px de alto y el
-listado de apps usa los 170 px restantes.
+Launcher Wayland en Rust (GTK4 + libadwaita) para niri. Daemon persistente:
+`Super+Space` abre las apps; `Super+B` (o `loon-launch wallpapers`) abre el
+selector de fondos. El código vive en `pkgs/loon-launch/src/` (`ui/`,
+`filter.rs`, `wallpapers.rs`).
 
-- Lista las apps desde los `.desktop` de `/run/current-system/sw/share/applications`,
-  `~/.local/share/applications` y `/usr/share/applications`.
-- Cada celda muestra un **icono de 44 px** arriba y el nombre centrado debajo,
-  con elipsis para nombres largos; el grid está compactado para mostrar al menos
-  dos filas completas dentro de la ventana.
-- El banner usa una imagen natural de 1280×427 dibujada en un viewport fijo de
-  680×180: se centra y se recortan los bordes horizontales superior e inferior,
-  sin escalar la imagen para adaptarla al contenedor.
-- La búsqueda mide 600 px, conserva su grosor normal y se dibuja superpuesta al
-  banner. No recibe el foco inicial: el grid recibe el foco para que las flechas
-  naveguen las apps.
-- Navegación 100% por teclado: `←/→/↑/↓` mueven la selección, `Enter` ejecuta,
-  `Escape` cierra, las teclas imprimibles filtran y `Backspace` borra.
-- **Modo poder**: escribiendo `>` se filtran acciones de sistema
-  (apagar, reiniciar, hibernar, suspender, bloquear).
-- El launcher se cierra al perder el foco de la ventana.
+**Apps (680×350)**
+
+- Banner 180 px con la imagen estética y búsqueda de 600 px centrada encima.
+- Lista en **2 columnas** de 4 filas: icono 28 px + nombre (ellipsis). Las
+  columnas extra se desplazan a la derecha (scrollbar oculta; flechas).
+- `←/→` cambian de columna, `↑/↓` suben/bajan en la columna, `Enter` ejecuta,
+  `Escape` cierra. Escribir filtra; `>` son acciones de poder.
+
+**Fondos (740×350, sin banner ni búsqueda)**
+
+- Fila de arriba: **Fondo de pantalla** (videos de `~/Videos/Wallpapers`,
+  preview en vivo 16:9). Si hay más de dos, `→` scrollea la tira.
+- Fila de abajo: **Background** (fotos de `~/Pictures/Wallpaper`).
+- Cards centradas, badge Video/Foto, borde interno al seleccionar. El scroll
+  deja 22 px de aire para no recortar el aro al volver al primero.
+- `↑/↓` saltan entre las dos filas. `Enter` aplica (`mpvpaper-wallpaper set`
+  o `niri-backdrop set`).
+
+Validar: `niri validate --config modules/wayland/niri/config.kdl` y
+`cargo test` en `pkgs/loon-launch/`.
 
 Se compila con `rustPlatform.buildRustPackage` (Cargo.lock versionado).
 Código: `pkgs/loon-launch/src/main.rs`.
@@ -220,7 +225,7 @@ Detalles de la config:
 | `Super+Space`       | Abrir loon-launch (launcher)                    |
 | `Super+Q`           | Cerrar ventana                                  |
 | `Super+F`           | Maximizar/restaurar columna                     |
-| `Super+B`           | Fondo animado (mpvpaper-wallpaper)              |
+| `Super+B`           | Selector de fondos en loon-launch               |
 | `Super+Shift+S`     | Captura de pantalla (área) → portapapeles       |
 | `Super+Shift+V`     | Pegar desde historial (cliphist + fuzzel)       |
 | `Super+←` / `→`     | Mover ventana con wrap (niri-cycle)             |

@@ -3,7 +3,7 @@
 //   - "Fondo de pantalla": videos (mpvpaper, capa por workspace)
 //   - "Background": imágenes (niri-backdrop, capa detrás de todo)
 // Los videos se representan con un frame extraído con ffmpeg (cacheado en
-// ~/.cache/loon-launch) para la miniatura.
+// ~/.cache/loon-launch) para la miniatura de respaldo si el preview en vivo falla.
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -59,7 +59,10 @@ fn collect_dir(dir: &str, is_video: bool, out: &mut Vec<Item>) {
             } else {
                 format!("niri-backdrop set {}", shell_quote(&name))
             };
-            out.push(Item::wallpaper(name, exec, thumb));
+            out.push(
+                Item::wallpaper(name, exec, thumb)
+                    .with_media(path.to_string_lossy().into_owned()),
+            );
         }
     }
 }
@@ -82,7 +85,7 @@ fn video_thumb(video: &Path) -> String {
                 "-frames:v",
                 "1",
                 "-vf",
-                "scale=128:-1",
+                "scale=640:-1",
                 "-q:v",
                 "4",
                 &thumb,
