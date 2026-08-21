@@ -159,6 +159,7 @@
     antigravity
     antigravity-cli
     pi-coding-agent
+    grok-cli
     obs-studio
     zoom-us
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para

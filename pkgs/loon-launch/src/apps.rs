@@ -24,6 +24,9 @@ pub fn load_apps() -> Vec<Item> {
                     continue;
                 }
                 if let Some(item) = parse_desktop(&path) {
+                    if is_hidden_app(&item.name, &item.exec) {
+                        continue;
+                    }
                     apps.push(item);
                 }
             }
@@ -92,6 +95,15 @@ fn parse_desktop(path: &Path) -> Option<Item> {
     }
 
     Some(Item::app(name, exec, icon))
+}
+
+/// TikTok normal no se lista; TikTok Lite (paquete `.go`) sí.
+pub fn is_hidden_app(name: &str, exec: &str) -> bool {
+    let name_l = name.to_lowercase();
+    let exec_l = exec.to_lowercase();
+    let full_pkg = exec_l.contains("com.zhiliaoapp.musically")
+        && !exec_l.contains("com.zhiliaoapp.musically.go");
+    full_pkg || name_l == "tiktok"
 }
 
 pub fn power_actions() -> Vec<Item> {

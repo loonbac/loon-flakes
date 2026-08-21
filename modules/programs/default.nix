@@ -13,5 +13,6 @@
     ./gtk
     ./hyprlock
     ./waydroid
+    ./virtualbox
   ];
 }

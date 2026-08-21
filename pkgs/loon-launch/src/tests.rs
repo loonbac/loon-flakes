@@ -1,5 +1,5 @@
 // Tests de la lógica pura del launcher (filtrado, navegación, edición).
-use crate::apps::power_actions;
+use crate::apps::{is_hidden_app, power_actions};
 use crate::filter::{
     apply_backspace, apply_char, filter_items, gallery_positions, move_sel_grid, move_sel_rowwise,
     move_selection, normalize_selection, wallpaper_card_size,
@@ -112,11 +112,11 @@ fn char_and_backspace_edit_text() {
 fn dedup_prefers_waydroid_app_wrapper() {
     let mut apps = vec![
         Item::app(
-            "TikTok",
-            "waydroid app launch com.zhiliaoapp.musically",
+            "TikTok Lite",
+            "waydroid app launch com.zhiliaoapp.musically.go",
             "x",
         ),
-        Item::app("TikTok", "waydroid-app com.zhiliaoapp.musically", "x"),
+        Item::app("TikTok Lite", "waydroid-app com.zhiliaoapp.musically.go", "x"),
     ];
     apps.sort_by(|a, b| {
         a.name
@@ -126,7 +126,26 @@ fn dedup_prefers_waydroid_app_wrapper() {
     });
     apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
     assert_eq!(apps.len(), 1);
-    assert_eq!(apps[0].exec, "waydroid-app com.zhiliaoapp.musically");
+    assert_eq!(apps[0].exec, "waydroid-app com.zhiliaoapp.musically.go");
+}
+
+#[test]
+fn hides_regular_tiktok_keeps_lite() {
+    assert!(is_hidden_app("TikTok", "waydroid-app com.zhiliaoapp.musically"));
+    assert!(is_hidden_app(
+        "TikTok",
+        "waydroid app launch com.zhiliaoapp.musically"
+    ));
+    assert!(is_hidden_app("tiktok", "anything"));
+    assert!(!is_hidden_app(
+        "TikTok Lite",
+        "waydroid-app com.zhiliaoapp.musically.go"
+    ));
+    assert!(!is_hidden_app(
+        "TikTok Lite",
+        "waydroid app launch com.zhiliaoapp.musically.go"
+    ));
+    assert!(!is_hidden_app("Firefox", "firefox"));
 }
 
 #[test]
