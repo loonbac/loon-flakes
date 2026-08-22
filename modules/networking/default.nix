@@ -12,4 +12,6 @@
   #   networking.firewall.allowedUDPPorts = [ 53 ];
   # Para desactivarlo del todo (NO recomendado):
   #   networking.firewall.enable = false;
+  # 5173 = dev server de Vite del frontend tele-owo; 8080 = API axum (Rust).
+  networking.firewall.allowedTCPPorts = [ 5173 8080 ];
 }

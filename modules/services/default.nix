@@ -7,5 +7,6 @@
     ./openssh
     ./tailscale
     ./nixos-updates
+    ./udisks2
   ];
 }

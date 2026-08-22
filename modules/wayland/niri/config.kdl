@@ -60,6 +60,8 @@ spawn-at-startup "waybar"
 // Daemon de notificaciones (SwayNC): captura las notificaciones del sistema
 // y las muestra como popups; el icono del tray en waybar lo controla.
 spawn-at-startup "swaync"
+// Automontador de unidades extraíbles (USB): monta y envía notificación al conectar.
+spawn-at-startup "udiskie" "--automount" "--notify"
 // Mantiene el portapapeles Wayland al cerrar la app dueña (p. ej. tras
 // copiar una captura con la UI de niri y cerrarla, sigue pegable en otros
 // programas). Sin esto, Ctrl+V falla al cerrar la app que copió.

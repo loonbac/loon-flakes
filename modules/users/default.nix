@@ -6,8 +6,8 @@
   users.users."loonbac" = {
     isNormalUser = true;
     description = "Joshua Rosales";
-    # Grupos: networkmanager (GUI de red), wheel (sudo).
-    extraGroups = [ "networkmanager" "wheel" ];
+    # Grupos: networkmanager (GUI de red), wheel (sudo), storage (montaje sin sudo).
+    extraGroups = [ "networkmanager" "wheel" "storage" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
     packages = with pkgs; [ ];
     # Shell por defecto: fish.
