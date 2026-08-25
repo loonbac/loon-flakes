@@ -19,8 +19,9 @@
       end
 
       # Detección automática de binarios: agrega los dirs existentes.
+      # npm-global va al final para no sombrear wrappers declarativos de NixOS
+      # como `codex`, que actualiza y luego ejecuta la instalación global.
       for dir in \
-        ~/.npm-global/bin \
         ~/.cargo/bin \
         ~/go/bin \
         ~/.local/bin \
@@ -31,6 +32,15 @@
           fish_add_path --prepend --move $dir
         end
       end
+
+      if test -d ~/.npm-global/bin
+        fish_add_path --append --move ~/.npm-global/bin
+      end
+
+      # Reafirma la prioridad del perfil del sistema sobre bins mutables de
+      # usuario, incluso si PAM o otro perfil ya inyectó rutas antes de fish.
+      fish_add_path --prepend --move /run/current-system/sw/bin
+      fish_add_path --prepend --move /run/wrappers/bin
 
       # Prompt personalizado: Oh My Posh.
       # --strict resuelve `oh-my-posh` por PATH (correcto con el store de Nix).

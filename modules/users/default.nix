@@ -15,7 +15,8 @@
   };
 
   # npm global: instala en ~/.npm-global (el prefix del store de Nix es
-  # inmutable y no se puede escribir). Crea el dir y lo pone en el PATH.
+  # inmutable y no se puede escribir). El PATH se gestiona en system/fish para
+  # que los wrappers declarativos de NixOS tengan prioridad.
   systemd.tmpfiles.rules = [
     "d /home/loonbac/.npm-global 0755 loonbac users -"
     "d /home/loonbac/.npm-global/lib 0755 loonbac users -"
@@ -23,7 +24,6 @@
   ];
 
   environment.sessionVariables = {
-    PATH = [ "$HOME/.npm-global/bin" ];
     # Tema de cursor por defecto del sistema (Win11OSX, Xcursor nativo).
     XCURSOR_THEME = "Win11OSX";
     XCURSOR_SIZE = "32";

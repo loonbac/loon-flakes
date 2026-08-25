@@ -142,7 +142,7 @@ in
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
   environment.extraInit = ''
-    export PATH="$HOME/.npm-global/bin:$PATH"
+    export PATH="$PATH:$HOME/.npm-global/bin"
   '';
 
   # ---- Paquetes instalados a nivel de sistema ----
