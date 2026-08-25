@@ -150,6 +150,7 @@ in
     ghostty
     nodejs
     pnpm
+    bubblewrap         # sandbox Linux usado por Codex (`bwrap` en PATH)
     go
     gcc
     cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
