@@ -6,7 +6,16 @@ let
     name = "codex";
     runtimeInputs = [ pkgs.nodejs ];
     text = ''
-      exec npm exec --yes --package=@openai/codex@latest -- codex "$@"
+      codex_bin="/home/loonbac/.npm-global/bin/codex"
+
+      if ! npm install --global --no-audit --no-fund --loglevel=error @openai/codex@latest >/dev/null; then
+        if [ ! -x "$codex_bin" ]; then
+          echo "codex: failed to install @openai/codex@latest and no global fallback exists" >&2
+          exit 1
+        fi
+      fi
+
+      exec "$codex_bin" "$@"
     '';
   };
 in
@@ -151,6 +160,8 @@ in
     nodejs
     pnpm
     bubblewrap         # sandbox Linux usado por Codex (`bwrap` en PATH)
+    jq                 # requisito de codex-advisor
+    ripgrep            # requisito de codex-advisor (`rg`)
     go
     gcc
     cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
