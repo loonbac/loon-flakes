@@ -1,6 +1,15 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
 { config, lib, pkgs, zen-browser, vscode-insiders, antigravity-cli, ... }:
+let
+  codexLatest = pkgs.writeShellApplication {
+    name = "codex";
+    runtimeInputs = [ pkgs.nodejs ];
+    text = ''
+      exec npm exec --yes --package=@openai/codex@latest -- codex "$@"
+    '';
+  };
+in
 {
   imports = [
     ./extras-disk.nix
@@ -160,7 +169,7 @@
     antigravity-cli
     pi-coding-agent
     grok-cli
-    codex
+    codexLatest
     obs-studio
     zoom-us
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
