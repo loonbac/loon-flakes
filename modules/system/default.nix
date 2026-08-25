@@ -8,9 +8,12 @@ let
     text = ''
       codex_bin="/home/loonbac/.npm-global/bin/codex"
 
-      if ! npm install --global --no-audit --no-fund --loglevel=error @openai/codex@latest >/dev/null; then
-        if [ ! -x "$codex_bin" ]; then
-          echo "codex: failed to install @openai/codex@latest and no global fallback exists" >&2
+      # No actualices la instalación global en cada arranque: reemplazar sus
+      # archivos mientras otra sesión está abierta puede retirar temporalmente
+      # binarios auxiliares como codex-code-mode-host.
+      if [ ! -x "$codex_bin" ]; then
+        if ! npm install --global --no-audit --no-fund --loglevel=error @openai/codex@latest >/dev/null; then
+          echo "codex: failed to install @openai/codex@latest" >&2
           exit 1
         fi
       fi
@@ -179,7 +182,6 @@ in
     vscode-insiders
     antigravity
     antigravity-cli
-    pi-coding-agent
     grok-cli
     codexLatest
     obs-studio
