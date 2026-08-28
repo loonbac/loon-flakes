@@ -186,6 +186,7 @@ in
     codexLatest
     obs-studio
     zoom-us
+    cisco-packet-tracer_9
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
