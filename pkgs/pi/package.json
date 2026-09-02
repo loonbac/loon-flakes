@@ -1,0 +1,17 @@
+{
+  "name": "loon-gentle-pi-stack",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@juicesharp/rpiv-ask-user-question": "2.7.1",
+    "@juicesharp/rpiv-todo": "2.7.1",
+    "gentle-engram": "0.1.10",
+    "gentle-pi": "2.3.0",
+    "pi-btw": "0.4.1",
+    "pi-commandcode-provider": "0.6.0",
+    "pi-mcp-adapter": "2.31.0",
+    "@tintinweb/pi-subagents": "0.19.0",
+    "pi-web-access": "0.27.0"
+  }
+}

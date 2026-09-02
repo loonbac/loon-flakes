@@ -14,5 +14,6 @@
     ./hyprlock
     ./waydroid
     ./virtualbox
+    ./gentle-ai
   ];
 }

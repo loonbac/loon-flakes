@@ -186,7 +186,10 @@ in
     codexLatest
     obs-studio
     zoom-us
-    cisco-packet-tracer_9
+    prismlauncher
+    # Packet Tracer is reproducible by the hash of the user-supplied Cisco
+    # installer; see pkgs/cisco-packet-tracer and README.md.
+    (pkgs.callPackage ../../pkgs/cisco-packet-tracer { })
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
@@ -232,10 +235,12 @@ in
     (pkgs.callPackage ../../pkgs/mpvpaper-wallpaper {
       accent-wallpaper = pkgs.callPackage ../../pkgs/accent-wallpaper { };
     })
-    # Script para el fondo estático del backdrop (swww/awww, transiciones animadas).
-    (pkgs.callPackage ../../pkgs/niri-backdrop { })
+    # Script para el fondo estático del backdrop (awww, transiciones animadas).
+    (pkgs.callPackage ../../pkgs/niri-backdrop {
+      accent-wallpaper = pkgs.callPackage ../../pkgs/accent-wallpaper { };
+    })
     # Daemon de wallpapers con transiciones animadas (usado por niri-backdrop).
-    swww
+    awww
     # Prompt personalizado para fish (oh-my-posh).
     oh-my-posh
     # Portapapeles Wayland persistente: sin esto, el contenido se pierde al

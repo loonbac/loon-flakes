@@ -26,6 +26,20 @@
       system = "x86_64-linux";
       lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
+      pkgsUnfree = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+
+      # Gentle-AI stack: all versions and dependency hashes live under pkgs/.
+      # The Pi package receives the same pinned Gentle-AI binary so both sides
+      # use one RDD implementation and cannot drift silently.
+      gentleAi = pkgs.callPackage ./pkgs/gentle-ai { };
+      engram = pkgs.callPackage ./pkgs/engram { };
+      piStack = pkgs.callPackage ./pkgs/pi { inherit gentleAi; };
+      gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
+        inherit gentleAi engram piStack;
+      };
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
       # (version + sha256 + url del tarball actualizado a diario por su CI).
@@ -96,6 +110,11 @@
         waydroid-app = pkgs.callPackage ./pkgs/waydroid-app { };
         # Control de brillo con suelo mínimo del 10% remapeado a 0%
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
+        gentle-ai = gentleAi;
+        engram = engram;
+        pi = piStack;
+        gentle-ai-bootstrap = gentleAiBootstrap;
+        cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
       };
 
       nixosConfigurations = {

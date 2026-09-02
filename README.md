@@ -14,7 +14,12 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── loon-launch/                   # app launcher GTK4 (Super+Space)
 │   ├── niri-cycle/                    # mover ventanas con wrap infinito
 │   ├── mpvpaper-wallpaper/            # fondo animado (video en loop)
-│   └── niri-backdrop/                 # fondo estático del backdrop
+│   ├── niri-backdrop/                 # fondo estático del backdrop
+│   ├── gentle-ai/                     # Gentle-AI estable, compilado por Nix
+│   ├── engram/                        # Engram estable, compilado por Nix
+│   ├── pi/                             # Pi + extensiones, lockfile npm fijado
+│   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
+│   └── cisco-packet-tracer/           # paquete con .deb propietario por hash
 ├── hosts/
 │   └── loon-laptop/
 │       ├── default.nix                # "main.rs" — identidad + hardware, solo compone
@@ -30,7 +35,8 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   ├── fish/                      # shell + prompt oh-my-posh
     │   ├── ghostty/                   # terminal (config gestionada)
     │   ├── waybar/                    # barra de estado (config + estilo)
-    │   └── equibop/                   # Discord con fix de WebRTC (Tailscale)
+    │   ├── equibop/                   # Discord con fix de WebRTC (Tailscale)
+    │   └── gentle-ai/                 # stack Gentle-AI/Pi/Engram + bootstrap
     ├── wayland/                       # compositores Wayland y greeter
     │   ├── niri/                      # compositor niri (config.kdl gestionado)
     │   └── dms-greeter/               # greeter DankMaterialShell
@@ -165,21 +171,105 @@ accent-wallpaper from VIDEO  # analiza un video específico
 ```
 
 Escribe `~/.config/mpvpaper/accent.txt` (hex) y `~/.config/niri/accent.kdl`
-(override del border de niri, que recarga en vivo al cambiar). `mpvpaper-wallpaper`
-lo dispara automáticamente al cambiar de fondo; loon-bar vigila el archivo y
-actualiza su CSS sin reiniciar.
+(override del border de niri, que recarga en vivo al cambiar). Tanto
+`mpvpaper-wallpaper` como `niri-backdrop` lo disparan automáticamente al
+cambiar de fondo; loon-bar y Pi vigilan `accent.txt` y actualizan sus colores
+sin reiniciar.
 
 ### `niri-backdrop` — fondo estático del backdrop
 
-Pone una imagen fija (con `swaybg`) en la capa **backdrop** de niri — el fondo
+Pone una imagen fija (con `awww`) en la capa **backdrop** de niri — el fondo
 global que se ve detrás de todo, incluido a través de las ventanas transparentes
-con `xray`. Imágenes en `~/Pictures/Wallpaper`:
+con `xray`. También recalcula en segundo plano la paleta compartida a partir de
+la imagen elegida. Imágenes en `~/Pictures/Wallpaper`:
 
 ```bash
 niri-backdrop              # pone la imagen seteada (o la primera)
 niri-backdrop set IMAGEN   # setea una imagen específica
 niri-backdrop stop         # detiene el fondo
 ```
+
+### Gentle-AI + Pi + Engram — instalación reproducible
+
+El stack está declarado en `modules/programs/gentle-ai/` y sus paquetes están
+en `pkgs/`. La versión estable de Gentle-AI es `2.5.0`, en paridad con Pi
+`2.3.0` para el contrato estable de revisión. Engram está fijado en `1.20.0` y
+Pi en `0.84.4`, con estas extensiones exactas:
+
+- `gentle-pi` `2.3.0`
+- `gentle-engram` `0.1.10`
+- `pi-mcp-adapter` `2.31.0`
+- `@tintinweb/pi-subagents` `0.19.0`
+- `pi-web-access` `0.27.0`
+- `@juicesharp/rpiv-ask-user-question` `2.7.1`
+- `@juicesharp/rpiv-todo` `2.7.1`
+- `pi-btw` `0.4.1`
+- `pi-commandcode-provider` `0.6.0`
+
+`gentle-ai-bootstrap` se ejecuta al iniciar la sesión y también puede
+ejecutarse manualmente. Enlaza los paquetes desde `/nix/store`, conserva una
+copia de cualquier instalación anterior en `~/.pi/agent/backups/`, configura
+Engram en `~/.pi/agent/mcp.json` y activa RDD global en una instalación nueva.
+La extensión anterior `pi-subagents-j0k3r` se migra una sola vez al backup y no
+se vuelve a instalar. El paquete oficial `@tintinweb/pi-subagents` queda fijado
+en Nix y el bootstrap lo vuelve a declarar después de cualquier actualización
+de Gentle-AI, sin tocar sus sesiones ni su configuración propia.
+También retira los binarios mutables antiguos de `~/go/bin`, `~/.local/bin` y
+`~/.npm-global/bin` hacia ese backup para que no haya dos implementaciones en
+`PATH`. No reemplaza credenciales, modelos, sesiones ni la base de datos de
+Engram.
+
+```bash
+gentle-ai-bootstrap
+gentle-ai version
+engram version
+pi --version
+gentle-ai doctor
+```
+
+#### Defensa contra ataques a la cadena de suministro
+
+Aunque el ecosistema Pi publica instrucciones con npm, npm solo se usa dentro
+del build reproducible de Nix. `pkgs/pi/package-lock.json` contiene versiones,
+URLs del registry e integridad SHA-512 para toda la clausura; `npmDepsHash`
+fija además la caché que consume Nix. Nix obtiene esa caché una vez y verifica
+su hash; después npm solo ejecuta `npm ci --offline` y
+`npm rebuild --ignore-scripts`, sin resolver ni descargar nada y sin ejecutar
+`postinstall` de terceros. En particular, se bloquea el instalador de
+`gentle-pi` que intentaría descargar otro binario de Gentle-AI: Pi recibe el
+mismo binario `gentle-ai` fijado en el store Nix mediante
+`GENTLE_PI_GENTLE_AI_DEV_BINARY`.
+
+Por eso no se debe ejecutar `npm install`, `npm update`, `pi update` ni
+`gentle-ai upgrade` sobre esta instalación administrada. Para actualizar:
+
+1. cambia intencionalmente la versión y los hashes en `pkgs/`;
+2. regenera el lockfile únicamente desde un registry confiable y revisa el
+   diff completo;
+3. valida con `nix flake check` y `nix build .#pi .#gentle-ai .#engram`;
+4. aplica con `rebuild`.
+
+La autenticación, sesiones, contenido de `~/.engram/` y cualquier token quedan
+fuera de Git y del store Nix.
+
+### Cisco Packet Tracer
+
+Packet Tracer vuelve a formar parte del perfil del sistema usando el instalador
+propietario que ya tienes. El `.deb` no se guarda en Git: su hash SHA-256 está
+fijado en `pkgs/cisco-packet-tracer/default.nix`. Para repetirlo en otra
+máquina hay que obtener legalmente el mismo instalador y añadirlo al store:
+
+```bash
+nix store add --mode flat --hash-algo sha256 \
+  --name CiscoPacketTracer900_Open_Beta_July_Build680_linux_amd64_Exp20251231.deb \
+  /ruta/al/CiscoPacketTracer900_Open_Beta_July_Build680_linux_amd64_Exp20251231.deb
+rebuild
+packettracer9
+```
+
+El archivo actual es una beta `9.0.0` con vencimiento declarado `2025-12-31`.
+Si Cisco te entrega una versión nueva, cambia el nombre y el hash del paquete
+Nix de forma intencional antes del rebuild.
 
 ---
 
@@ -333,8 +423,9 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
   fastfetch, ghostty, nodejs, brightnessctl, zen-browser, vscode-insiders,
   equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
   (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
-  y utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode,
-  inxi, lshw, iw).
+  Gentle-AI, Engram, Pi, Packet Tracer y `gentle-ai-bootstrap`, además de
+  utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode, inxi,
+  lshw, iw).
 - **Keyring** (`services.gnome.gnome-keyring.enable`): requisito de Settings
   Sync de VS Code (Secret Service `org.freedesktop.secrets`). Niri no lo
   levanta solo, por eso se declara explícitamente.
@@ -366,7 +457,8 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 | `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
 
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
-`niri-cycle`, `vscode-insiders`, `zen-browser`.
+`niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`, `pi` y
+`gentle-ai-bootstrap`, `cisco-packet-tracer`.
 
 **VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
 sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con
@@ -495,6 +587,9 @@ nixosConfigurations = {
   `modules/networking/default.nix`.
 - La contraseña de `loonbac` NO se guarda en este repo: se define con
   `passwd` en la máquina.
+- Cisco Packet Tracer se incluye mediante `pkgs/cisco-packet-tracer`, pero su
+  `.deb` propietario debe aportarse manualmente y coincidir con el hash fijado;
+  nunca se descarga automáticamente ni se versiona dentro de Git.
 
 ## ¿Por qué no hay `configuration.nix` ya?
 

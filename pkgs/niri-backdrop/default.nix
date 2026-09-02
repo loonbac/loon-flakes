@@ -3,11 +3,11 @@
 # en el overview y a través de ventanas transparentes con xray).
 # Atrás del video animado de cada workspace, este pone una imagen fija.
 #
-# Usa swww/awww (en vez de swaybg) para tener transiciones animadas al
+# Usa awww (en vez de swaybg) para tener transiciones animadas al
 # cambiar: fade, wipe, circle, grow, etc. El daemon corre con namespace
 # "wallpaper" para que el layer-rule de niri (place-within-backdrop) lo
 # mueva al backdrop. OJO: en nixpkgs 26.05 el paquete expone binarios
-# "awww"/"awww-daemon" (fork de swww); "swww" es alias del mismo paquete.
+# "awww"/"awww-daemon" (fork de swww).
 #
 # Uso:
 #   niri-backdrop                  # pone la imagen seteada (o la primera de la carpeta)
@@ -15,7 +15,7 @@
 #   niri-backdrop pick             # abre fuzzel para elegir el fondo (con transición)
 #   niri-backdrop next             # siguiente imagen de la carpeta (cíclico)
 #   niri-backdrop stop             # detiene el fondo del backdrop
-{ pkgs, lib }:
+{ pkgs, lib, accent-wallpaper }:
 
 let
   wallpapersDir = "$HOME/Pictures/Wallpaper";
@@ -26,9 +26,10 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
 
   DIR="${wallpapersDir}"
   STATE="${stateFile}"
-  SWWW="${pkgs.swww}/bin/awww"
-  SWWW_DAEMON="${pkgs.swww}/bin/awww-daemon"
+  AWWW="${pkgs.awww}/bin/awww"
+  AWWW_DAEMON="${pkgs.awww}/bin/awww-daemon"
   FUZZEL="${pkgs.fuzzel}/bin/fuzzel"
+  ACCENT_WALLPAPER="${accent-wallpaper}/bin/accent-wallpaper"
   IMG=""
 
   # Imagen actual seteada (del state) o la primera disponible.
@@ -41,13 +42,13 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
     find "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -printf '%f\n' | sort
   }
 
-  # Levanta el daemon de swww con namespace "wallpaper" si no está corriendo.
+  # Levanta el daemon de awww con namespace "wallpaper" si no está corriendo.
   ensure_daemon() {
-    if ! "$SWWW" query --namespace wallpaper >/dev/null 2>&1; then
-      setsid "$SWWW_DAEMON" --namespace wallpaper >/dev/null 2>&1 &
+    if ! "$AWWW" query --namespace wallpaper >/dev/null 2>&1; then
+      setsid "$AWWW_DAEMON" --namespace wallpaper >/dev/null 2>&1 &
       # Espera a que el socket exista (máx ~2s).
       for _ in $(seq 1 20); do
-        "$SWWW" query --namespace wallpaper >/dev/null 2>&1 && break
+        "$AWWW" query --namespace wallpaper >/dev/null 2>&1 && break
         sleep 0.1
       done
     fi
@@ -56,12 +57,16 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
   # Aplica la imagen con transición animada (fade suave).
   apply_wallpaper() {
     ensure_daemon
-    "$SWWW" img --namespace wallpaper --transition-type fade --transition-duration 1.5 \
+    "$AWWW" img --namespace wallpaper --transition-type fade --transition-duration 1.5 \
       --resize fit "$IMG" >/dev/null 2>&1 || true
+    # Mantener la paleta compartida (incluido Pi) sincronizada con el backdrop.
+    # Se desacopla para no retrasar la transición de awww mientras ImageMagick
+    # analiza la imagen.
+    setsid "$ACCENT_WALLPAPER" from "$IMG" >/dev/null 2>&1 &
   }
 
   stop_backdrop() {
-    "$SWWW" kill --namespace wallpaper >/dev/null 2>&1 || true
+    "$AWWW" kill --namespace wallpaper >/dev/null 2>&1 || true
   }
 
   case "''${1:-}" in
