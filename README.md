@@ -23,6 +23,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 ├── hosts/
 │   └── loon-laptop/
 │       ├── default.nix                # "main.rs" — identidad + hardware, solo compone
+│       ├── power.nix                  # perfil AC/batería exclusivo del Dell
 │       └── hardware-configuration.nix # autogenerado (NO tocar)
 └── modules/                           # "src/core" — lógica reutilizable
     ├── default.nix                    # "mod.rs" raíz — importa todos los módulos
@@ -153,10 +154,15 @@ Reproduce un video en loop detrás de las ventanas con `mpvpaper`:
 mpvpaper-wallpaper              # reproduce el video seteado (o el primero)
 mpvpaper-wallpaper set NOMBRE   # setea un video de ~/Videos/Wallpapers
 mpvpaper-wallpaper list         # lista los videos disponibles
+mpvpaper-wallpaper pause        # pausa por IPC y conserva el último frame
+mpvpaper-wallpaper resume       # reanuda el mismo proceso/video
+mpvpaper-wallpaper status       # playing, paused o stopped
 mpvpaper-wallpaper stop         # detiene el fondo animado
 ```
 
 Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
+El socket IPC de mpv queda bajo `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/`, con
+permisos privados del usuario; no se usa `/tmp` compartido.
 
 ### `accent-wallpaper` — acento dinámico desde el wallpaper
 
@@ -577,6 +583,24 @@ nixosConfigurations = {
   microcode Intel — sin esto el WiFi no funciona.
 - **Bluetooth Realtek**: servicio habilitado (`hardware.bluetooth.enable`)
   con `powerOnBoot` para que el adaptador arranque con la sesión.
+- **Perfil AC/batería aislado**: `power.nix` es importado únicamente por
+  `hosts/loon-laptop/default.nix`. En batería selecciona 60,206 Hz, pausa
+  mpvpaper por IPC, usa EPP `power`, turbo desactivado, gobernador
+  `powersave`, ahorro Wi-Fi, runtime PM seguro, ALPM SATA y reposo del HDD a
+  los 15 minutos; también usa `snd_hda_intel power_save=1`, desactiva el NMI
+  watchdog y alarga el writeback a 15 segundos. En AC restaura 120,213 Hz y
+  el comportamiento normal.
+- **Eventos del cargador**: un timer systemd aplica un debounce de 30 segundos
+  a las ráfagas ACPI online/offline del adaptador Dell, para que el perfil no
+  quede interrumpido ni parcialmente aplicado. Los eventos duplicados tampoco
+  repiten el atomic commit de niri ni reprograman `hdparm`.
+- **HDD Toshiba**: el valor `hdparm -S 180` equivale a 15 minutos. Se eligió
+  deliberadamente para permitir reposo sin causar ciclos frecuentes de
+  parada/arranque; el disco nunca se desmonta ni se fuerza a dormir.
+- **Bluetooth en batería**: solo se bloquea si `bluetoothctl` confirma que no
+  hay dispositivos conectados. Al volver a AC se desbloquea y enciende.
+- **USB**: el receptor KYE `0458:019d` queda exceptuado de autosuspend para
+  evitar lag. No existe una política USB global.
 - Estado: `26.05`.
 
 ## Notas de seguridad

@@ -4,30 +4,10 @@
 
 let
   moonlightPower = pkgs.callPackage ../../../pkgs/moonlight-power { };
-  laptopPowerProfile = pkgs.callPackage ../../../pkgs/laptop-power-profile { };
   systemctl = "${pkgs.systemd}/bin/systemctl";
 in
 {
-  environment.systemPackages = [ moonlightPower laptopPowerProfile ];
-
-  systemd.services.laptop-power-profile = {
-    description = "Select performance profile from AC power state";
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${laptopPowerProfile}/bin/laptop-power-profile apply";
-    };
-  };
-
-  # The kernel emits ac_adapter events whenever the charger is connected or
-  # removed, so the profile changes immediately without polling.
-  services.acpid = {
-    enable = true;
-    # Keep charger transitions in the journal; this Dell is currently showing
-    # intermittent AC online/offline events and the history helps diagnose it.
-    logEvents = true;
-    acEventCommands = "${systemctl} --no-block restart laptop-power-profile.service";
-  };
+  environment.systemPackages = [ moonlightPower ];
 
   systemd.services.moonlight-power-root = {
     description = "Moonlight low-power hardware controls";
@@ -41,7 +21,6 @@ in
       Environment = "MOONLIGHT_POWER_TESTING=0";
       ExecStart = "${moonlightPower}/bin/moonlight-power-root apply";
       ExecStop = "${moonlightPower}/bin/moonlight-power-root restore";
-      ExecStopPost = "${systemctl} restart laptop-power-profile.service";
     };
   };
 

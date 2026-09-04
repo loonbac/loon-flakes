@@ -119,6 +119,7 @@
 
       nixosConfigurations = {
         "loon-laptop" = mkHost "loon-laptop" [ ];
+        "korosoft" = mkHost "korosoft" [ ];
       };
     };
 }

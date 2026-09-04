@@ -5,6 +5,9 @@
 #   mpvpaper-wallpaper            # reproduce el video seteado (o el único/primero)
 #   mpvpaper-wallpaper set NOMBRE # setea y reproduce un video específico
 #   mpvpaper-wallpaper list       # lista los videos disponibles
+#   mpvpaper-wallpaper pause      # pausa por IPC conservando el último frame
+#   mpvpaper-wallpaper resume     # reanuda el mismo proceso/video por IPC
+#   mpvpaper-wallpaper status     # muestra playing, paused o stopped
 #   mpvpaper-wallpaper stop       # detiene el fondo animado
 { pkgs, lib, accent-wallpaper }:
 
@@ -18,10 +21,17 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   DIR="${wallpapersDir}"
   STATE="${stateFile}"
   MPVPAPER="${pkgs.mpvpaper}/bin/mpvpaper"
-  MPV_FLAGS="no-audio --loop-file=inf --profile=fast --no-cache --osc=no"
+  RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(${pkgs.coreutils}/bin/id -u)}"
+  IPC_DIR="$RUNTIME_DIR/mpvpaper-wallpaper"
+  IPC="$IPC_DIR/mpv.sock"
 
   ensure_state_dir() {
     mkdir -p "$(dirname "$STATE")"
+  }
+
+  ensure_runtime_dir() {
+    mkdir -p "$IPC_DIR"
+    chmod 700 "$IPC_DIR"
   }
 
   # Matar cualquier instancia de mpvpaper en ejecución.
@@ -35,6 +45,30 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   #   "mpvpaper". El bracket [b] evita que pkill se mate a sí mismo.
   stop_wallpaper() {
     pkill -f '[b]in/mpvpaper ' 2>/dev/null || true
+    rm -f "$IPC"
+  }
+
+  start_wallpaper() {
+    local video=$1
+    ensure_runtime_dir
+    rm -f "$IPC"
+    # mpvpaper reenvía estas opciones a la instancia libmpv que renderiza el
+    # wallpaper. El socket queda en el runtime privado del usuario, nunca en
+    # /tmp, y permite pausar sin destruir la superficie layer-shell.
+    local flags="no-audio --loop-file=inf --profile=fast --no-cache --osc=no --input-ipc-server=$IPC"
+    setsid "$MPVPAPER" -o "$flags" ALL "$video" >/dev/null 2>&1 &
+  }
+
+  send_ipc() {
+    local payload=$1
+    if [ ! -S "$IPC" ]; then
+      echo "mpvpaper-wallpaper: no hay socket IPC activo" >&2
+      return 0
+    fi
+    # Ausencia/cierre del proceso es inocuo para los perfiles de energía.
+    printf '%s\n' "$payload" \
+      | ${pkgs.socat}/bin/socat -T 1 - "UNIX-CONNECT:$IPC" 2>/dev/null \
+      || true
   }
 
   list_videos() {
@@ -45,6 +79,27 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   case "''${1:-}" in
     stop)
       stop_wallpaper
+      exit 0
+      ;;
+    pause)
+      send_ipc '{"command":["set_property","pause",true]}' >/dev/null
+      exit 0
+      ;;
+    resume)
+      send_ipc '{"command":["set_property","pause",false]}' >/dev/null
+      exit 0
+      ;;
+    status)
+      if [ ! -S "$IPC" ]; then
+        echo stopped
+      else
+        RESPONSE="$(send_ipc '{"command":["get_property","pause"]}')"
+        case "$RESPONSE" in
+          *'"data":true'*) echo paused ;;
+          *'"data":false'*) echo playing ;;
+          *) echo unavailable ;;
+        esac
+      fi
       exit 0
       ;;
     list)
@@ -67,7 +122,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       stop_wallpaper
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó
       # (importante para el bind de niri, que muere al cerrarse el terminal).
-      setsid "$MPVPAPER" -o "$MPV_FLAGS" ALL "$VIDEO" >/dev/null 2>&1 &
+      start_wallpaper "$VIDEO"
       # Extrae el color de acento del video nuevo (desacoplado, async).
       setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
       ;;
@@ -93,7 +148,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
 
       stop_wallpaper
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó.
-      setsid "$MPVPAPER" -o "$MPV_FLAGS" ALL "$VIDEO" >/dev/null 2>&1 &
+      start_wallpaper "$VIDEO"
       # Extrae el color de acento del video nuevo (desacoplado, async).
       setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
       ;;

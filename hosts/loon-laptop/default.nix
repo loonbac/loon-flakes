@@ -10,6 +10,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./power.nix
   ];
 
   # Identidad del host (análogo al `[package] name` del Cargo.toml).

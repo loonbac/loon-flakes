@@ -38,6 +38,7 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
 ├── hosts/
 │   └── loon-laptop/
 │       ├── default.nix        # identidad del host (solo compone)
+│       ├── power.nix          # perfil AC/batería exclusivo del Dell
 │       └── hardware-configuration.nix  # autogenerado, NO tocar
 └── modules/
     ├── default.nix            # mod raíz: registra todos los módulos
@@ -134,6 +135,20 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Binds actuales**: `Super+Return` → ghostty, `Super+Space` → loon-launch.
   En XKB la tecla Enter se llama `Return`. `Super+Space` existe solo si se
   define; niri no tiene binds por defecto.
+
+### Editar el perfil AC/batería de loon-laptop
+
+- **Activación exclusiva**: `hosts/loon-laptop/power.nix`, importado solo por
+  `hosts/loon-laptop/default.nix`. Nunca registrarlo en `modules/` ni en el
+  agregador global.
+- **Hardware**: `pkgs/laptop-power-profile/laptop-power-profile.sh`.
+- **Sesión niri/mpvpaper**:
+  `pkgs/laptop-power-profile/laptop-power-profile-session.sh`.
+- **Wallpaper IPC**: `mpvpaper-wallpaper pause|resume|status`; el socket vive
+  en `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/mpv.sock`.
+- **Aislamiento**: comprobar siempre ambos hosts y verificar que korosoft no
+  tenga `laptop-power-profile.service` ni
+  `laptop-power-profile-session.service`.
 
 ### Editar el fix de Equibop (WebRTC + Tailscale)
 
