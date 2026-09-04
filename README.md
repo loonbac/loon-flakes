@@ -592,8 +592,9 @@ nixosConfigurations = {
   el comportamiento normal.
 - **Eventos del cargador**: un timer systemd aplica un debounce de 30 segundos
   a las ráfagas ACPI online/offline del adaptador Dell, para que el perfil no
-  quede interrumpido ni parcialmente aplicado. Los eventos duplicados tampoco
-  repiten el atomic commit de niri ni reprograman `hdparm`.
+  quede interrumpido, parcialmente aplicado ni bloqueado por el límite de
+  arranques de systemd. Los eventos duplicados tampoco repiten el atomic commit
+  de niri ni reprograman `hdparm`.
 - **HDD Toshiba**: el valor `hdparm -S 180` equivale a 15 minutos. Se eligió
   deliberadamente para permitir reposo sin causar ciclos frecuentes de
   parada/arranque; el disco nunca se desmonta ni se fuerza a dormir.

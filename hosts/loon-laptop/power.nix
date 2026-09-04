@@ -72,6 +72,10 @@ in
   # breves y que systemd mate un oneshot a medio aplicar.
   systemd.timers.laptop-power-profile-debounce = {
     description = "Debounce de eventos AC del perfil de loon-laptop";
+    # Un falso contacto puede generar más eventos que el límite de arranques
+    # predeterminado de systemd. El timer debe poder reiniciarse sin quedar en
+    # start-limit-hit; el servicio objetivo solo se ejecuta al vencer los 30 s.
+    unitConfig.StartLimitIntervalSec = 0;
     timerConfig = {
       OnActiveSec = "30s";
       AccuracySec = "100ms";
