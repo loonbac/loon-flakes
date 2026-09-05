@@ -10,7 +10,7 @@ buildNpmPackage rec {
   version = "0.84.4";
 
   src = ./.;
-  npmDepsHash = "sha256-RC4GROfVWYTY4KqkzUgJmDXpaylvM9TS/dWmnQggKXE=";
+  npmDepsHash = "sha256-YHDcxvit77mNm+HACq1fAHcsMCwCpxwj9urBcW4KJaE=";
   npmDepsFetcherVersion = 2;
   npmInstallFlags = [ "--ignore-scripts" ];
   npmRebuildFlags = [ "--ignore-scripts" ];

@@ -6,7 +6,7 @@
     "@earendil-works/pi-coding-agent": "0.84.4",
     "@juicesharp/rpiv-ask-user-question": "2.7.1",
     "gentle-engram": "0.1.10",
-    "gentle-pi": "https://codeload.github.com/Gentleman-Programming/gentle-pi/tar.gz/8103f0fa410180de90ab3371fc932e0165dad327",
+    "gentle-pi": "https://codeload.github.com/Gentleman-Programming/gentle-pi/tar.gz/2ebc13f0115dae1460c1fdd1dd357767da877b26",
     "pi-btw": "0.4.1",
     "pi-commandcode-provider": "0.6.0",
     "pi-mcp-adapter": "2.31.0",
