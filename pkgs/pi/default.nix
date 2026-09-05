@@ -10,7 +10,7 @@ buildNpmPackage rec {
   version = "0.84.4";
 
   src = ./.;
-  npmDepsHash = "sha256-R43I5eTr331F0mHO2wPJtDegmsvFubDSxCqF+smmMJs=";
+  npmDepsHash = "sha256-RC4GROfVWYTY4KqkzUgJmDXpaylvM9TS/dWmnQggKXE=";
   npmDepsFetcherVersion = 2;
   npmInstallFlags = [ "--ignore-scripts" ];
   npmRebuildFlags = [ "--ignore-scripts" ];
@@ -23,8 +23,9 @@ buildNpmPackage rec {
     mkdir -p "$out/lib/pi"
     cp -r node_modules package.json package-lock.json "$out/lib/pi/"
 
-    # gentle-pi 2.3.0 declares parity with gentle-ai 2.5.0, but its published
-    # abandon serializer still emits the retired evidence_records_present line.
+    # The pinned gentle-pi main snapshot carries parity with gentle-ai 2.6.0,
+    # but its abandon serializer still emits the retired
+    # evidence_records_present line.
     # The stable gentle-ai v2 binding is eight lines, so keep the pinned package
     # and remove only that stale serializer line from its TS/runtime pair until
     # the upstream npm package publishes the matching fix.
@@ -44,7 +45,7 @@ buildNpmPackage rec {
   '';
 
   meta = {
-    description = "Pinned Pi, Gentle-AI and tintinweb subagent extension stack";
+    description = "Pinned Pi and Gentle-Pi stack with native Gentle Agents";
     homepage = "https://github.com/earendil-works/pi";
     license = lib.licenses.mit;
     mainProgram = "pi";

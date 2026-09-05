@@ -11,12 +11,10 @@ let
   # These are the packages Pi loads from its user configuration. Their
   # versions are also recorded in package.json/package-lock.json.
   piPackages = [
-    "npm:gentle-pi@2.3.0"
+    "${piStack}/lib/pi/node_modules/gentle-pi"
     "npm:gentle-engram@0.1.10"
-    "npm:@tintinweb/pi-subagents@0.19.0"
     "npm:@juicesharp/rpiv-ask-user-question@2.7.1"
     "npm:pi-web-access@0.27.0"
-    "npm:@juicesharp/rpiv-todo@2.7.1"
     "npm:pi-btw@0.4.1"
     "npm:pi-commandcode-provider@0.6.0"
     "npm:pi-mcp-adapter@2.31.0"
@@ -25,19 +23,21 @@ let
   piPackageNames = [
     "gentle-pi"
     "gentle-engram"
-    "@tintinweb/pi-subagents"
     "@juicesharp/rpiv-ask-user-question"
     "pi-web-access"
-    "@juicesharp/rpiv-todo"
     "pi-btw"
     "pi-commandcode-provider"
     "pi-mcp-adapter"
   ];
 
-  # Keep the old extension managed long enough to remove it from existing
-  # settings.json files during the one-time migration. It is never installed
-  # again and is not allowed to coexist with the replacement.
-  retiredPiPackageNames = [ "pi-subagents-j0k3r" ];
+  # Keep replaced extensions managed long enough to remove them from existing
+  # settings.json files during the migration. Gentle Agents and Gentle Todo
+  # are built into the pinned gentle-pi main snapshot.
+  retiredPiPackageNames = [
+    "pi-subagents-j0k3r"
+    "@tintinweb/pi-subagents"
+    "@juicesharp/rpiv-todo"
+  ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
     inherit piPackages piPackageNames;
@@ -172,18 +172,16 @@ writeShellApplication {
     for package_name in \
       gentle-pi \
       gentle-engram \
-      @tintinweb/pi-subagents \
       @juicesharp/rpiv-ask-user-question \
       pi-web-access \
-      @juicesharp/rpiv-todo \
       pi-btw \
       pi-commandcode-provider \
       pi-mcp-adapter; do
       link_package "$package_name"
     done
 
-    # Remove the previous subagent implementation from the mutable Pi tree.
-    # Keep it recoverable in the same backup area used for other migrations.
+    # Remove the replaced subagent/todo implementations from the mutable Pi
+    # tree. Keep them recoverable in the same backup area used for migrations.
     retire_package() {
       package_name="$1"
       destination="$npm_node_modules/$package_name"
@@ -193,6 +191,8 @@ writeShellApplication {
       fi
     }
     retire_package "pi-subagents-j0k3r"
+    retire_package "@tintinweb/pi-subagents"
+    retire_package "@juicesharp/rpiv-todo"
 
     # Retire the old mutable executables so doctor and PATH cannot select a
     # second Gentle-AI/Pi/Engram implementation. They remain recoverable.

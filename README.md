@@ -198,17 +198,15 @@ niri-backdrop stop         # detiene el fondo
 ### Gentle-AI + Pi + Engram — instalación reproducible
 
 El stack está declarado en `modules/programs/gentle-ai/` y sus paquetes están
-en `pkgs/`. La versión estable de Gentle-AI es `2.5.0`, en paridad con Pi
-`2.3.0` para el contrato estable de revisión. Engram está fijado en `1.20.0` y
-Pi en `0.84.4`, con estas extensiones exactas:
+en `pkgs/`. Gentle-AI está fijado en la versión estable `2.6.0`; Gentle-Pi usa
+el snapshot reproducible de `main` `8103f0fa` con Gentle Agents y Gentle Todo.
+Engram está fijado en `1.20.0` y Pi en `0.84.4`, con estas extensiones exactas:
 
-- `gentle-pi` `2.3.0`
+- `gentle-pi` `main@8103f0fa`
 - `gentle-engram` `0.1.10`
 - `pi-mcp-adapter` `2.31.0`
-- `@tintinweb/pi-subagents` `0.19.0`
 - `pi-web-access` `0.27.0`
 - `@juicesharp/rpiv-ask-user-question` `2.7.1`
-- `@juicesharp/rpiv-todo` `2.7.1`
 - `pi-btw` `0.4.1`
 - `pi-commandcode-provider` `0.6.0`
 
@@ -216,10 +214,10 @@ Pi en `0.84.4`, con estas extensiones exactas:
 ejecutarse manualmente. Enlaza los paquetes desde `/nix/store`, conserva una
 copia de cualquier instalación anterior en `~/.pi/agent/backups/`, configura
 Engram en `~/.pi/agent/mcp.json` y activa RDD global en una instalación nueva.
-La extensión anterior `pi-subagents-j0k3r` se migra una sola vez al backup y no
-se vuelve a instalar. El paquete oficial `@tintinweb/pi-subagents` queda fijado
-en Nix y el bootstrap lo vuelve a declarar después de cualquier actualización
-de Gentle-AI, sin tocar sus sesiones ni su configuración propia.
+Gentle Agents reemplaza los plugins anteriores de subagentes y ejecuta cada
+agente como un hijo RPC aislado; Gentle Todo reemplaza `@juicesharp/rpiv-todo`.
+El bootstrap retira esas extensiones de forma recuperable, pero conserva los
+agentes, perfiles de modelos, sesiones y configuración del usuario.
 También retira los binarios mutables antiguos de `~/go/bin`, `~/.local/bin` y
 `~/.npm-global/bin` hacia ese backup para que no haya dos implementaciones en
 `PATH`. No reemplaza credenciales, modelos, sesiones ni la base de datos de

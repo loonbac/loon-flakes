@@ -5,13 +5,11 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.84.4",
     "@juicesharp/rpiv-ask-user-question": "2.7.1",
-    "@juicesharp/rpiv-todo": "2.7.1",
     "gentle-engram": "0.1.10",
-    "gentle-pi": "2.3.0",
+    "gentle-pi": "https://codeload.github.com/Gentleman-Programming/gentle-pi/tar.gz/8103f0fa410180de90ab3371fc932e0165dad327",
     "pi-btw": "0.4.1",
     "pi-commandcode-provider": "0.6.0",
     "pi-mcp-adapter": "2.31.0",
-    "@tintinweb/pi-subagents": "0.19.0",
     "pi-web-access": "0.27.0"
   }
 }

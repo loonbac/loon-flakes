@@ -6,13 +6,13 @@
 
 buildGoModule rec {
   pname = "gentle-ai";
-  version = "2.5.0";
+  version = "2.6.0";
 
   src = fetchFromGitHub {
     owner = "Gentleman-Programming";
     repo = "gentle-ai";
     tag = "v${version}";
-    hash = "sha256-SQqTZabmooPt+usHp3SMsoJMl1ove64lxwLzCxPsVMA=";
+    hash = "sha256-ETCwQerMww7ufxI9at2aB7FH0Hm3XclfCWH1ZRjv1sI=";
   };
 
   subPackages = [ "cmd/gentle-ai" ];
