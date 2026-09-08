@@ -3,7 +3,7 @@ use crate::models::Item;
 
 /// Filtra las apps según la query.
 /// - Si empieza por '>', filtra acciones de poder.
-/// - Si empieza por '#', filtra fondos de pantalla (wallpapers).
+/// - `#` muestra fondos animados; `#!` muestra fondos estáticos.
 /// - Si no, filtra apps por nombre.
 pub fn filter_items(all_apps: &[Item], power: &[Item], wallpapers: &[Item], query: &str) -> Vec<Item> {
     let q = query.to_lowercase();
@@ -17,8 +17,15 @@ pub fn filter_items(all_apps: &[Item], power: &[Item], wallpapers: &[Item], quer
             }
         }
     } else if q.starts_with('#') {
-        let filter = q[1..].trim().to_string();
+        let static_only = q.starts_with("#!");
+        let filter = q[if static_only { 2 } else { 1 }..].trim().to_string();
         for w in wallpapers {
+            if w.is_header
+                || !w.is_wallpaper
+                || w.is_animated_wallpaper == static_only
+            {
+                continue;
+            }
             if filter.is_empty() || w.name.to_lowercase().contains(&filter) {
                 shown.push(w.clone());
             }

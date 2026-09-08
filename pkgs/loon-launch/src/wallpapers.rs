@@ -61,7 +61,8 @@ fn collect_dir(dir: &str, is_video: bool, out: &mut Vec<Item>) {
             };
             out.push(
                 Item::wallpaper(name, exec, thumb)
-                    .with_media(path.to_string_lossy().into_owned()),
+                    .with_media(path.to_string_lossy().into_owned())
+                    .with_animated_wallpaper(is_video),
             );
         }
     }

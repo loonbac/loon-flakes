@@ -148,6 +148,8 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
             let q = entry.text().to_string();
             let wallpaper = q.starts_with('#');
             let mode_changed = *grid_refs.wallpaper_mode.borrow() != wallpaper;
+            let category_changed = wallpaper
+                && *grid_refs.wallpaper_static.borrow() != q.starts_with("#!");
             if mode_changed {
                 apply_chrome(&window, &banner, wallpaper);
             }
@@ -155,7 +157,14 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
             let power = power.borrow();
             let wallpapers = wallpapers.borrow();
             *current_items.borrow_mut() =
-                grid_refs.repopulate(&apps, &power, &wallpapers, &q, &sel_idx, mode_changed);
+                grid_refs.repopulate(
+                    &apps,
+                    &power,
+                    &wallpapers,
+                    &q,
+                    &sel_idx,
+                    mode_changed || category_changed,
+                );
             if mode_changed {
                 // Al entrar desde la acción del launcher la ventana ya está
                 // mapeada. Niri conserva su esquina superior izquierda al

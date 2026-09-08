@@ -11,8 +11,8 @@ fn app(name: &str) -> Item {
     Item::app(name, "true", "x")
 }
 
-fn wallpaper(name: &str) -> Item {
-    Item::wallpaper(name, "true", "/tmp/thumb.jpg")
+fn wallpaper(name: &str, animated: bool) -> Item {
+    Item::wallpaper(name, "true", "/tmp/thumb.jpg").with_animated_wallpaper(animated)
 }
 
 fn power() -> Vec<Item> {
@@ -50,17 +50,21 @@ fn filter_power_empty_shows_all_power() {
 
 #[test]
 fn filter_wallpaper_mode_prefix() {
-    let wps = vec![wallpaper("▶ reze.mp4"), wallpaper("🖼 Asa.png")];
+    let wps = vec![wallpaper("▶ reze.mp4", true), wallpaper("🖼 Asa.png", false)];
     let got = filter_items(&[], &[], &wps, "#reze");
     assert_eq!(got.len(), 1);
     assert!(got[0].name.contains("reze"));
 }
 
 #[test]
-fn filter_wallpaper_empty_shows_all() {
-    let wps = vec![wallpaper("▶ a.mp4"), wallpaper("🖼 b.png")];
-    let got = filter_items(&[], &[], &wps, "#");
-    assert_eq!(got.len(), 2);
+fn wallpaper_tabs_separate_animated_and_static_lists() {
+    let wps = vec![wallpaper("▶ a.mp4", true), wallpaper("🖼 b.png", false)];
+    let animated = filter_items(&[], &[], &wps, "#");
+    let static_images = filter_items(&[], &[], &wps, "#!");
+    assert_eq!(animated.len(), 1);
+    assert_eq!(animated[0].name, "▶ a.mp4");
+    assert_eq!(static_images.len(), 1);
+    assert_eq!(static_images[0].name, "🖼 b.png");
 }
 
 #[test]

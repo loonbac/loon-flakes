@@ -20,6 +20,7 @@ pub struct GridRefs {
     pub carousel: CarouselRefs,
     pub scrolled: gtk4::ScrolledWindow,
     pub wallpaper_mode: Rc<RefCell<bool>>,
+    pub wallpaper_static: Rc<RefCell<bool>>,
     pub media: Rc<RefCell<Vec<gtk4::MediaFile>>>,
     pub activate: Rc<RefCell<Option<Rc<dyn Fn()>>>>,
     pub cards: Rc<RefCell<Vec<Widget>>>,
@@ -44,15 +45,21 @@ impl GridRefs {
         self.media.borrow_mut().clear();
         self.cards.borrow_mut().clear();
         self.positions.borrow_mut().clear();
-        self.enter_anims.borrow_mut().clear();
-        self.scroll_anims.borrow_mut().clear();
+        for animation in self.enter_anims.borrow_mut().drain(..) {
+            animation.pause();
+        }
+        for animation in self.scroll_anims.borrow_mut().drain(..) {
+            animation.pause();
+        }
 
         while let Some(child) = self.grid.first_child() {
             self.grid.remove(&child);
         }
         let shown = filter_items(all_apps, power, wallpapers, query);
         let wallpaper_mode = query.starts_with('#');
+        let wallpaper_static = query.starts_with("#!");
         *self.wallpaper_mode.borrow_mut() = wallpaper_mode;
+        *self.wallpaper_static.borrow_mut() = wallpaper_static;
         self.apply_chrome(wallpaper_mode);
 
         let selectable: Vec<usize> = shown
@@ -313,6 +320,7 @@ pub fn build_grid() -> GridRefs {
         carousel,
         scrolled,
         wallpaper_mode: Rc::new(RefCell::new(false)),
+        wallpaper_static: Rc::new(RefCell::new(false)),
         media: Rc::new(RefCell::new(Vec::new())),
         activate: Rc::new(RefCell::new(None)),
         cards: Rc::new(RefCell::new(Vec::new())),

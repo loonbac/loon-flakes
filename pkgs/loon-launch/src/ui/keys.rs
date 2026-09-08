@@ -82,6 +82,13 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
                     (state.run_selected)();
                     glib::Propagation::Stop
                 }
+                Key::Tab | Key::ISO_Left_Tab if wallpaper_mode => {
+                    let show_static = !*state.grid_refs.wallpaper_static.borrow();
+                    *state.sel_idx.borrow_mut() = 0;
+                    state.entry.set_text(if show_static { "#!" } else { "#" });
+                    state.grid_refs.scrolled.grab_focus();
+                    glib::Propagation::Stop
+                }
                 Key::BackSpace => {
                     let text = state.entry.text().to_string();
                     state.entry.set_text(&apply_backspace(&text));
