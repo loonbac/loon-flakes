@@ -227,7 +227,6 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   FFMPEG="${pkgs.ffmpeg}/bin/ffmpeg"
   MAGICK="${pkgs.imagemagick}/bin/magick"
   PYTHON="${pkgs.python3}/bin/python3"
-  SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
   SWAYNC_CLIENT="${pkgs.swaynotificationcenter}/bin/swaync-client"
 
   pick_target() {
@@ -292,11 +291,10 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   "$PYTHON" "${paletteExtractor}" "$FRAME" "$MAGICK"
 
   # ---- Propagación en vivo ----
-  # Reiniciar la unidad supervisada para aplicar la nueva paleta sin crear
-  # procesos huérfanos ni depender del nombre interno del wrapper de Nix.
-  if "$SYSTEMCTL" --user is-active --quiet waybar.service; then
-    "$SYSTEMCTL" --user restart waybar.service
-  fi
+  # Waybar observa style.css y sus imports porque la configuración activa
+  # reload_style_on_change. colors.css se aplica dentro del mismo proceso: no
+  # enviar SIGUSR2 ni reiniciar la unidad, pues eso reconstruye las barras y
+  # produce un parpadeo visible durante el crossfade del wallpaper.
 
   # Recargar notificaciones SwayNC
   "$SWAYNC_CLIENT" -R 2>/dev/null || true

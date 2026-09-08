@@ -199,7 +199,8 @@ Escribe `~/.config/mpvpaper/accent.txt` (hex) y `~/.config/niri/accent.kdl`
 (override del border de niri, que recarga en vivo al cambiar). Tanto
 `mpvpaper-wallpaper` como `niri-backdrop` lo disparan automáticamente al
 cambiar de fondo; loon-bar y Pi vigilan `accent.txt` y actualizan sus colores
-sin reiniciar.
+sin reiniciar. Waybar observa su `colors.css` importado y actualiza la paleta
+dentro del mismo proceso, sin desaparecer durante la transición.
 
 ### `niri-backdrop` — fondo estático del backdrop
 

@@ -34,6 +34,7 @@ El script `accent-wallpaper` analiza el fondo de pantalla actual (video mpvpaper
 
 ### Comandos útiles
 
-- `accent-wallpaper`: Extrae y aplica inmediatamente la paleta del wallpaper activo, reiniciando Waybar en vivo.
+- `accent-wallpaper`: Extrae y aplica inmediatamente la paleta del wallpaper
+  activo mediante la recarga CSS interna de Waybar, sin reiniciar la barra.
 - `accent-wallpaper from VIDEO_O_IMAGEN`: Analiza y aplica la paleta de un archivo específico.
 - `omarchy-restart-waybar`: Reinicia Waybar de forma limpia en segundo plano.
