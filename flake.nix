@@ -101,6 +101,7 @@
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
           inherit millennium space-theme-fix nix-tools-steam accela;
+          steamidra = pkgs.callPackage ./pkgs/steamidra { };
         };
         modules = [
           ./hosts/${hostName}
@@ -140,6 +141,9 @@
         cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
         accela = accela;
         sls-steam = nix-tools-steam.packages.${system}.sls-steam;
+        # SteaMidra (SFF): GUI de setup/manifest de Steam. AppImage oficial
+        # envuelto en FHS para correr en NixOS (ver pkgs/steamidra).
+        steamidra = pkgs.callPackage ./pkgs/steamidra { };
       };
 
       nixosConfigurations = {

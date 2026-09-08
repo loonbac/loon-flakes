@@ -1,5 +1,5 @@
 # Aplicaciones de juegos exclusivas del PC de escritorio.
-{ pkgs, ... }:
+{ pkgs, steamidra, ... }:
 
 {
   loon.programs.steam = {
@@ -9,5 +9,6 @@
 
   environment.systemPackages = [
     pkgs.heroic
+    steamidra
   ];
 }
