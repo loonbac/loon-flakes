@@ -9,9 +9,10 @@
 #      PyInstaller NO embebe (nss, nspr, xcb, X11, alsa, GL, xkbcommon...)
 #   5. bin/steamidra → entra al FHS y ejecuta el AppRun original (que setea
 #      QT_PLUGIN_PATH y QTWEBENGINE_DISABLE_SANDBOX=1)
-{ lib, fetchurl, unzip, appimageTools, buildFHSEnv, stdenv,
+{ lib, fetchurl, unzip, appimageTools, buildFHSEnv, stdenv, writeShellScript,
   nss, nspr, zlib, alsa-lib, libxcb, libxkbcommon, libxkbfile, libGL, libx11,
-  gtk3, glib, fontconfig, freetype, dbus, libdrm, mesa, wayland, libgpg-error, gnutls }:
+  gtk3, glib, fontconfig, freetype, dbus, libdrm, mesa, wayland, libgpg-error, gnutls,
+  xkeyboard-config }:
 
 let
   version = "6.6.6";
@@ -41,6 +42,21 @@ let
     src = appimage;
   };
 
+  # The release AppRun points Qt at usr/bin/PyQt6, but its PyInstaller bundle
+  # places plugins and shared objects in usr/bin/_internal. Use the real paths
+  # and force the known-good XWayland backend: the native Qt Wayland path
+  # segfaults under niri for this bundled Qt 6.10 build.
+  launch = writeShellScript "steamidra-payload" ''
+    here="${payload}"
+    export PATH="$here/usr/bin:$PATH"
+    export LD_LIBRARY_PATH="$here/usr/bin/_internal:$here/usr/bin:$LD_LIBRARY_PATH"
+    export QT_PLUGIN_PATH="$here/usr/bin/_internal/PyQt6/Qt6/plugins"
+    export QT_QPA_PLATFORM_PLUGIN_PATH="$here/usr/bin/_internal/PyQt6/Qt6/plugins/platforms"
+    export QTWEBENGINE_DISABLE_SANDBOX=1
+    export QT_QPA_PLATFORM=xcb
+    exec "$here/usr/bin/SteaMidra_GUI" "$@"
+  '';
+
   # 4) FHS env con las libs de sistema que el bundle no lleva.
   #    Nota: la app escribe settings.bin/logs/cache junto al path de la env
   #    APPIMAGE (ver sff/core/utils.py → root_folder), así que el wrapper
@@ -56,6 +72,7 @@ let
       libxcb
       libxkbcommon
       libxkbfile
+      xkeyboard-config
       libGL
       libx11
       gtk3
@@ -72,7 +89,7 @@ let
 
     multiPkgs = pkgs: [ ];
 
-    runScript = "${payload}/AppRun";
+    runScript = "${launch}";
   };
 
 in
@@ -83,7 +100,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ ];
 
   buildCommand = ''
-    mkdir -p $out/bin
+    mkdir -p $out/bin $out/share/applications $out/share/icons/hicolor/256x256/apps
     cat > $out/bin/steamidra <<EOF
     #!/usr/bin/env bash
     # La app guarda settings.bin, logs y cache junto al path de APPIMAGE;
@@ -93,6 +110,22 @@ stdenv.mkDerivation {
     exec ${fhs}/bin/steamidra-fhs "\$@"
     EOF
     chmod +x $out/bin/steamidra
+
+    install -Dm444 ${payload}/SteaMidra.png \
+      $out/share/icons/hicolor/256x256/apps/steamidra.png
+    cat > $out/share/applications/steamidra.desktop <<EOF
+    [Desktop Entry]
+    Version=1.0
+    Name=SteaMidra
+    Comment=Steam game setup and manifest tool
+    Exec=steamidra
+    TryExec=steamidra
+    Icon=steamidra
+    Terminal=false
+    Type=Application
+    Categories=Utility;
+    StartupNotify=true
+    EOF
   '';
 
   meta = with lib; {
