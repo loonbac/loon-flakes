@@ -242,6 +242,9 @@ las rutas de modelos para subagentes se reconcilian desde el flake en cada
 host. Las skills presentes en la laptop de referencia también se distribuyen
 desde el store. Credenciales, sesiones y cachés de modelos permanecen fuera de
 Git.
+El proveedor local `ollama-vast` se fusiona declarativamente en
+`~/.pi/agent/models.json`; cualquier otro proveedor configurado por el usuario
+se conserva.
 También retira los binarios mutables antiguos de `~/go/bin`, `~/.local/bin`
 (incluido GGA) y `~/.npm-global/bin` hacia ese backup para que no haya dos
 implementaciones en `PATH`. No reemplaza credenciales, el catálogo descubierto

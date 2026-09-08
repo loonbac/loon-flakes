@@ -41,6 +41,27 @@
         "type": "github"
       }
     },
+    "flake-parts": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "nix-tools-steam",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785627969,
+        "narHash": "sha256-4dtXQk/NMePegK/nWp5NSeuZKLATItOq61lpEvmXqGw=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "427bf4bd9435fdf21321c8cc628c24efc14c0f7a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -97,6 +118,28 @@
         "type": "github"
       }
     },
+    "nix-tools-steam": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "umip-kmod": "umip-kmod"
+      },
+      "locked": {
+        "lastModified": 1787244452,
+        "narHash": "sha256-5qNGALuFUM2pA5FBo+mPBIoSwddlwvmvsFNrPqZM2IM=",
+        "owner": "HANDZCZ",
+        "repo": "nix-tools-steam",
+        "rev": "c33320348382f2e51bba3cfd0c3635ae1c0c4383",
+        "type": "github"
+      },
+      "original": {
+        "owner": "HANDZCZ",
+        "repo": "nix-tools-steam",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1781577229,
@@ -134,6 +177,7 @@
         "antigravity-nix": "antigravity-nix",
         "code-insiders-flake": "code-insiders-flake",
         "millennium": "millennium",
+        "nix-tools-steam": "nix-tools-steam",
         "nixpkgs": "nixpkgs_2",
         "space-theme-fix": "space-theme-fix",
         "zen-browser": "zen-browser"
@@ -167,6 +211,31 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "umip-kmod": {
+      "inputs": {
+        "flake-parts": [
+          "nix-tools-steam",
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nix-tools-steam",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784619300,
+        "narHash": "sha256-HHcadH6fIPPMeggUmN1+mHMvafMXzsrjYkQ8kwBV7Rg=",
+        "owner": "HANDZCZ",
+        "repo": "umip-kmod",
+        "rev": "1661a05562fc3a24cda66ab30256baffb5b0f173",
+        "type": "github"
+      },
+      "original": {
+        "owner": "HANDZCZ",
+        "repo": "umip-kmod",
         "type": "github"
       }
     },

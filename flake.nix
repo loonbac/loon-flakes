@@ -27,9 +27,14 @@
       url = "github:Apollo-Nebula/SpaceTheme-Fix";
       flake = false;
     };
+    # Herramientas para Steam: Accela, SLSsteam y utilidades (nix-tools-steam).
+    nix-tools-steam = {
+      url = "github:HANDZCZ/nix-tools-steam";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix }:
+  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -78,6 +83,14 @@
             postFixup = "true";
           });
 
+      # Accela parcheado con App ID explícito para Wayland/Niri (evita que reporte "python3").
+      accela = nix-tools-steam.packages.${system}.accela.overrideAttrs (oldAttrs: {
+        postPatch = (oldAttrs.postPatch or "") + ''
+          substituteInPlace bin/src/main.py \
+            --replace-fail 'app = QApplication(sys.argv)' $'app = QApplication(sys.argv)\n    app.setDesktopFileName("accela")'
+        '';
+      });
+
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
       # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
@@ -87,7 +100,7 @@
           zen-browser = zen-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
-          inherit millennium space-theme-fix;
+          inherit millennium space-theme-fix nix-tools-steam accela;
         };
         modules = [
           ./hosts/${hostName}
@@ -125,6 +138,8 @@
         pi = piStack;
         gentle-ai-bootstrap = gentleAiBootstrap;
         cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
+        accela = accela;
+        sls-steam = nix-tools-steam.packages.${system}.sls-steam;
       };
 
       nixosConfigurations = {

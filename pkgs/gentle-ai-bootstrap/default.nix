@@ -48,6 +48,35 @@ let
     tuiMode = "fullscreen";
   };
 
+  piModelProviders = {
+    "ollama-vast" = {
+      baseUrl = "http://localhost:11434/v1";
+      api = "openai-completions";
+      apiKey = "ollama";
+      compat = {
+        supportsDeveloperRole = false;
+        supportsReasoningEffort = false;
+        maxTokensField = "max_tokens";
+      };
+      models = [
+        {
+          id = "qwen38-27b-q5-32k";
+          name = "Qwen3.8 27B Uncensored Q5";
+          reasoning = false;
+          input = [ "text" ];
+          contextWindow = 32768;
+          maxTokens = 16384;
+          cost = {
+            input = 0;
+            output = 0;
+            cacheRead = 0;
+            cacheWrite = 0;
+          };
+        }
+      ];
+    };
+  };
+
   subagentModelProfiles = {
     gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     gentle-ai-verify = { model = "openai-codex/gpt-5.6-terra"; effort = "high"; };
@@ -112,6 +141,7 @@ let
       piPackages
       piPackageNames
       piSettings
+      piModelProviders
       subagentModelProfiles
       gentleModelProfiles
       gentlePortableConfig
@@ -181,6 +211,37 @@ let
     fs.writeFileSync(temporary, `''${JSON.stringify(sortKeys(settings), null, 2)}\n`, { mode });
     fs.renameSync(temporary, settingsPath);
     fs.chmodSync(settingsPath, mode);
+  '';
+
+  mergeModels = writeText "merge-pi-models.mjs" ''
+    import fs from "node:fs";
+
+    const [modelsPath, manifestPath] = process.argv.slice(2);
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    const models = fs.existsSync(modelsPath)
+      ? JSON.parse(fs.readFileSync(modelsPath, "utf8"))
+      : {};
+
+    if (!models.providers || typeof models.providers !== "object" || Array.isArray(models.providers)) {
+      models.providers = {};
+    }
+    Object.assign(models.providers, manifest.piModelProviders);
+
+    const previous = fs.existsSync(modelsPath) ? fs.statSync(modelsPath) : null;
+    const mode = previous ? previous.mode & 0o777 : 0o600;
+    const temporary = `''${modelsPath}.nix-tmp-''${process.pid}`;
+    const sortKeys = (value) => {
+      if (Array.isArray(value)) return value.map(sortKeys);
+      if (value && typeof value === "object") {
+        return Object.fromEntries(
+          Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]),
+        );
+      }
+      return value;
+    };
+    fs.writeFileSync(temporary, `''${JSON.stringify(sortKeys(models), null, 2)}\n`, { mode });
+    fs.renameSync(temporary, modelsPath);
+    fs.chmodSync(modelsPath, mode);
   '';
 
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
@@ -503,6 +564,9 @@ writeShellApplication {
       printf '%s\n' '{}' > "$settings_path"
     fi
     node "${mergeSettings}" "$settings_path" "${manifest}"
+
+    # Reconcile only Nix-managed providers and preserve any local providers.
+    node "${mergeModels}" "$agent_dir/models.json" "${manifest}"
 
     # Install every managed Gentle Pi agent, chain and support contract from
     # the pinned store closure. This makes an empty home fully functional.
