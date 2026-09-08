@@ -14,6 +14,14 @@
   services.flatpak = {
     enable = true;
     packages = [ "org.vinegarhq.Sober" ];
+
+    # Discord Rich Presence: permite a Sober conectarse tanto al socket de
+    # Discord Flatpak como al de clientes nativos (Discord/Equibop). Solo se
+    # exponen estos dos endpoints del runtime del usuario.
+    overrides."org.vinegarhq.Sober".Context.filesystems = [
+      "xdg-run/app/com.discordapp.Discord:create"
+      "xdg-run/discord-ipc-0"
+    ];
   };
 
   environment.systemPackages = [
