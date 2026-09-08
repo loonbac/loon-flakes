@@ -55,7 +55,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     # mpvpaper reenvía estas opciones a la instancia libmpv que renderiza el
     # wallpaper. El socket queda en el runtime privado del usuario, nunca en
     # /tmp, y permite pausar sin destruir la superficie layer-shell.
-    local flags="no-audio --loop-file=inf --profile=fast --no-cache --osc=no --input-ipc-server=$IPC"
+    local flags="no-audio --loop-file=inf --panscan=1 --profile=fast --no-cache --osc=no --input-ipc-server=$IPC"
     setsid "$MPVPAPER" -o "$flags" ALL "$video" >/dev/null 2>&1 &
   }
 
