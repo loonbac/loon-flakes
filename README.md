@@ -175,6 +175,10 @@ mpvpaper-wallpaper status       # playing, paused o stopped
 mpvpaper-wallpaper stop         # detiene el fondo animado
 ```
 
+Al cambiar de video, mantiene el wallpaper anterior y hace un crossfade de
+0.8 segundos sobre él; el proceso viejo se cierra solo cuando el nuevo ya es
+completamente opaco.
+
 Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
 El socket IPC de mpv queda bajo `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/`, con
 permisos privados del usuario; no se usa `/tmp` compartido.
