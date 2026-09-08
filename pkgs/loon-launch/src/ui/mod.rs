@@ -159,7 +159,8 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
             if mode_changed {
                 // Al entrar desde la acción del launcher la ventana ya está
                 // mapeada. Niri conserva su esquina superior izquierda al
-                // redimensionarla, así que hay que recentrarla al terminar.
+                // redimensionarla, así que hay que esperar el configure del
+                // tamaño nuevo antes de recentrarla.
                 schedule_center_window();
             }
         }
@@ -338,15 +339,50 @@ fn present_and_focus(window: &gtk4::ApplicationWindow, wallpaper_mode: bool) {
     });
 }
 
-/// Espera el primer layout del nuevo tamaño y centra la ventana enfocada.
+/// Centra después de que Niri haya aplicado el configure de 1400x590. Durante
+/// la transición interna GTK conserva su allocation anterior, por lo que no es
+/// fiable sondear `window.width()`. La segunda pasada absorbe cualquier frame
+/// lento sin intervenir durante la animación del carrusel.
 fn schedule_center_window() {
-    glib::timeout_add_local_once(Duration::from_millis(35), || {
-        let _ = std::process::Command::new("niri")
-            .args(["msg", "action", "center-window"])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn();
-    });
+    for delay in [120, 260] {
+        glib::timeout_add_local_once(Duration::from_millis(delay), || {
+            center_wallpaper_window();
+        });
+    }
+}
+
+/// Centra por ID, no por foco: si el usuario cambia de ventana durante el
+/// configure nunca desplazamos accidentalmente otra superficie.
+fn center_wallpaper_window() {
+    let output = std::process::Command::new("niri")
+        .args(["msg", "windows"])
+        .output()
+        .ok()
+        .filter(|result| result.status.success())
+        .and_then(|result| String::from_utf8(result.stdout).ok());
+    let Some(id) = output.as_deref().and_then(wallpaper_window_id) else {
+        return;
+    };
+
+    let _ = std::process::Command::new("niri")
+        .args(["msg", "action", "center-window", "--id", id])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
+fn wallpaper_window_id(windows: &str) -> Option<&str> {
+    let block = windows.split("\n\n").find(|block| {
+        block.contains("Title: \"loon-wallpaper-picker\"")
+            && block.contains("App ID: \"dev.loonbac.loonlaunch\"")
+    })?;
+    block
+        .lines()
+        .next()?
+        .trim()
+        .strip_prefix("Window ID ")?
+        .split(':')
+        .next()
 }
 
 fn apply_chrome(window: &gtk4::ApplicationWindow, banner: &BannerRefs, wallpaper: bool) {
