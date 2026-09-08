@@ -161,6 +161,16 @@ window-rule {
     draw-border-with-background false
 }
 
+// El selector de wallpapers usa una superficie transparente: no dibujar el
+// borde ni el recorte exterior de la ventana alrededor del carrusel.
+window-rule {
+    match app-id=r#"^(loon-launch|dev\.loonbac\.loonlaunch)$"# title="^loon-wallpaper-picker$"
+
+    geometry-corner-radius 0
+    clip-to-geometry false
+    border { off; }
+}
+
 // loon-bar: barra de tareas Wayland Layer Shell (panel anclado en todos los
 // workspaces). No necesita layer-rule: el KeyboardMode::None del código ya
 // evita que robe el foco; block-out-from solo acepta screencast/screen-capture.

@@ -304,6 +304,18 @@ fn present_and_focus(window: &gtk4::ApplicationWindow, wallpaper_mode: bool) {
 
     window.set_opacity(0.0);
     window.present();
+    if wallpaper_mode {
+        // Niri calcula la posición inicial usando el tamaño anterior de la
+        // ventana persistente. Centrar tras el primer layout evita que el
+        // carrusel quede desplazado al cambiar desde el launcher pequeño.
+        glib::timeout_add_local_once(Duration::from_millis(35), || {
+            let _ = std::process::Command::new("niri")
+                .args(["msg", "action", "center-window"])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+        });
+    }
     fade_opacity(window, 0.0, 1.0, 280, None);
     GRID_REFS.with(|g| {
         if let Some(grid_refs) = g.borrow().as_ref() {
@@ -337,8 +349,10 @@ fn apply_chrome(window: &gtk4::ApplicationWindow, banner: &BannerRefs, wallpaper
     };
     if wallpaper {
         window.add_css_class("wallpaper-mode");
+        window.set_title(Some("loon-wallpaper-picker"));
     } else {
         window.remove_css_class("wallpaper-mode");
+        window.set_title(Some("loon-launch"));
     }
     window.set_default_size(w, h);
     window.set_size_request(w, h);

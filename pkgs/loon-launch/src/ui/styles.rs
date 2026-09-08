@@ -47,7 +47,16 @@ pub fn setup_styles(window: &gtk4::ApplicationWindow) {
              border-radius: 12px;
          }
          window.loon-launch.wallpaper-mode {
-             background-color: rgba(9, 10, 15, 0.94);
+             background-color: transparent;
+             box-shadow: none;
+             border: none;
+         }
+         window.loon-launch.wallpaper-mode > box,
+         window.loon-launch.wallpaper-mode scrolledwindow,
+         window.loon-launch.wallpaper-mode viewport {
+             background-color: transparent;
+             box-shadow: none;
+             border: none;
          }
          .wallpaper-carousel {
              background-color: transparent;
