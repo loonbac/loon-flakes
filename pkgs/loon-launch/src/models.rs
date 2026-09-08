@@ -64,7 +64,8 @@ pub const WIN_W: i32 = 680;
 pub const WIN_H: i32 = 350;
 pub const BANNER_H: i32 = 180;
 
-// Modo fondos: un poco más ancho para que el radio de la ventana
-// no recorte el borde de las cards.
-pub const WP_WIN_W: i32 = 740;
-pub const WP_COLS: i32 = 2;
+// Modo fondos: carrusel ancho inspirado en el image-picker de Omarchy.
+// La preview central conserva sus proporciones originales y las laterales
+// aparecen como cortes estrechos superpuestos.
+pub const WP_WIN_W: i32 = 1400;
+pub const WP_WIN_H: i32 = 590;

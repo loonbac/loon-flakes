@@ -142,8 +142,8 @@ window-rule {
     draw-border-with-background false
 }
 
-// loon-launch: flotante, centrado, tamaño fijo (la regla va después
-// de la genérica para sobreescribir open-maximized).
+// loon-launch: flotante y centrado. El launcher normal conserva 680x350;
+// el selector de wallpapers puede ensancharse para mostrar su carrusel.
 window-rule {
     match app-id=r#"^(loon-launch|dev\.loonbac\.loonlaunch)$"#
 
@@ -153,8 +153,8 @@ window-rule {
     default-window-height { fixed 350; }
     min-width 680
     min-height 350
-    max-width 740
-    max-height 350
+    max-width 1400
+    max-height 590
 
     geometry-corner-radius 18
     clip-to-geometry true

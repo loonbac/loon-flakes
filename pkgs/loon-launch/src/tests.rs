@@ -1,10 +1,11 @@
 // Tests de la lógica pura del launcher (filtrado, navegación, edición).
 use crate::apps::{data_dirs, power_actions};
 use crate::filter::{
-    apply_backspace, apply_char, filter_items, gallery_positions, move_sel_grid, move_sel_rowwise,
-    move_selection, normalize_selection, wallpaper_card_size,
+    apply_backspace, apply_char, filter_items, move_sel_grid, move_sel_rowwise, move_selection,
+    move_selection_wrap, normalize_selection,
 };
 use crate::models::{Item, ROWS};
+use crate::ui::parse_logical_size;
 
 fn app(name: &str) -> Item {
     Item::app(name, "true", "x")
@@ -130,25 +131,11 @@ fn dedup_prefers_waydroid_app_wrapper() {
 }
 
 #[test]
-fn videos_and_photos_are_two_rows() {
-    // Cada sección es UNA fila: 4 videos arriba, 1 foto abajo.
-    let pos = gallery_positions(&[4, 1], 8);
-    assert_eq!(pos, vec![(0, 0), (0, 1), (0, 2), (0, 3), (1, 0)]);
-    assert_eq!(move_sel_grid(0, 0, 1, &pos), 1);
-    assert_eq!(move_sel_grid(0, 1, 0, &pos), 4);
-    assert_eq!(move_sel_grid(3, 1, 0, &pos), 4);
-    assert_eq!(move_sel_grid(4, -1, 0, &pos), 0);
-}
-
-#[test]
-fn wallpaper_cards_fit_two_full_rows() {
-    let (w, h) = wallpaper_card_size(680, 350, 2);
-    assert!(
-        h * 2 + 80 <= 350,
-        "two full rows must fit in the window, card h={h}"
-    );
-    assert!(w * 2 + 16 + 40 <= 680, "two cards must fit in 680px, got {w}");
-    assert!(w >= 120 && h >= 72);
+fn wallpaper_carousel_wraps_in_both_directions() {
+    assert_eq!(move_selection_wrap(0, -1, 5), 4);
+    assert_eq!(move_selection_wrap(4, 1, 5), 0);
+    assert_eq!(move_selection_wrap(2, 1, 5), 3);
+    assert_eq!(move_selection_wrap(0, 1, 0), -1);
 }
 
 #[test]
@@ -173,4 +160,11 @@ fn app_discovery_includes_dynamic_flatpak_exports() {
             std::path::PathBuf::from(home).join(".local/share/flatpak/exports/share");
         assert!(dirs.contains(&user_exports));
     }
+}
+
+#[test]
+fn parses_niri_logical_output_size() {
+    let output = "Output \"monitor\" (HDMI-A-1)\n  Logical size: 1080x1920\n  Scale: 1\n";
+    assert_eq!(parse_logical_size(output), Some((1080, 1920)));
+    assert_eq!(parse_logical_size("no output"), None);
 }

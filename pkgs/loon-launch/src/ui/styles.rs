@@ -46,13 +46,11 @@ pub fn setup_styles(window: &gtk4::ApplicationWindow) {
              background-color: rgba(88, 101, 242, 0.48);
              border-radius: 12px;
          }
-         .wallpaper-gallery {
-             padding: 12px 24px 16px;
+         window.loon-launch.wallpaper-mode {
+             background-color: rgba(9, 10, 15, 0.94);
          }
-         .wallpaper-group + .wallpaper-group {
-             margin-top: 2px;
-             padding-top: 10px;
-             border-top: 1px solid rgba(255, 255, 255, 0.12);
+         .wallpaper-carousel {
+             background-color: transparent;
          }
          label.section-header {
              color: rgba(230, 234, 255, 0.72);
@@ -63,33 +61,6 @@ pub fn setup_styles(window: &gtk4::ApplicationWindow) {
              margin-top: 0;
              margin-bottom: 4px;
          }
-         label.wallpaper-kind {
-             color: rgba(255, 255, 255, 0.92);
-             font-size: 9px;
-             font-weight: 700;
-             letter-spacing: 1px;
-             text-transform: uppercase;
-             padding: 3px 7px;
-             margin: 8px;
-             border-radius: 6px;
-             background-color: rgba(0, 0, 0, 0.58);
-         }
-         .wallpaper-card {
-             border-radius: 12px;
-             background-color: #000;
-             border: 2px solid transparent;
-             box-shadow: none;
-             opacity: 0.78;
-             transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
-                         border-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
-         }
-         .wallpaper-card:hover {
-             opacity: 0.92;
-         }
-         .wallpaper-card.selected {
-             opacity: 1;
-             border-color: rgba(255, 255, 255, 0.82);
-         }
          scrollbar,
          scrollbar * {
              min-width: 0;
@@ -97,16 +68,6 @@ pub fn setup_styles(window: &gtk4::ApplicationWindow) {
              opacity: 0;
              background: transparent;
              border: none;
-         }
-         picture.wallpaper-preview {
-             background-color: #000;
-         }
-         label.wallpaper-caption {
-             color: rgba(255, 255, 255, 0.82);
-             font-size: 10px;
-             font-weight: 500;
-             padding: 8px 10px 7px;
-             background-color: rgba(0, 0, 0, 0.52);
          }",
     );
     gtk4::style_context_add_provider_for_display(

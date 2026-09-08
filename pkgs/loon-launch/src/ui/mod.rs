@@ -4,6 +4,7 @@
 // Cada activate (bind Super+Space) alterna visibilidad: si está visible la
 // oculta y cierra (esc), si está oculta la presenta y enfoca la búsqueda.
 mod banner;
+mod carousel;
 mod grid;
 mod keys;
 mod styles;
@@ -13,7 +14,7 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use crate::apps::{load_apps, power_actions};
-use crate::models::{Item, WIN_H, WIN_W, WP_WIN_W};
+use crate::models::{Item, WIN_H, WIN_W, WP_WIN_H, WP_WIN_W};
 use crate::ui::banner::{build_banner, BannerRefs};
 use crate::ui::grid::{build_grid, GridRefs};
 use crate::ui::keys::setup_key_controller;
@@ -329,13 +330,48 @@ fn present_and_focus(window: &gtk4::ApplicationWindow, wallpaper_mode: bool) {
 }
 
 fn apply_chrome(window: &gtk4::ApplicationWindow, banner: &BannerRefs, wallpaper: bool) {
-    let w = if wallpaper { WP_WIN_W } else { WIN_W };
-    window.set_default_size(w, WIN_H);
-    window.set_size_request(w, WIN_H);
+    let (w, h) = if wallpaper {
+        wallpaper_window_size()
+    } else {
+        (WIN_W, WIN_H)
+    };
+    if wallpaper {
+        window.add_css_class("wallpaper-mode");
+    } else {
+        window.remove_css_class("wallpaper-mode");
+    }
+    window.set_default_size(w, h);
+    window.set_size_request(w, h);
     if let Some(child) = window.child() {
-        child.set_size_request(w, WIN_H);
+        child.set_size_request(w, h);
     }
     banner.apply_mode(wallpaper);
+}
+
+/// Adapta el selector al output que tiene el foco. Niri entrega tamaños
+/// lógicos, así que esto también contempla la rotación del monitor vertical.
+fn wallpaper_window_size() -> (i32, i32) {
+    let output = std::process::Command::new("niri")
+        .args(["msg", "focused-output"])
+        .output()
+        .ok()
+        .filter(|result| result.status.success())
+        .and_then(|result| String::from_utf8(result.stdout).ok());
+    match output.as_deref().and_then(parse_logical_size) {
+        Some((output_w, output_h)) => (
+            WP_WIN_W.min((output_w - 80).max(WIN_W)),
+            WP_WIN_H.min((output_h - 80).max(WIN_H)),
+        ),
+        None => (WP_WIN_W, WP_WIN_H),
+    }
+}
+
+pub(crate) fn parse_logical_size(output: &str) -> Option<(i32, i32)> {
+    let size = output
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Logical size: "))?;
+    let (width, height) = size.split_once('x')?;
+    Some((width.parse().ok()?, height.parse().ok()?))
 }
 
 fn hide_window(window: &gtk4::ApplicationWindow) {

@@ -1,5 +1,4 @@
-// Grid de apps: celdas en columnas de ROWS filas, scroll horizontal.
-// Modo fondos: el mismo hueco, una fila de previews 16:9 grandes.
+// Grid de apps + carrusel de wallpapers.
 use gtk4::prelude::*;
 use gtk4::{Image, Label, ListBoxRow, Orientation, Widget};
 use libadwaita as adw;
@@ -9,15 +8,16 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::filter::{filter_items, normalize_selection, wallpaper_card_size};
+use crate::filter::{filter_items, normalize_selection};
 use crate::icons::resolve_icon;
-use crate::models::{Item, BANNER_H, CELL_W, ROW_H, ROWS, WIN_H, WIN_W, WP_COLS, WP_WIN_W};
+use crate::models::{Item, BANNER_H, CELL_W, ROW_H, ROWS, WIN_H, WIN_W, WP_WIN_H, WP_WIN_W};
+use crate::ui::carousel::{build_carousel, CarouselRefs};
 
 /// Referencias a los widgets del grid que usa el resto de la UI.
 #[derive(Clone)]
 pub struct GridRefs {
     pub grid: gtk4::Grid,
-    pub gallery: gtk4::Box,
+    pub carousel: CarouselRefs,
     pub scrolled: gtk4::ScrolledWindow,
     pub wallpaper_mode: Rc<RefCell<bool>>,
     pub media: Rc<RefCell<Vec<gtk4::MediaFile>>>,
@@ -50,10 +50,6 @@ impl GridRefs {
         while let Some(child) = self.grid.first_child() {
             self.grid.remove(&child);
         }
-        while let Some(child) = self.gallery.first_child() {
-            self.gallery.remove(&child);
-        }
-
         let shown = filter_items(all_apps, power, wallpapers, query);
         let wallpaper_mode = query.starts_with('#');
         *self.wallpaper_mode.borrow_mut() = wallpaper_mode;
@@ -88,58 +84,34 @@ impl GridRefs {
         sel: &Rc<RefCell<i32>>,
         animate: bool,
     ) {
-        let (cw, ch) = wallpaper_card_size(WP_WIN_W, WIN_H, WP_COLS);
-        let mut cards_row: Option<gtk4::Box> = None;
-        let mut row_i = -1i32;
-        let mut col_i = 0i32;
-        let mut selectable_idx = 0i32;
-        for (i, item) in shown.iter().enumerate() {
-            if item.is_header {
-                let g = gtk4::Box::new(Orientation::Vertical, 4);
-                g.set_halign(gtk4::Align::Fill);
-                g.set_hexpand(true);
-                g.set_vexpand(true);
-                g.add_css_class("wallpaper-group");
-                let header = Label::new(Some(&item.name));
-                header.add_css_class("section-header");
-                header.set_halign(gtk4::Align::Center);
-                header.set_xalign(0.5);
-                g.append(&header);
-                let (strip, row) = section_strip(WP_WIN_W - 48, ch);
-                g.append(&strip);
-                self.gallery.append(&g);
-                if animate {
-                    animate_enter(&header, 40, &self.enter_anims);
+        let wallpaper_items = shown
+            .iter()
+            .filter(|item| !item.is_header)
+            .cloned()
+            .collect::<Vec<_>>();
+        let selected = sel_item
+            .map(|real_index| shown[..real_index].iter().filter(|item| !item.is_header).count() as i32)
+            .unwrap_or(-1);
+
+        self.positions
+            .borrow_mut()
+            .extend((0..wallpaper_items.len()).map(|index| (0, index as i32)));
+        self.carousel.set_items(&wallpaper_items, selected.max(0));
+        let carousel = self.carousel.clone();
+        let selection = sel.clone();
+        let activate = self.activate.clone();
+        self.carousel.set_on_click(Rc::new(move |index, confirm| {
+            *selection.borrow_mut() = index;
+            carousel.set_selected(index, true);
+            if confirm {
+                if let Some(callback) = activate.borrow().as_ref() {
+                    callback();
                 }
-                cards_row = Some(row);
-                row_i += 1;
-                col_i = 0;
-                continue;
             }
-            if cards_row.is_none() {
-                let row = gallery_row();
-                self.gallery.append(&row);
-                cards_row = Some(row);
-                row_i = row_i.max(0);
-            }
-            let (cell, media) = make_wallpaper_card(item, cw, ch);
-            if let Some(media) = media {
-                self.media.borrow_mut().push(media);
-            }
-            if Some(i) == sel_item {
-                cell.add_css_class("selected");
-            }
-            if let Some(row) = cards_row.as_ref() {
-                row.append(&cell);
-            }
-            bind_click(&cell, selectable_idx, sel, self);
-            self.positions.borrow_mut().push((row_i.max(0), col_i));
-            self.cards.borrow_mut().push(cell.clone().upcast());
-            if animate {
-                animate_enter(&cell, ((col_i as u32) * 40).min(200), &self.enter_anims);
-            }
-            col_i += 1;
-            selectable_idx += 1;
+        }));
+
+        if animate {
+            animate_enter(&self.carousel.area, 20, &self.enter_anims);
         }
     }
 
@@ -196,6 +168,10 @@ impl GridRefs {
     }
 
     pub fn apply_sel(&self, idx: i32) {
+        if *self.wallpaper_mode.borrow() {
+            self.carousel.set_selected(idx, true);
+            return;
+        }
         let cards = self.cards.borrow();
         for (i, card) in cards.iter().enumerate() {
             if i as i32 == idx {
@@ -268,26 +244,36 @@ impl GridRefs {
     }
 
     fn apply_chrome(&self, wallpaper_mode: bool) {
-        let well_w = if wallpaper_mode { WP_WIN_W } else { WIN_W };
         let well_h = if wallpaper_mode {
-            WIN_H
+            WP_WIN_H
         } else {
             WIN_H - BANNER_H
         };
         if wallpaper_mode {
-            self.scrolled.set_child(Some(&self.gallery));
+            self.scrolled.set_child(Some(&self.carousel.area));
             self.scrolled.set_vscrollbar_policy(gtk4::PolicyType::Never);
             self.scrolled.set_hscrollbar_policy(gtk4::PolicyType::Never);
+            // El ancho real lo decide la ventana según el output enfocado.
+            // No imponer 1400 aquí permite que el carrusel quepa en el
+            // monitor vertical de 1080 px.
+            self.scrolled.set_size_request(-1, well_h);
+            self.scrolled.set_min_content_width(0);
+            self.scrolled.set_max_content_width(WP_WIN_W);
+            self.scrolled.set_hexpand(true);
         } else {
             self.scrolled.set_child(Some(&self.grid));
             self.scrolled.set_vscrollbar_policy(gtk4::PolicyType::Never);
             // Automatic: si es Never, GTK ensancha la ventana para mostrar
             // todas las columnas. La barra se oculta por CSS.
             self.scrolled.set_hscrollbar_policy(gtk4::PolicyType::Automatic);
+            self.scrolled.set_size_request(WIN_W, well_h);
+            self.scrolled.set_min_content_width(WIN_W);
+            self.scrolled.set_max_content_width(WIN_W);
+            self.scrolled.set_hexpand(false);
         }
-        self.scrolled.set_size_request(well_w, well_h);
-        self.scrolled.set_min_content_width(well_w);
-        self.scrolled.set_max_content_width(well_w);
+        // Liberar primero el máximo evita una aserción de GTK al pasar de
+        // los 170 px del launcher normal a los 590 px del carrusel.
+        self.scrolled.set_max_content_height(-1);
         self.scrolled.set_min_content_height(well_h);
         self.scrolled.set_max_content_height(well_h);
     }
@@ -302,13 +288,7 @@ pub fn build_grid() -> GridRefs {
     grid.set_valign(gtk4::Align::Start);
     grid.set_focusable(true);
 
-    let gallery = gtk4::Box::new(Orientation::Vertical, 0);
-    gallery.add_css_class("wallpaper-gallery");
-    gallery.set_halign(gtk4::Align::Fill);
-    gallery.set_valign(gtk4::Align::Fill);
-    gallery.set_hexpand(true);
-    gallery.set_vexpand(true);
-    gallery.set_focusable(true);
+    let carousel = build_carousel();
 
     let well_h = WIN_H - BANNER_H; // apps; el modo fondos lo cambia en apply_chrome
     let scrolled = gtk4::ScrolledWindow::builder()
@@ -330,7 +310,7 @@ pub fn build_grid() -> GridRefs {
 
     GridRefs {
         grid,
-        gallery,
+        carousel,
         scrolled,
         wallpaper_mode: Rc::new(RefCell::new(false)),
         media: Rc::new(RefCell::new(Vec::new())),
@@ -375,45 +355,6 @@ fn nearest_scrolled(widget: &Widget) -> Option<gtk4::ScrolledWindow> {
         current = p.parent();
     }
     None
-}
-
-fn gallery_row() -> gtk4::Box {
-    let row = gtk4::Box::new(Orientation::Horizontal, 16);
-    row.set_halign(gtk4::Align::Center);
-    row.set_hexpand(false);
-    row.set_valign(gtk4::Align::Center);
-    row.set_margin_start(22);
-    row.set_margin_end(22);
-    row.add_css_class("wallpaper-row");
-    row
-}
-
-fn section_strip(view_w: i32, card_h: i32) -> (gtk4::ScrolledWindow, gtk4::Box) {
-    let row = gallery_row();
-    // CenterBox del ancho del viewport: 1 card queda al centro; 4 cards
-    // ensanchan el box y el strip scrollea sin comprimirlas.
-    let wrap = gtk4::CenterBox::new();
-    wrap.set_hexpand(false);
-    wrap.set_size_request(view_w, card_h);
-    wrap.set_center_widget(Some(&row));
-
-    let strip = gtk4::ScrolledWindow::builder()
-        .hexpand(false)
-        .vexpand(false)
-        .halign(gtk4::Align::Center)
-        .propagate_natural_width(false)
-        .propagate_natural_height(false)
-        .min_content_width(view_w)
-        .max_content_width(view_w)
-        .min_content_height(card_h)
-        .max_content_height(card_h)
-        .width_request(view_w)
-        .height_request(card_h)
-        .hscrollbar_policy(gtk4::PolicyType::Automatic)
-        .vscrollbar_policy(gtk4::PolicyType::Never)
-        .build();
-    strip.set_child(Some(&wrap));
-    (strip, row)
 }
 
 fn bind_click(
@@ -511,80 +452,4 @@ fn make_app_cell(item: &Item) -> (ListBoxRow, Option<gtk4::MediaFile>) {
 
     cell.set_child(Some(&hbox));
     (cell, None)
-}
-
-fn make_wallpaper_card(
-    item: &Item,
-    card_w: i32,
-    card_h: i32,
-) -> (gtk4::AspectFrame, Option<gtk4::MediaFile>) {
-    let media_path = if !item.media_path.is_empty() {
-        Path::new(&item.media_path)
-    } else {
-        Path::new(&item.icon)
-    };
-    let ext = media_path
-        .extension()
-        .and_then(|x| x.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    let is_video = matches!(ext.as_str(), "mp4" | "webm" | "mkv" | "mov");
-
-    let mut held = None;
-    let picture = if is_video && media_path.is_file() {
-        let media = gtk4::MediaFile::for_filename(media_path);
-        media.set_muted(true);
-        media.set_loop(true);
-        media.connect_prepared_notify(|m| {
-            if m.is_prepared() {
-                m.play();
-            }
-        });
-        media.play();
-        let pic = gtk4::Picture::for_paintable(&media);
-        held = Some(media);
-        pic
-    } else if media_path.is_file() {
-        gtk4::Picture::for_filename(media_path)
-    } else if Path::new(&item.icon).is_file() {
-        gtk4::Picture::for_filename(Path::new(&item.icon))
-    } else {
-        gtk4::Picture::new()
-    };
-    picture.set_content_fit(gtk4::ContentFit::Cover);
-    picture.set_can_shrink(true);
-    picture.set_halign(gtk4::Align::Fill);
-    picture.set_valign(gtk4::Align::Fill);
-    picture.set_hexpand(true);
-    picture.set_vexpand(true);
-    picture.add_css_class("wallpaper-preview");
-
-    let overlay = gtk4::Overlay::new();
-    overlay.set_overflow(gtk4::Overflow::Hidden);
-    overlay.set_child(Some(&picture));
-
-    let kind = Label::new(Some(if is_video { "Video" } else { "Foto" }));
-    kind.add_css_class("wallpaper-kind");
-    kind.set_halign(gtk4::Align::Start);
-    kind.set_valign(gtk4::Align::Start);
-    overlay.add_overlay(&kind);
-
-    let label = Label::new(Some(&item.name));
-    label.add_css_class("wallpaper-caption");
-    label.set_xalign(0.5);
-    label.set_halign(gtk4::Align::Fill);
-    label.set_valign(gtk4::Align::End);
-    label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    overlay.add_overlay(&label);
-
-    let frame = gtk4::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
-    frame.add_css_class("wallpaper-card");
-    frame.set_size_request(card_w, card_h);
-    frame.set_halign(gtk4::Align::Center);
-    frame.set_valign(gtk4::Align::Center);
-    frame.set_hexpand(false);
-    frame.set_vexpand(false);
-    frame.set_overflow(gtk4::Overflow::Hidden);
-    frame.set_child(Some(&overlay));
-    (frame, held)
 }

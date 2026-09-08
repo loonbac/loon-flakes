@@ -6,7 +6,7 @@ use gtk4::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::filter::{apply_backspace, apply_char, move_sel_grid};
+use crate::filter::{apply_backspace, apply_char, move_sel_grid, move_selection_wrap};
 use crate::ui::grid::GridRefs;
 
 #[derive(Clone)]
@@ -35,6 +35,7 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
 
             let positions = state.grid_refs.positions.borrow().clone();
             let current = *state.sel_idx.borrow();
+            let wallpaper_mode = *state.grid_refs.wallpaper_mode.borrow();
 
             match key {
                 Key::Escape => {
@@ -42,19 +43,39 @@ pub fn setup_key_controller(window: &gtk4::ApplicationWindow, state: KeyState) {
                     glib::Propagation::Stop
                 }
                 Key::Down => {
-                    apply_sel(move_sel_grid(current, 1, 0, &positions));
+                    let next = if wallpaper_mode {
+                        move_selection_wrap(current, 1, positions.len())
+                    } else {
+                        move_sel_grid(current, 1, 0, &positions)
+                    };
+                    apply_sel(next);
                     glib::Propagation::Stop
                 }
                 Key::Up => {
-                    apply_sel(move_sel_grid(current, -1, 0, &positions));
+                    let next = if wallpaper_mode {
+                        move_selection_wrap(current, -1, positions.len())
+                    } else {
+                        move_sel_grid(current, -1, 0, &positions)
+                    };
+                    apply_sel(next);
                     glib::Propagation::Stop
                 }
                 Key::Right => {
-                    apply_sel(move_sel_grid(current, 0, 1, &positions));
+                    let next = if wallpaper_mode {
+                        move_selection_wrap(current, 1, positions.len())
+                    } else {
+                        move_sel_grid(current, 0, 1, &positions)
+                    };
+                    apply_sel(next);
                     glib::Propagation::Stop
                 }
                 Key::Left => {
-                    apply_sel(move_sel_grid(current, 0, -1, &positions));
+                    let next = if wallpaper_mode {
+                        move_selection_wrap(current, -1, positions.len())
+                    } else {
+                        move_sel_grid(current, 0, -1, &positions)
+                    };
+                    apply_sel(next);
                     glib::Propagation::Stop
                 }
                 Key::Return | Key::KP_Enter => {
