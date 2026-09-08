@@ -25,6 +25,10 @@
       "xdg-run/app/com.discordapp.Discord:create"
       "xdg-run/discord-ipc-0"
     ];
+
+    # PokeMMO necesita poder seleccionar ROMs y otros archivos guardados en
+    # cualquier carpeta del usuario.
+    overrides."com.pokemmo.PokeMMO".Context.filesystems = [ "home" ];
   };
 
   environment.systemPackages = [
