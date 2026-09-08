@@ -192,10 +192,11 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
 
             match action.as_deref() {
                 // Acción interna "Cambiar fondo de pantalla": pasa al modo
-                // wallpapers SIN cerrar el launcher (el '#' filtra fondos).
+                // wallpapers con la ventana desmontada. Si se redimensiona
+                // mientras sigue visible, Wayland conserva la esquina de la
+                // ventana pequeña y el recentrado se ve como un salto.
                 Some("wallpaper-mode") => {
-                    entry.set_text("#");
-                    entry.grab_focus();
+                    switch_to_wallpaper(&window, &entry);
                 }
                 // Ejecutar la app seleccionada y ocultar el launcher.
                 Some(exec) => {
@@ -232,6 +233,12 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
     focus_controller.connect_leave({
         let window = window.clone();
         move |_| {
+            // Al cambiar al carrusel desmontamos deliberadamente la ventana.
+            // Ese leave pertenece a la superficie vieja y no debe cerrar la
+            // nueva cuando vuelva a aparecer un instante después.
+            if HIDING.with(|h| *h.borrow()) {
+                return;
+            }
             let win = window.clone();
             glib::timeout_add_local_once(Duration::from_millis(120), move || {
                 if win.is_visible() && !win.is_active() {
@@ -337,6 +344,39 @@ fn present_and_focus(window: &gtk4::ApplicationWindow, wallpaper_mode: bool) {
             }
         }
     });
+}
+
+/// Cambia del launcher compacto al carrusel sin enseñar el desplazamiento de
+/// la superficie. El tamaño y el título se actualizan mientras está desmontada;
+/// al volver a presentarla Niri ya recibe una ventana de 1400x590 y la coloca
+/// centrada desde su primer frame visible.
+fn switch_to_wallpaper(window: &gtk4::ApplicationWindow, entry: &gtk4::Entry) {
+    if HIDING.with(|h| *h.borrow()) {
+        return;
+    }
+    HIDING.with(|h| *h.borrow_mut() = true);
+
+    let win = window.clone();
+    let entry = entry.clone();
+    fade_opacity(
+        window,
+        window.opacity(),
+        0.0,
+        110,
+        Some(Box::new(move || {
+            win.hide();
+            win.set_opacity(0.0);
+            entry.set_text("#");
+
+            // Deja que GTK calcule el request 1400x590 antes de crear otra vez
+            // la superficie Wayland.
+            let win = win.clone();
+            glib::idle_add_local_once(move || {
+                HIDING.with(|h| *h.borrow_mut() = false);
+                present_and_focus(&win, true);
+            });
+        })),
+    );
 }
 
 /// Centra después de que Niri haya aplicado el configure de 1400x590. Durante
