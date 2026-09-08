@@ -635,6 +635,8 @@ nixosConfigurations = {
 - Hostname: `nixos-pc` — ASRock B550 Pro4, Ryzen 7 5700X y GPU NVIDIA.
 - Arranque UEFI con systemd-boot; raíz ext4 y ESP vfat declaradas por UUID.
 - Microcode AMD y virtualización `kvm-amd` vienen de su hardware generado.
+- El NVMe SK Hynix ext4 etiquetado `Compartido` se monta por UUID en
+  `/home/loonbac/Proyectos`; es exclusivo de este host y usa `nofail`.
 - El primer despliegue usa `nouveau`; el driver NVIDIA propietario se habilita
   en una migración posterior, después de confirmar el arranque gráfico estable.
 - No hereda el disco extra, `i915`, VA-API `iHD`, tapa ni perfil de energía de

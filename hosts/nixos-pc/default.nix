@@ -6,6 +6,7 @@
     ./hardware-configuration.nix
     ./platform.nix
     ./games-disk.nix
+    ./projects-disk.nix
     ./gaming.nix
   ];
 
