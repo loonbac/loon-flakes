@@ -32,7 +32,7 @@
       url = "github:HANDZCZ/nix-tools-steam";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Gestión declarativa de aplicaciones Flatpak (Sober en nixos-pc).
+    # Gestión declarativa de aplicaciones Flatpak (juegos de nixos-pc).
     nix-flatpak.url = "github:gmodena/nix-flatpak/v0.7.0";
   };
 

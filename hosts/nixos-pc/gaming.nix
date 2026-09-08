@@ -9,11 +9,14 @@
     spaceThemeFix.enable = true;
   };
 
-  # Sober es distribuido oficialmente mediante Flathub. Este módulo se
-  # importa solo en nixos-pc, por lo que ni Flatpak ni Roblox llegan a la laptop.
+  # Sober y PokeMMO se instalan desde Flathub. Este módulo se importa solo en
+  # nixos-pc, por lo que ni Flatpak ni estos juegos llegan a la laptop.
   services.flatpak = {
     enable = true;
-    packages = [ "org.vinegarhq.Sober" ];
+    packages = [
+      "org.vinegarhq.Sober"
+      "com.pokemmo.PokeMMO"
+    ];
 
     # Discord Rich Presence: permite a Sober conectarse tanto al socket de
     # Discord Flatpak como al de clientes nativos (Discord/Equibop). Solo se
