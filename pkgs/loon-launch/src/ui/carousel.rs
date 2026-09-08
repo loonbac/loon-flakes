@@ -1,9 +1,10 @@
 // Carrusel de wallpapers inspirado en el image-picker de Omarchy.
 //
-// Se dibuja en un solo DrawingArea para poder recortar cada preview como un
-// trapecio y animar tamaño/posición sin que el layout de GTK redimensione la
-// ventana en cada frame.
+// Las previews son texturas GDK y se componen con nodos GSK. Esto mantiene el
+// recorte trapezoidal en GPU y deja que el frame clock de GTK/Wayland marque
+// cada frame de la animación, sin reescalar imágenes con Cairo en CPU.
 use gtk4::prelude::*;
+use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use libadwaita as adw;
 use libadwaita::prelude::AnimationExt;
 use std::cell::{Cell, RefCell};
@@ -22,7 +23,7 @@ const SKEW: f64 = 28.0;
 #[derive(Clone)]
 struct Preview {
     index: i32,
-    pixbuf: Option<gtk4::gdk_pixbuf::Pixbuf>,
+    texture: Option<gtk4::gdk::Texture>,
 }
 
 #[derive(Clone, Copy)]
@@ -36,14 +37,57 @@ struct Geometry {
     distance: f64,
 }
 
+mod imp {
+    use super::*;
+    use gtk4::subclass::prelude::*;
+
+    #[derive(Default)]
+    pub struct CarouselCanvas {
+        pub(super) previews: RefCell<Vec<Preview>>,
+        pub(super) position: Cell<f64>,
+        pub(super) selected: Cell<i32>,
+        pub(super) animation: RefCell<Option<adw::TimedAnimation>>,
+        pub(super) on_click: RefCell<Option<Rc<dyn Fn(i32, bool)>>>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for CarouselCanvas {
+        const NAME: &'static str = "LoonWallpaperCarousel";
+        type Type = super::CarouselCanvas;
+        type ParentType = gtk4::Widget;
+    }
+
+    impl ObjectImpl for CarouselCanvas {}
+
+    impl WidgetImpl for CarouselCanvas {
+        fn snapshot(&self, snapshot: &gtk4::Snapshot) {
+            let widget = self.obj();
+            draw_carousel(
+                snapshot,
+                widget.width() as f64,
+                widget.height() as f64,
+                &self.previews.borrow(),
+                self.position.get(),
+            );
+        }
+    }
+}
+
+glib::wrapper! {
+    pub struct CarouselCanvas(ObjectSubclass<imp::CarouselCanvas>)
+        @extends gtk4::Widget,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
+}
+
+impl CarouselCanvas {
+    fn new() -> Self {
+        glib::Object::builder().build()
+    }
+}
+
 #[derive(Clone)]
 pub struct CarouselRefs {
-    pub area: gtk4::DrawingArea,
-    previews: Rc<RefCell<Vec<Preview>>>,
-    position: Rc<Cell<f64>>,
-    selected: Rc<Cell<i32>>,
-    animation: Rc<RefCell<Option<adw::TimedAnimation>>>,
-    on_click: Rc<RefCell<Option<Rc<dyn Fn(i32, bool)>>>>,
+    pub area: CarouselCanvas,
 }
 
 impl CarouselRefs {
@@ -54,30 +98,32 @@ impl CarouselRefs {
             .enumerate()
             .map(|(index, item)| Preview {
                 index: index as i32,
-                pixbuf: load_preview(item),
+                texture: load_preview(item),
             })
             .collect::<Vec<_>>();
 
         let selected = selected.clamp(0, previews.len().saturating_sub(1) as i32);
-        *self.previews.borrow_mut() = previews;
-        self.selected.set(selected);
-        self.position.set(selected as f64);
-        self.animation.borrow_mut().take();
+        let imp = self.area.imp();
+        *imp.previews.borrow_mut() = previews;
+        imp.selected.set(selected);
+        imp.position.set(selected as f64);
+        imp.animation.borrow_mut().take();
         self.area.queue_draw();
     }
 
     pub fn set_on_click(&self, callback: Rc<dyn Fn(i32, bool)>) {
-        *self.on_click.borrow_mut() = Some(callback);
+        *self.area.imp().on_click.borrow_mut() = Some(callback);
     }
 
     pub fn set_selected(&self, index: i32, animate: bool) {
-        let count = self.previews.borrow().len();
+        let imp = self.area.imp();
+        let count = imp.previews.borrow().len();
         if count == 0 || index < 0 || index >= count as i32 {
             return;
         }
 
-        self.selected.set(index);
-        let from = self.position.get();
+        imp.selected.set(index);
+        let from = imp.position.get();
         let count_f = count as f64;
         let current = from.rem_euclid(count_f);
         let mut delta = index as f64 - current;
@@ -88,110 +134,89 @@ impl CarouselRefs {
         }
         let to = from + delta;
 
-        self.animation.borrow_mut().take();
+        imp.animation.borrow_mut().take();
         if !animate || (to - from).abs() < 0.001 {
-            self.position.set(index as f64);
+            imp.position.set(index as f64);
             self.area.queue_draw();
             return;
         }
 
-        let position = self.position.clone();
         let area = self.area.clone();
         let target = adw::CallbackAnimationTarget::new(move |value| {
-            position.set(value);
+            area.imp().position.set(value);
             area.queue_draw();
         });
         let animation = adw::TimedAnimation::new(&self.area, from, to, 220, target);
         animation.set_easing(adw::Easing::EaseOutCubic);
-        let position = self.position.clone();
         let area = self.area.clone();
         animation.connect_done(move |_| {
-            position.set(index as f64);
+            area.imp().position.set(index as f64);
             area.queue_draw();
         });
         animation.play();
-        *self.animation.borrow_mut() = Some(animation);
+        *imp.animation.borrow_mut() = Some(animation);
     }
 }
 
 pub fn build_carousel() -> CarouselRefs {
-    let area = gtk4::DrawingArea::new();
+    let area = CarouselCanvas::new();
     area.set_hexpand(true);
     area.set_vexpand(true);
     area.set_focusable(true);
     area.add_css_class("wallpaper-carousel");
 
-    let refs = CarouselRefs {
-        area: area.clone(),
-        previews: Rc::new(RefCell::new(Vec::new())),
-        position: Rc::new(Cell::new(0.0)),
-        selected: Rc::new(Cell::new(0)),
-        animation: Rc::new(RefCell::new(None)),
-        on_click: Rc::new(RefCell::new(None)),
-    };
-
-    area.set_draw_func({
-        let previews = refs.previews.clone();
-        let position = refs.position.clone();
-        move |_, cr, width, height| {
-            draw_carousel(cr, width as f64, height as f64, &previews.borrow(), position.get());
-        }
-    });
-
     let click = gtk4::GestureClick::new();
     click.connect_released({
-        let previews = refs.previews.clone();
-        let position = refs.position.clone();
-        let selected = refs.selected.clone();
-        let on_click = refs.on_click.clone();
         let area = area.clone();
         move |_, _, x, y| {
+            let imp = area.imp();
             let geometries = carousel_geometries(
                 area.width() as f64,
                 area.height() as f64,
-                previews.borrow().len(),
-                position.get(),
+                imp.previews.borrow().len(),
+                imp.position.get(),
             );
             if let Some(hit) = geometries
                 .iter()
-                .filter(|g| point_in_geometry(**g, x, y))
+                .filter(|geometry| point_in_geometry(**geometry, x, y))
                 .min_by(|a, b| a.distance.total_cmp(&b.distance))
             {
-                if let Some(callback) = on_click.borrow().as_ref() {
-                    callback(hit.index, hit.index == selected.get());
+                if let Some(callback) = imp.on_click.borrow().as_ref() {
+                    callback(hit.index, hit.index == imp.selected.get());
                 }
             }
         }
     });
     area.add_controller(click);
 
-    refs
+    CarouselRefs { area }
 }
 
-fn load_preview(item: &Item) -> Option<gtk4::gdk_pixbuf::Pixbuf> {
+fn load_preview(item: &Item) -> Option<gtk4::gdk::Texture> {
     let path = Path::new(&item.icon);
     if !path.is_file() {
         return None;
     }
-    gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(path, 1152, 712, true).ok()
+    let pixbuf = gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(path, 1152, 712, true).ok()?;
+    Some(gtk4::gdk::Texture::for_pixbuf(&pixbuf))
 }
 
 fn draw_carousel(
-    cr: &gtk4::cairo::Context,
+    snapshot: &gtk4::Snapshot,
     width: f64,
     height: f64,
     previews: &[Preview],
     position: f64,
 ) {
     let mut geometries = carousel_geometries(width, height, previews.len(), position);
-    // Los extremos se pintan primero y la tarjeta que ocupa el centro, al final.
+    // Los extremos se componen primero y la tarjeta central, al final.
     geometries.sort_by(|a, b| b.distance.total_cmp(&a.distance));
 
     for geometry in geometries {
-        let Some(preview) = previews.iter().find(|p| p.index == geometry.index) else {
+        let Some(preview) = previews.iter().find(|preview| preview.index == geometry.index) else {
             continue;
         };
-        draw_preview(cr, geometry, preview.pixbuf.as_ref());
+        snapshot_preview(snapshot, geometry, preview.texture.as_ref());
     }
 }
 
@@ -200,8 +225,6 @@ fn carousel_geometries(width: f64, height: f64, count: usize, position: f64) -> 
         return Vec::new();
     }
 
-    // Reduce todo proporcionalmente en una pantalla estrecha, pero conserva
-    // espacio para ver al menos una tira a cada lado de la preview central.
     let scale_w = ((width - 150.0) / EXPANDED_W).clamp(0.56, 1.0);
     let scale_h = ((height - 50.0) / EXPANDED_H).clamp(0.56, 1.0);
     let scale = scale_w.min(scale_h);
@@ -239,7 +262,6 @@ fn carousel_geometries(width: f64, height: f64, count: usize, position: f64) -> 
         };
         let y = center_y + (expanded_h - card_h) / 2.0;
 
-        // No procesa tarjetas completamente fuera del viewport.
         if x + card_w >= -2.0 && x <= width + 2.0 {
             output.push(Geometry {
                 index: index as i32,
@@ -255,10 +277,10 @@ fn carousel_geometries(width: f64, height: f64, count: usize, position: f64) -> 
     output
 }
 
-fn draw_preview(
-    cr: &gtk4::cairo::Context,
+fn snapshot_preview(
+    snapshot: &gtk4::Snapshot,
     geometry: Geometry,
-    pixbuf: Option<&gtk4::gdk_pixbuf::Pixbuf>,
+    texture: Option<&gtk4::gdk::Texture>,
 ) {
     let Geometry {
         x,
@@ -270,52 +292,46 @@ fn draw_preview(
     } = geometry;
     let scale = (width / EXPANDED_W).max(height / EXPANDED_H);
     let skew = (SKEW * scale).min(width * 0.28);
+    let path = trapezoid_path(x, y, width, height, skew);
+    snapshot.push_fill(&path, gtk4::gsk::FillRule::Winding);
 
-    let _ = cr.save();
-    trapezoid_path(cr, x, y, width, height, skew);
-    cr.clip();
-
-    if let Some(pixbuf) = pixbuf {
-        let pw = pixbuf.width().max(1) as f64;
-        let ph = pixbuf.height().max(1) as f64;
-        let image_scale = (width / pw).max(height / ph);
-        let dx = x + (width - pw * image_scale) / 2.0;
-        let dy = y + (height - ph * image_scale) / 2.0;
-        cr.translate(dx, dy);
-        cr.scale(image_scale, image_scale);
-        cr.set_source_pixbuf(pixbuf, 0.0, 0.0);
-        let _ = cr.paint();
-        cr.identity_matrix();
+    let bounds = gtk4::graphene::Rect::new(x as f32, y as f32, width as f32, height as f32);
+    if let Some(texture) = texture {
+        let texture_w = texture.width().max(1) as f64;
+        let texture_h = texture.height().max(1) as f64;
+        let image_scale = (width / texture_w).max(height / texture_h);
+        let image_w = texture_w * image_scale;
+        let image_h = texture_h * image_scale;
+        let image_bounds = gtk4::graphene::Rect::new(
+            (x + (width - image_w) / 2.0) as f32,
+            (y + (height - image_h) / 2.0) as f32,
+            image_w as f32,
+            image_h as f32,
+        );
+        snapshot.append_texture(texture, &image_bounds);
     } else {
-        cr.set_source_rgb(0.035, 0.04, 0.055);
-        let _ = cr.paint();
+        snapshot.append_color(&gtk4::gdk::RGBA::new(0.035, 0.04, 0.055, 1.0), &bounds);
     }
 
-    // En Omarchy las tiras no seleccionadas llevan un tinte del 42%.
-    cr.set_source_rgba(0.02, 0.025, 0.04, 0.42 * (1.0 - emphasis));
-    let _ = cr.paint();
-    let _ = cr.restore();
+    let dim_alpha = (0.42 * (1.0 - emphasis)) as f32;
+    if dim_alpha > 0.001 {
+        snapshot.append_color(&gtk4::gdk::RGBA::new(0.02, 0.025, 0.04, dim_alpha), &bounds);
+    }
+    snapshot.pop();
 
-    trapezoid_path(cr, x, y, width, height, skew);
-    cr.set_line_width(1.0 + 2.0 * emphasis);
-    cr.set_source_rgba(0.82, 0.86, 1.0, 0.28 + 0.72 * emphasis);
-    let _ = cr.stroke();
+    let stroke = gtk4::gsk::Stroke::new((1.0 + 2.0 * emphasis) as f32);
+    let border = gtk4::gdk::RGBA::new(0.82, 0.86, 1.0, (0.28 + 0.72 * emphasis) as f32);
+    snapshot.append_stroke(&path, &stroke, &border);
 }
 
-fn trapezoid_path(
-    cr: &gtk4::cairo::Context,
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
-    skew: f64,
-) {
-    cr.new_path();
-    cr.move_to(x + skew, y);
-    cr.line_to(x + width, y);
-    cr.line_to(x + width - skew, y + height);
-    cr.line_to(x, y + height);
-    cr.close_path();
+fn trapezoid_path(x: f64, y: f64, width: f64, height: f64, skew: f64) -> gtk4::gsk::Path {
+    let builder = gtk4::gsk::PathBuilder::new();
+    builder.move_to((x + skew) as f32, y as f32);
+    builder.line_to((x + width) as f32, y as f32);
+    builder.line_to((x + width - skew) as f32, (y + height) as f32);
+    builder.line_to(x as f32, (y + height) as f32);
+    builder.close();
+    builder.to_path()
 }
 
 fn point_in_geometry(geometry: Geometry, px: f64, py: f64) -> bool {
