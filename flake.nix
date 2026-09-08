@@ -91,6 +91,12 @@
         '';
       });
 
+      steamidraPackage = pkgs.callPackage ./pkgs/steamidra { };
+      steamidraOverlay = final: _prev: {
+        steamidra = final.callPackage ./pkgs/steamidra { };
+      };
+      steamidraModule = ./modules/programs/steamidra;
+
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
       # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
@@ -101,7 +107,6 @@
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
           inherit millennium space-theme-fix nix-tools-steam accela;
-          steamidra = pkgs.callPackage ./pkgs/steamidra { };
         };
         modules = [
           ./hosts/${hostName}
@@ -143,7 +148,17 @@
         sls-steam = nix-tools-steam.packages.${system}.sls-steam;
         # SteaMidra (SFF): GUI de setup/manifest de Steam. AppImage oficial
         # envuelto en FHS para correr en NixOS (ver pkgs/steamidra).
-        steamidra = pkgs.callPackage ./pkgs/steamidra { };
+        steamidra = steamidraPackage;
+      };
+
+      overlays = {
+        steamidra = steamidraOverlay;
+        default = steamidraOverlay;
+      };
+
+      nixosModules = {
+        steamidra = steamidraModule;
+        default = steamidraModule;
       };
 
       nixosConfigurations = {

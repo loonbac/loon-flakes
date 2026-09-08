@@ -16,5 +16,6 @@
     ./virtualbox
     ./gentle-ai
     ./steam
+    ./steamidra
   ];
 }

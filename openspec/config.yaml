@@ -1,0 +1,50 @@
+strict_tdd: false
+context: |
+  loon-flakes is a multi-host NixOS configuration repository (hosts: loon-laptop, nixos-pc, korosoft) powered by Nix flakes.
+  Detected markers: Nix flake, NixOS modules, custom packages under pkgs/.
+  Package managers: nix.
+  Primary check command: nix flake check --no-build.
+  Evaluation/build commands: nix build .#<package> or nixos-rebuild build --flake .#<host>.
+  No general unit test runner detected; strict TDD is disabled for declarative Nix evaluation.
+rules:
+  proposal:
+    require_problem_statement: true
+  spec:
+    require_acceptance_criteria: true
+  design:
+    require_tradeoffs: true
+  tasks:
+    protect_review_workload: true
+  apply:
+    test_command: "nix flake check --no-build"
+  verify:
+    test_command: "nix flake check --no-build"
+testing:
+  detected: "2026-09-08"
+  runner:
+    command: "nix flake check --no-build"
+    framework: "nix flake check"
+  layers:
+    unit: ""
+    integration: "nix flake check"
+    e2e: ""
+  commands:
+    unit: []
+    integration:
+      - scope: "."
+        command: "nix flake check --no-build"
+        framework: "nix flake check"
+    e2e: []
+  coverage:
+    command: ""
+    commands: []
+quality:
+  lint: ""
+  lint_commands: []
+  typecheck: "nix flake check --no-build"
+  typecheck_commands:
+    - scope: "."
+      command: "nix flake check --no-build"
+      framework: "nix-eval"
+  format: ""
+  format_commands: []
