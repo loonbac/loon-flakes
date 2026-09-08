@@ -32,9 +32,11 @@
       url = "github:HANDZCZ/nix-tools-steam";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Gestión declarativa de aplicaciones Flatpak (Sober en nixos-pc).
+    nix-flatpak.url = "github:gmodena/nix-flatpak/v0.7.0";
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam }:
+  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -163,7 +165,7 @@
 
       nixosConfigurations = {
         "loon-laptop" = mkHost "loon-laptop" [ ];
-        "nixos-pc" = mkHost "nixos-pc" [ ];
+        "nixos-pc" = mkHost "nixos-pc" [ nix-flatpak.nixosModules.nix-flatpak ];
         "korosoft" = mkHost "korosoft" [ ];
       };
     };
