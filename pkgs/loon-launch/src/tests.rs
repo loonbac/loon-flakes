@@ -1,5 +1,5 @@
 // Tests de la lógica pura del launcher (filtrado, navegación, edición).
-use crate::apps::power_actions;
+use crate::apps::{data_dirs, power_actions};
 use crate::filter::{
     apply_backspace, apply_char, filter_items, gallery_positions, move_sel_grid, move_sel_rowwise,
     move_selection, normalize_selection, wallpaper_card_size,
@@ -159,4 +159,18 @@ fn apps_grid_right_stays_on_same_row() {
     assert_eq!(move_sel_grid(0, 0, 1, &pos), 4);
     assert_eq!(move_sel_grid(3, 1, 0, &pos), 3);
     assert_eq!(move_sel_grid(0, -1, 0, &pos), 0);
+}
+
+#[test]
+fn app_discovery_includes_dynamic_flatpak_exports() {
+    let dirs = data_dirs();
+    assert!(dirs
+        .iter()
+        .any(|dir| dir == std::path::Path::new("/var/lib/flatpak/exports/share")));
+
+    if let Some(home) = std::env::var_os("HOME") {
+        let user_exports =
+            std::path::PathBuf::from(home).join(".local/share/flatpak/exports/share");
+        assert!(dirs.contains(&user_exports));
+    }
 }

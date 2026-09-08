@@ -1,11 +1,12 @@
 // Tema de íconos y caché compartidos: resolver/decodear íconos en cada
 // tecla era el cuello de botella del launcher. Un solo IconTheme + caché
 // hace el filtrado instantáneo.
-use gtk4::prelude::*;
-use gtk4::{IconLookupFlags, IconTheme};
+use gtk4::IconLookupFlags;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
+
+use crate::apps::data_dirs;
 
 thread_local! {
     static ICON_CACHE: RefCell<HashMap<String, Option<gtk4::IconPaintable>>> =
@@ -30,6 +31,17 @@ pub fn resolve_icon(icon: &str) -> Option<gtk4::IconPaintable> {
         ICON_THEME.with(|c| *c.borrow_mut() = Some(t.clone()));
         t
     });
+
+    // IconTheme toma sus rutas del entorno con el que nació el daemon. Añadir
+    // las raíces actuales permite resolver iconos de Flatpak instalado en
+    // caliente, sin reiniciar la sesión ni loon-launch.
+    let mut search_paths = theme.search_path();
+    for icons_dir in data_dirs().into_iter().map(|dir| dir.join("icons")) {
+        if icons_dir.is_dir() && !search_paths.contains(&icons_dir) {
+            theme.add_search_path(&icons_dir);
+            search_paths.push(icons_dir);
+        }
+    }
 
     let paintable = if icon.starts_with('/') {
         // Ruta absoluta: solo si existe el archivo, carga perezosa.

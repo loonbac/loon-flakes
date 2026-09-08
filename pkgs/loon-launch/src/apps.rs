@@ -1,23 +1,19 @@
 // Carga de aplicaciones desde .desktop files y acciones de poder.
+use std::collections::HashSet;
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::models::Item;
 
 pub fn load_apps() -> Vec<Item> {
     let mut apps = Vec::new();
-    let dirs = [
-        "/run/current-system/sw/share/applications",
-        "/run/current-system/sw/share/applications/kde",
-        "/home/loonbac/.local/share/applications",
-        "/usr/share/applications",
-    ];
 
-    for dir in dirs {
-        if !Path::new(dir).is_dir() {
+    for dir in application_dirs() {
+        if !dir.is_dir() {
             continue;
         }
-        if let Ok(entries) = fs::read_dir(dir) {
+        if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
@@ -38,6 +34,67 @@ pub fn load_apps() -> Vec<Item> {
     });
     apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
     apps
+}
+
+/// Raíces XDG que pueden exportar aplicaciones e iconos. Las rutas de
+/// Flatpak se agregan explícitamente porque una instalación puede aparecer
+/// mientras el daemon sigue usando el entorno de una sesión ya iniciada.
+pub fn data_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+
+    let data_home = env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")));
+
+    if let Some(ref dir) = data_home {
+        push_unique(&mut dirs, &mut seen, dir.clone());
+        push_unique(&mut dirs, &mut seen, dir.join("flatpak/exports/share"));
+    }
+
+    if let Some(value) = env::var_os("XDG_DATA_DIRS") {
+        for dir in env::split_paths(&value) {
+            push_unique(&mut dirs, &mut seen, dir);
+        }
+    } else {
+        push_unique(&mut dirs, &mut seen, PathBuf::from("/usr/local/share"));
+        push_unique(&mut dirs, &mut seen, PathBuf::from("/usr/share"));
+    }
+
+    // Fallbacks de NixOS y Flatpak. Se consultan en cada apertura, así una
+    // app recién instalada aparece aunque estas rutas no estuvieran en el
+    // XDG_DATA_DIRS heredado al iniciar la sesión.
+    push_unique(
+        &mut dirs,
+        &mut seen,
+        PathBuf::from("/run/current-system/sw/share"),
+    );
+    push_unique(
+        &mut dirs,
+        &mut seen,
+        PathBuf::from("/var/lib/flatpak/exports/share"),
+    );
+
+    dirs
+}
+
+fn application_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+
+    for data_dir in data_dirs() {
+        let applications = data_dir.join("applications");
+        push_unique(&mut dirs, &mut seen, applications.clone());
+        push_unique(&mut dirs, &mut seen, applications.join("kde"));
+    }
+
+    dirs
+}
+
+fn push_unique(dirs: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, dir: PathBuf) {
+    if seen.insert(dir.clone()) {
+        dirs.push(dir);
+    }
 }
 
 fn parse_desktop(path: &Path) -> Option<Item> {
