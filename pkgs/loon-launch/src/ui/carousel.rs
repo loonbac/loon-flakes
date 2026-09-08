@@ -10,6 +10,7 @@ use libadwaita::prelude::AnimationExt;
 use std::cell::{Cell, RefCell};
 use std::path::Path;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use crate::models::Item;
 
@@ -45,8 +46,12 @@ mod imp {
     pub struct CarouselCanvas {
         pub(super) previews: RefCell<Vec<Preview>>,
         pub(super) position: Cell<f64>,
+        pub(super) destination: Cell<f64>,
         pub(super) selected: Cell<i32>,
         pub(super) animation: RefCell<Option<adw::TimedAnimation>>,
+        pub(super) animation_generation: Cell<u64>,
+        pub(super) key_burst: Cell<u8>,
+        pub(super) last_navigation: Cell<Option<Instant>>,
         pub(super) on_click: RefCell<Option<Rc<dyn Fn(i32, bool)>>>,
     }
 
@@ -107,7 +112,14 @@ impl CarouselRefs {
         *imp.previews.borrow_mut() = previews;
         imp.selected.set(selected);
         imp.position.set(selected as f64);
-        imp.animation.borrow_mut().take();
+        imp.destination.set(selected as f64);
+        imp.animation_generation
+            .set(imp.animation_generation.get().wrapping_add(1));
+        if let Some(animation) = imp.animation.borrow_mut().take() {
+            animation.pause();
+        }
+        imp.key_burst.set(0);
+        imp.last_navigation.set(None);
         self.area.queue_draw();
     }
 
@@ -122,40 +134,94 @@ impl CarouselRefs {
             return;
         }
 
-        imp.selected.set(index);
-        let from = imp.position.get();
-        let count_f = count as f64;
-        let current = from.rem_euclid(count_f);
-        let mut delta = index as f64 - current;
-        if delta > count_f / 2.0 {
-            delta -= count_f;
-        } else if delta < -count_f / 2.0 {
-            delta += count_f;
+        let previous_selected = imp.selected.replace(index);
+        let previous_animation = imp.animation.borrow_mut().take();
+        let interrupted = previous_animation
+            .as_ref()
+            .is_some_and(|animation| animation.state() == adw::AnimationState::Playing);
+        let from = previous_animation
+            .as_ref()
+            .map(AnimationExt::value)
+            .unwrap_or_else(|| imp.position.get());
+        if let Some(animation) = previous_animation {
+            // Dropear el wrapper no detiene necesariamente el timeline de
+            // libadwaita. Pausarlo evita que dos targets escriban `position`.
+            animation.pause();
         }
-        let to = from + delta;
+        imp.position.set(from);
 
-        imp.animation.borrow_mut().take();
+        let count_f = count as f64;
+        let previous_destination = imp.destination.get();
+        let forward = (previous_selected + 1).rem_euclid(count as i32) == index;
+        let backward = (previous_selected - 1).rem_euclid(count as i32) == index;
+        let to = if forward {
+            previous_destination + 1.0
+        } else if backward {
+            previous_destination - 1.0
+        } else {
+            nearest_destination(from, index, count_f)
+        };
+        imp.destination.set(to);
+
+        let now = Instant::now();
+        let rapid = interrupted
+            || imp
+                .last_navigation
+                .get()
+                .is_some_and(|last| now.duration_since(last) <= Duration::from_millis(180));
+        let burst = if rapid {
+            imp.key_burst.get().saturating_add(1).min(6)
+        } else {
+            0
+        };
+        imp.key_burst.set(burst);
+        imp.last_navigation.set(Some(now));
+        let generation = imp.animation_generation.get().wrapping_add(1);
+        imp.animation_generation.set(generation);
+
         if !animate || (to - from).abs() < 0.001 {
-            imp.position.set(index as f64);
+            imp.position.set(to);
             self.area.queue_draw();
             return;
         }
 
+        // Cada pulsación rápida acorta el timeline. Si la preview ya estaba
+        // cerca del destino, también reduce proporcionalmente la duración.
+        let burst_duration = 210u32.saturating_sub(u32::from(burst) * 23).max(72);
+        let distance_factor = (to - from).abs().clamp(0.35, 1.0);
+        let duration = ((f64::from(burst_duration) * distance_factor).round() as u32)
+            .clamp(65, 210);
+
         let area = self.area.clone();
         let target = adw::CallbackAnimationTarget::new(move |value| {
-            area.imp().position.set(value);
-            area.queue_draw();
+            if area.imp().animation_generation.get() == generation {
+                area.imp().position.set(value);
+                area.queue_draw();
+            }
         });
-        let animation = adw::TimedAnimation::new(&self.area, from, to, 220, target);
+        let animation = adw::TimedAnimation::new(&self.area, from, to, duration, target);
         animation.set_easing(adw::Easing::EaseOutCubic);
         let area = self.area.clone();
         animation.connect_done(move |_| {
-            area.imp().position.set(index as f64);
-            area.queue_draw();
+            if area.imp().animation_generation.get() == generation {
+                area.imp().position.set(to);
+                area.queue_draw();
+            }
         });
         animation.play();
         *imp.animation.borrow_mut() = Some(animation);
     }
+}
+
+fn nearest_destination(from: f64, index: i32, count: f64) -> f64 {
+    let current = from.rem_euclid(count);
+    let mut delta = f64::from(index) - current;
+    if delta > count / 2.0 {
+        delta -= count;
+    } else if delta < -count / 2.0 {
+        delta += count;
+    }
+    from + delta
 }
 
 pub fn build_carousel() -> CarouselRefs {
