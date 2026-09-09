@@ -28,6 +28,12 @@ let
 
   defaultMonitorConfig = pkgs.writeText "niri-default-monitor.kdl" ''
     // Valor inicial; nwg-displays puede reemplazar este archivo.
+    output "HDMI-A-1" {
+        hot-corners {
+            off
+        }
+    }
+
     output "DP-2" {
         mode "1920x1080@144.002"
     }
