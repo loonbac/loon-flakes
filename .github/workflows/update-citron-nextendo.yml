@@ -233,7 +233,7 @@ jobs:
             }' >pkgs/citron-nextendo/sources.json.new
           mv pkgs/citron-nextendo/sources.json.new \
             pkgs/citron-nextendo/sources.json
-          jq --exit-status empty pkgs/citron-nextendo/sources.json
+          jq empty pkgs/citron-nextendo/sources.json
 
       - name: Commit source update
         shell: bash
