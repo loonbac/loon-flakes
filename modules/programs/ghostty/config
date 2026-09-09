@@ -30,3 +30,8 @@ keybind = ctrl+shift+w=close_tab
 # Shader personalizado para animación y desplazamiento suave del cursor
 custom-shader = /home/loonbac/.config/ghostty/shaders/smooth_cursor.glsl
 custom-shader-animation = always
+
+# Los plugins de preguntas de Pi emiten BEL como señal de atención. Se anulan
+# todas las reacciones nativas de Ghostty para evitar su segundo sonido/aviso:
+# las notificaciones de Pi ya usan SwayNC + el WAV declarado por el flake.
+bell-features = no-system,no-audio,no-attention,no-title,no-border

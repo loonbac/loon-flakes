@@ -176,6 +176,8 @@ let
     const PW_PLAY = "${pipewire}/bin/pw-play";
     const NOTIFICATION_SOUND = "${../pi/assets/snd_shineselect.wav}";
     const PROMPT_DEDUP_MS = 2500;
+    const IS_GENTLE_SUBAGENT = process.env.GENTLE_PI_AGENTS_CHILD === "1";
+    const GENTLE_SUBAGENT_PROMPT_PREFIX = "❀ ";
 
     type UnknownRecord = Record<string, unknown>;
 
@@ -212,37 +214,72 @@ let
     }
 
     function play(sound: string): void {
-      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.70", sound]);
+      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.50", sound]);
     }
 
     export default function loonPiNotifications(pi: ExtensionAPI): void {
+      // Gentle Agents launches isolated Pi RPC processes which load the same
+      // global extensions. Their lifecycle is internal to the main session:
+      // never alert when a child settles. Questions relayed by a child are
+      // rendered through the main Pi UI and are covered there instead.
+      if (IS_GENTLE_SUBAGENT) return;
+
       let context: ExtensionContext | undefined;
       let lastPromptAt = 0;
+      let promptActive = false;
+      let notifyWhenSettled = false;
 
       pi.on("session_start", (_event, ctx) => {
         context = ctx;
+        lastPromptAt = 0;
+        promptActive = false;
+        notifyWhenSettled = false;
       });
 
-      const prompt = (body: unknown): void => {
+      const prompt = (
+        body: unknown,
+        options: { allowIdle?: boolean; title?: string; icon?: string } = {},
+      ): void => {
         // Ignore dialogs opened manually while Pi is idle (settings, model
-        // picker, etc.). The alerts are for agent work blocked on the user.
-        if (context?.isIdle()) return;
+        // picker, plugin browsers, etc.). An RPC question relayed by a Gentle
+        // subagent is the exception: the parent can be idle while the child
+        // is blocked waiting for its answer.
+        if (!context?.hasUI || (context.isIdle() && !options.allowIdle)) return;
         const now = Date.now();
         if (now - lastPromptAt < PROMPT_DEDUP_MS) return;
         lastPromptAt = now;
         desktopNotification(
-          "Pi necesita tu respuesta",
+          options.title ?? "Pi necesita tu respuesta",
           clean(body, "Hay una pregunta esperando en la terminal."),
-          "dialog-question",
+          options.icon ?? "dialog-question",
         );
         play(NOTIFICATION_SOUND);
       };
+
+      // Unlike automatic custom-message turns (notably gentle-agents.result),
+      // a normal main-session request passes through before_agent_start. Keep
+      // this marker across retries, compaction and queued continuations until
+      // the one final agent_settled event.
+      pi.on("before_agent_start", (_event, ctx) => {
+        context = ctx;
+        notifyWhenSettled = true;
+      });
 
       // Pi 0.85+ emits this for every select/confirm/input/editor/custom UI,
       // including prompts created by third-party plugins.
       pi.on("ui_prompt_start", (event, ctx) => {
         context = ctx;
-        prompt(event.title);
+        promptActive = true;
+        const fromSubagent = typeof event.title === "string"
+          && event.title.startsWith(GENTLE_SUBAGENT_PROMPT_PREFIX);
+        const body = fromSubagent
+          ? event.title?.slice(GENTLE_SUBAGENT_PROMPT_PREFIX.length)
+          : event.title;
+        prompt(body, { allowIdle: fromSubagent });
+      });
+      pi.on("ui_prompt_end", (_event, ctx) => {
+        context = ctx;
+        promptActive = false;
       });
 
       // Compatibility and richer text for the two installed question tools.
@@ -253,20 +290,32 @@ let
           ? payload.questions
           : [];
         const first = questions.find(isRecord);
-        prompt(first?.question);
+        prompt(first?.question, { title: "Pi tiene una pregunta" });
       });
       pi.events.on("gentle-pi:ask-user-choice:blocked", (payload) => {
-        if (isRecord(payload) && payload.active === true) prompt(undefined);
+        if (isRecord(payload) && payload.active === true) {
+          prompt("Hay una elección esperando en la terminal.", {
+            title: "Pi necesita una elección",
+          });
+        }
       });
       pi.events.on("pi-permission-system:permission-request", (payload) => {
-        if (isRecord(payload) && payload.state === "waiting") prompt(payload.message);
+        if (isRecord(payload) && payload.state === "waiting") {
+          prompt(payload.message, {
+            title: "Pi solicita confirmación",
+            icon: "dialog-warning",
+          });
+        }
       });
 
       // agent_settled is the correct full-request boundary: unlike agent_end,
       // it does not fire before automatic retries, compaction or follow-ups.
       pi.on("agent_settled", (_event, ctx) => {
         context = ctx;
-        desktopNotification("Pi terminó", "El agente está listo para recibir instrucciones.", "dialog-information");
+        const shouldNotify = notifyWhenSettled && !promptActive;
+        notifyWhenSettled = false;
+        if (!shouldNotify) return;
+        desktopNotification("Pi terminó", "La tarea principal terminó y espera instrucciones.", "dialog-information");
         play(NOTIFICATION_SOUND);
       });
     }

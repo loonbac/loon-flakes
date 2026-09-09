@@ -275,6 +275,13 @@ suena otra alerta. La extensión que hace de puente se instala declarativamente
 en `~/.pi/agent/extensions/loon-notifications.ts`; no depende del BEL de la
 terminal ni se pierde al actualizar los paquetes npm. Ambos avisos usan el WAV
 versionado en `pkgs/pi/assets/snd_shineselect.wav`, que Nix copia a su store.
+Los procesos Pi internos de Gentle Agents y sus vueltas automáticas de entrega
+están excluidos: completar un subagente no genera alertas; una pregunta que este
+remita a la UI principal sí. Las preguntas usan `dialog-question`, los permisos
+`dialog-warning` y solo el final de una petición principal usa
+`dialog-information`. Los menús de plugins abiertos a mano se ignoran. Ghostty
+ignora el BEL auxiliar de `rpiv-ask-user-question` para que no suene un segundo
+aviso.
 
 Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
 correspondiente con verificación de integridad. npm autoriza únicamente el
