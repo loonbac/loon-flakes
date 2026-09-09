@@ -83,8 +83,8 @@ let
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-judge-a = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "max"; };
-    pi-btw = { model = "opencode-go/deepseek-v4-flash"; effort = "max"; };
+    jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
+    pi-btw = { model = "opencode-go/deepseek-v4-flash"; effort = "xhigh"; };
     review-readability = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
     review-reliability = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     review-resilience = { model = "opencode-go/deepseek-v4-flash"; effort = "high"; };
@@ -322,7 +322,7 @@ let
     name: pi-btw
     description: Dedicated model route for Pi BTW side questions.
     model: opencode-go/deepseek-v4-flash
-    thinking: max
+    thinking: xhigh
     ---
 
     This agent entry is the gentle-pi model route for the `@narumitw/pi-btw` `/btw` extension.
