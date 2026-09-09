@@ -185,6 +185,21 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Si el voice chat se queda en "RTC Connecting"**: el valor está mal — usar
   `default_public_and_private_interfaces` (ver Lecciones aprendidas).
 
+### Actualizar Citron Nextendo
+
+- **Paquete**: `pkgs/citron-nextendo/default.nix`; los datos cambiantes viven
+  en `pkgs/citron-nextendo/sources.json`.
+- **Módulo público**: `modules/programs/citron-nextendo/default.nix`, exportado
+  como `nixosModules.citron-nextendo`.
+- **Activación exclusiva**: `hosts/nixos-pc/gaming.nix`, con la variante
+  `x86_64_v3` para el Ryzen 7 5700X. No habilitarlo en los demás hosts.
+- **Actualización automática**:
+  `.github/workflows/update-citron-nextendo.yml` consulta la release oficial,
+  verifica hashes, crea un mirror inmutable y actualiza `sources.json`.
+- No compilar Citron localmente para validar este módulo. Probar solo la
+  evaluación o el paquete AppImage ya publicado; el build C++ puede consumir
+  decenas de GiB de RAM.
+
 ---
 
 ## Lecciones aprendidas (gotchas)
@@ -226,6 +241,9 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   sistema, no home-manager); `configHome = "/home/loonbac"` sincroniza el tema.
 - **El rebuild puede tardar** (compila niri, loon-launch, quickshell) — usar
   timeouts generosos (600000 ms).
+- **Citron Nextendo**: upstream reemplaza y borra la release mutable
+  `nightly-linux`. Nix debe apuntar al mirror inmutable por commit creado por
+  GitHub Actions; no fijar permanentemente el URL mutable de upstream.
 - **Equibop + Tailscale → "DTLS Connecting"**: el voice chat se cuelga si
   WebRTC se bindea a la interfaz de la VPN. El fix vive en
   `modules/programs/equibop/default.nix` y **parchea el `app.asar`** (inyecta

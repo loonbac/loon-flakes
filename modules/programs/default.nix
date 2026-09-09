@@ -17,5 +17,6 @@
     ./gentle-ai
     ./steam
     ./steamidra
+    ./citron-nextendo
   ];
 }

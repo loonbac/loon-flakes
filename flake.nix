@@ -107,6 +107,15 @@
       };
       steamidraModule = ./modules/programs/steamidra;
 
+      citronNextendoPackage = pkgs.callPackage ./pkgs/citron-nextendo { };
+      citronNextendoOverlay = final: _prev: {
+        citron-nextendo = final.callPackage ./pkgs/citron-nextendo { };
+        citron-nextendo-v3 = final.callPackage ./pkgs/citron-nextendo {
+          x86_64Variant = "v3";
+        };
+      };
+      citronNextendoModule = ./modules/programs/citron-nextendo;
+
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
       # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
@@ -162,15 +171,25 @@
         # SteaMidra (SFF): GUI de setup/manifest de Steam. AppImage oficial
         # envuelto en FHS para correr en NixOS (ver pkgs/steamidra).
         steamidra = steamidraPackage;
+        # Fork de Citron Neo con juego online mediante Nextendo Network.
+        citron-nextendo = citronNextendoPackage;
+        citron-nextendo-v3 = pkgs.callPackage ./pkgs/citron-nextendo {
+          x86_64Variant = "v3";
+        };
       };
 
       overlays = {
         steamidra = steamidraOverlay;
-        default = steamidraOverlay;
+        citron-nextendo = citronNextendoOverlay;
+        default = lib.composeManyExtensions [
+          steamidraOverlay
+          citronNextendoOverlay
+        ];
       };
 
       nixosModules = {
         steamidra = steamidraModule;
+        citron-nextendo = citronNextendoModule;
         default = steamidraModule;
       };
 

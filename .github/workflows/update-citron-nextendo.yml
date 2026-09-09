@@ -1,0 +1,263 @@
+name: Update Citron Nextendo
+
+on:
+  schedule:
+    # GitHub no propaga eventos release entre repositorios. Esta consulta
+    # periódica detecta la siguiente nightly oficial en menos de seis horas.
+    - cron: "19 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-citron-nextendo
+  cancel-in-progress: false
+
+jobs:
+  mirror-release:
+    name: Mirror official release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM_REPOSITORY: NextendoNetwork/citron-nextendo
+      UPSTREAM_RELEASE_TAG: nightly-linux
+
+    steps:
+      - name: Check out loon-flakes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Discover official release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          revision="$(gh api \
+            "repos/${UPSTREAM_REPOSITORY}/git/ref/tags/${UPSTREAM_RELEASE_TAG}" \
+            --jq '.object.sha')"
+          if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Unexpected upstream revision: $revision" >&2
+            exit 1
+          fi
+
+          short_revision="${revision:0:9}"
+          immutable_tag="citron-nextendo-${short_revision}"
+
+          release_json="$(gh api \
+            "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
+          published_at="$(jq -r '.published_at' <<<"$release_json")"
+
+          for suffix in x86_64 x86_64_v3 aarch64; do
+            asset="citron_nightly-${short_revision}-linux-${suffix}.AppImage"
+            count="$(jq --arg asset "$asset" \
+              '[.assets[] | select(.name == $asset and (.digest | startswith("sha256:")))] | length' \
+              <<<"$release_json")"
+            if [[ "$count" != 1 ]]; then
+              echo "Official release does not contain one verified $asset asset" >&2
+              exit 1
+            fi
+          done
+
+          release_exists=false
+          needs_mirror=true
+          if own_release_json="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/releases/tags/${immutable_tag}" \
+            2>/dev/null)"; then
+            release_exists=true
+            needs_mirror=false
+            for suffix in x86_64 x86_64_v3 aarch64; do
+              asset="citron_nightly-${short_revision}-linux-${suffix}.AppImage"
+              upstream_digest="$(jq -r --arg asset "$asset" \
+                '.assets[] | select(.name == $asset) | .digest' \
+                <<<"$release_json")"
+              mirror_digest="$(jq -r --arg asset "$asset" \
+                '.assets[] | select(.name == $asset) | .digest' \
+                <<<"$own_release_json")"
+              if [[ "$mirror_digest" != "$upstream_digest" ]]; then
+                needs_mirror=true
+              fi
+            done
+          fi
+
+          {
+            echo "revision=$revision"
+            echo "short_revision=$short_revision"
+            echo "immutable_tag=$immutable_tag"
+            echo "published_at=$published_at"
+            echo "release_exists=$release_exists"
+            echo "needs_mirror=$needs_mirror"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Download official AppImages
+        if: steps.release.outputs.needs_mirror == 'true'
+        shell: bash
+        env:
+          SHORT_REVISION: ${{ steps.release.outputs.short_revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/citron-nextendo"
+          cd "$RUNNER_TEMP/citron-nextendo"
+
+          gh release download "$UPSTREAM_RELEASE_TAG" \
+            --repo "$UPSTREAM_REPOSITORY" \
+            --pattern "citron_nightly-${SHORT_REVISION}-linux-*.AppImage"
+
+          release_json="$(gh api \
+            "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
+          for asset in ./*.AppImage; do
+            name="${asset#./}"
+            expected="$(jq -r --arg name "$name" \
+              '.assets[] | select(.name == $name) | .digest' \
+              <<<"$release_json")"
+            actual="sha256:$(sha256sum "$asset" | cut -d' ' -f1)"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "SHA-256 mismatch for $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Publish immutable mirror
+        if: steps.release.outputs.needs_mirror == 'true'
+        shell: bash
+        env:
+          IMMUTABLE_TAG: ${{ steps.release.outputs.immutable_tag }}
+          REVISION: ${{ steps.release.outputs.revision }}
+          PUBLISHED_AT: ${{ steps.release.outputs.published_at }}
+          RELEASE_EXISTS: ${{ steps.release.outputs.release_exists }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/citron-nextendo"
+
+          release_title="Citron Nextendo ${REVISION:0:9}"
+          release_notes="Byte-for-byte mirror of the official Nextendo Network Linux release published at ${PUBLISHED_AT}. Upstream commit: https://github.com/${UPSTREAM_REPOSITORY}/commit/${REVISION}"
+          if [[ "$RELEASE_EXISTS" == true ]]; then
+            gh release upload "$IMMUTABLE_TAG" ./*.AppImage \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$IMMUTABLE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$release_title" \
+              --notes "$release_notes"
+          else
+            gh release create "$IMMUTABLE_TAG" ./*.AppImage \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$release_title" \
+              --notes "$release_notes"
+          fi
+
+      - name: Update pinned Nix sources
+        shell: bash
+        env:
+          IMMUTABLE_TAG: ${{ steps.release.outputs.immutable_tag }}
+          REVISION: ${{ steps.release.outputs.revision }}
+          SHORT_REVISION: ${{ steps.release.outputs.short_revision }}
+          PUBLISHED_AT: ${{ steps.release.outputs.published_at }}
+        run: |
+          set -euo pipefail
+
+          release_json="$(gh api \
+            "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
+
+          asset_digest() {
+            local suffix="$1"
+            local name="citron_nightly-${SHORT_REVISION}-linux-${suffix}.AppImage"
+            jq -er --arg name "$name" \
+              '.assets[] | select(.name == $name) | .digest' \
+              <<<"$release_json"
+          }
+
+          asset_url() {
+            local suffix="$1"
+            local name="citron_nightly-${SHORT_REVISION}-linux-${suffix}.AppImage"
+            printf 'https://github.com/%s/releases/download/%s/%s\n' \
+              "$GITHUB_REPOSITORY" "$IMMUTABLE_TAG" "$name"
+          }
+
+          sri_from_digest() {
+            python3 - "$1" <<'PY'
+          import base64
+          import sys
+
+          algorithm, digest = sys.argv[1].split(":", 1)
+          print(f"{algorithm}-{base64.b64encode(bytes.fromhex(digest)).decode()}")
+          PY
+          }
+
+          generic_url="$(asset_url x86_64)"
+          generic_hash="$(sri_from_digest "$(asset_digest x86_64)")"
+          v3_url="$(asset_url x86_64_v3)"
+          v3_hash="$(sri_from_digest "$(asset_digest x86_64_v3)")"
+          arm_url="$(asset_url aarch64)"
+          arm_hash="$(sri_from_digest "$(asset_digest aarch64)")"
+
+          icon_url="https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${REVISION}/dist/citron.svg"
+          rules_url="https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${REVISION}/dist/72-citron-input.rules"
+          curl --fail --location --retry 4 --silent --show-error \
+            "$icon_url" --output "$RUNNER_TEMP/citron.svg"
+          curl --fail --location --retry 4 --silent --show-error \
+            "$rules_url" --output "$RUNNER_TEMP/72-citron-input.rules"
+          icon_hash="sha256-$(sha256sum "$RUNNER_TEMP/citron.svg" | cut -d' ' -f1)"
+          rules_hash="sha256-$(sha256sum "$RUNNER_TEMP/72-citron-input.rules" | cut -d' ' -f1)"
+          icon_hash="$(sri_from_digest "${icon_hash/sha256-/sha256:}")"
+          rules_hash="$(sri_from_digest "${rules_hash/sha256-/sha256:}")"
+
+          jq -n \
+            --arg revision "$REVISION" \
+            --arg publishedAt "$PUBLISHED_AT" \
+            --arg releaseTag "$IMMUTABLE_TAG" \
+            --arg genericUrl "$generic_url" \
+            --arg genericHash "$generic_hash" \
+            --arg v3Url "$v3_url" \
+            --arg v3Hash "$v3_hash" \
+            --arg armUrl "$arm_url" \
+            --arg armHash "$arm_hash" \
+            --arg iconUrl "$icon_url" \
+            --arg iconHash "$icon_hash" \
+            --arg rulesUrl "$rules_url" \
+            --arg rulesHash "$rules_hash" \
+            '{
+              revision: $revision,
+              publishedAt: $publishedAt,
+              releaseTag: $releaseTag,
+              sources: {
+                "x86_64-linux": { url: $genericUrl, hash: $genericHash },
+                "x86_64-linux-v3": { url: $v3Url, hash: $v3Hash },
+                "aarch64-linux": { url: $armUrl, hash: $armHash }
+              },
+              icon: { url: $iconUrl, hash: $iconHash },
+              inputRules: { url: $rulesUrl, hash: $rulesHash }
+            }' >pkgs/citron-nextendo/sources.json.new
+          mv pkgs/citron-nextendo/sources.json.new \
+            pkgs/citron-nextendo/sources.json
+          jq --exit-status empty pkgs/citron-nextendo/sources.json
+
+      - name: Commit source update
+        shell: bash
+        env:
+          SHORT_REVISION: ${{ steps.release.outputs.short_revision }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- pkgs/citron-nextendo/sources.json; then
+            echo "Nix source metadata is already current."
+            exit 0
+          fi
+
+          default_branch="$(gh api "repos/${GITHUB_REPOSITORY}" \
+            --jq '.default_branch')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pkgs/citron-nextendo/sources.json
+          git commit -m "chore(citron): update to ${SHORT_REVISION}"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$default_branch"
+            if git push origin "HEAD:${default_branch}"; then
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; retrying." >&2
+          done
+          exit 1

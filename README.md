@@ -22,6 +22,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── pi/                             # assets locales de Pi (skills + UI custom)
 │   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
 │   ├── gentle-stack-update/            # actualiza Pi + extensiones + Gentle AI + Engram
+│   ├── citron-nextendo/                # AppImage fijado del fork Citron Nextendo
 │   └── cisco-packet-tracer/           # paquete con .deb propietario por hash
 ├── hosts/
 │   ├── loon-laptop/
@@ -45,6 +46,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   ├── ghostty/                   # terminal (config gestionada)
     │   ├── waybar/                    # barra de estado (config + estilo)
     │   ├── equibop/                   # Discord con fix de WebRTC (Tailscale)
+    │   ├── citron-nextendo/           # módulo opcional del emulador
     │   └── gentle-ai/                 # stack Gentle-AI/Pi/Engram + bootstrap
     ├── wayland/                       # compositores Wayland y greeter
     │   ├── niri/                      # compositor niri (config.kdl gestionado)
@@ -318,6 +320,53 @@ El archivo actual es una beta `9.0.0` con vencimiento declarado `2025-12-31`.
 Si Cisco te entrega una versión nueva, cambia el nombre y el hash del paquete
 Nix de forma intencional antes del rebuild.
 
+### Citron Nextendo
+
+El paquete `citron-nextendo` fija por hash la nightly oficial del fork Citron
+Neo de Nextendo Network. Se distribuye para `x86_64-linux` y `aarch64-linux`,
+instala su entrada de escritorio y las reglas udev para mandos Nintendo. El PC
+usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7 5700X;
+el módulo reutilizable usa por defecto la build x86_64 genérica. En este
+repositorio está habilitado solamente desde `hosts/nixos-pc/gaming.nix`.
+
+El workflow `.github/workflows/update-citron-nextendo.yml` consulta cada seis
+horas la release oficial `nightly-linux`. Cuando cambia, verifica los SHA-256
+publicados por GitHub, refleja los tres AppImages sin modificarlos en una
+release inmutable `citron-nextendo-<commit>` y actualiza automáticamente
+`pkgs/citron-nextendo/sources.json`. Así ningún host compila Citron y una
+nightly antigua continúa disponible aunque upstream reemplace su release.
+
+Otro flake NixOS puede reutilizar el módulo directamente:
+
+```nix
+{
+  inputs.loon-flakes.url = "github:loonbac/loon-flakes";
+
+  outputs = { nixpkgs, loon-flakes, ... }: {
+    nixosConfigurations.mi-pc = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        loon-flakes.nixosModules.citron-nextendo
+        { programs.citron-nextendo.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+También se puede construir o ejecutar sin importar el módulo:
+
+```bash
+nix build github:loonbac/loon-flakes#citron-nextendo
+nix run github:loonbac/loon-flakes#citron-nextendo
+```
+
+En una CPU compatible con x86-64-v3 se puede usar la build optimizada:
+
+```bash
+nix run github:loonbac/loon-flakes#citron-nextendo-v3
+```
+
 ---
 
 ## Entorno gráfico: niri + greeter
@@ -510,7 +559,8 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
 `niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
-`cisco-packet-tracer`.
+`cisco-packet-tracer`, `steamidra`, `citron-nextendo` y
+`citron-nextendo-v3`.
 
 **VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
 sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con
