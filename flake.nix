@@ -34,14 +34,9 @@
     };
     # Gestión declarativa de aplicaciones Flatpak (juegos de nixos-pc).
     nix-flatpak.url = "github:gmodena/nix-flatpak/v0.7.0";
-    # Servidor headless para clientes Moonlight, habilitado solo en nixos-pc.
-    moonshine = {
-      url = "github:hgaiser/moonshine";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, moonshine }:
+  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -170,10 +165,7 @@
 
       nixosConfigurations = {
         "loon-laptop" = mkHost "loon-laptop" [ ];
-        "nixos-pc" = mkHost "nixos-pc" [
-          nix-flatpak.nixosModules.nix-flatpak
-          moonshine.nixosModules.default
-        ];
+        "nixos-pc" = mkHost "nixos-pc" [ nix-flatpak.nixosModules.nix-flatpak ];
         "korosoft" = mkHost "korosoft" [ ];
       };
     };

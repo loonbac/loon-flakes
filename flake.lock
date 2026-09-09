@@ -118,26 +118,6 @@
         "type": "github"
       }
     },
-    "moonshine": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1788723664,
-        "narHash": "sha256-OGB+tqr/AW00HZo2itc6ZCk9Y5ZM31jTG6Zf6uMKBVc=",
-        "owner": "hgaiser",
-        "repo": "moonshine",
-        "rev": "82528ef63977eca26fca03b5f217fa5406e18def",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hgaiser",
-        "repo": "moonshine",
-        "type": "github"
-      }
-    },
     "nix-flatpak": {
       "locked": {
         "lastModified": 1767983141,
@@ -213,7 +193,6 @@
         "antigravity-nix": "antigravity-nix",
         "code-insiders-flake": "code-insiders-flake",
         "millennium": "millennium",
-        "moonshine": "moonshine",
         "nix-flatpak": "nix-flatpak",
         "nix-tools-steam": "nix-tools-steam",
         "nixpkgs": "nixpkgs_2",
