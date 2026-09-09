@@ -5,10 +5,11 @@
   copyDesktopItems,
   makeDesktopItem,
   x86_64Variant ? "generic",
+  metadataFile ? ./sources.json,
 }:
 
 let
-  metadata = builtins.fromJSON (builtins.readFile ./sources.json);
+  metadata = builtins.fromJSON (builtins.readFile metadataFile);
   revision = metadata.revision;
   shortRevision = builtins.substring 0 9 revision;
 

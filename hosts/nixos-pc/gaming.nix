@@ -6,8 +6,11 @@
   programs.citron-nextendo = {
     enable = true;
     # El Ryzen 7 5700X soporta el baseline x86-64-v3 de la build optimizada.
+    # Pin temporal: los AppImage 2061df046 crashean al iniciar juegos. Este
+    # artefacto se construye remotamente desde el último commit conocido bueno.
     package = pkgs.callPackage ../../pkgs/citron-nextendo {
       x86_64Variant = "v3";
+      metadataFile = ../../pkgs/citron-nextendo/sources-known-good-c7e70d046.json;
     };
   };
 

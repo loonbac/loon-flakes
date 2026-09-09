@@ -87,10 +87,14 @@ jobs:
           asset="dist/citron_nightly-${CITRON_SHORT_REVISION}-linux-x86_64_v3.AppImage"
           test -s "$asset"
           chmod +x "$asset"
-          sha256sum "$asset" | tee dist/SHA256SUMS
+          (
+            cd dist
+            sha256sum "citron_nightly-${CITRON_SHORT_REVISION}-linux-x86_64_v3.AppImage" \
+              | tee SHA256SUMS
+          )
 
       - name: Upload immutable workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: citron-nextendo-${{ env.CITRON_SHORT_REVISION }}-v3
           path: |

@@ -1,0 +1,19 @@
+{
+  "revision": "c7e70d0466fafe088dc1c41aac958ba42e5587ff",
+  "publishedAt": "2026-08-19T10:51:08Z",
+  "releaseTag": "citron-nextendo-c7e70d046-rebuilt",
+  "sources": {
+    "x86_64-linux-v3": {
+      "url": "https://github.com/loonbac/loon-flakes/releases/download/citron-nextendo-c7e70d046-rebuilt/citron_nightly-c7e70d046-linux-x86_64_v3.AppImage",
+      "hash": "sha256-KT8Nui6sb5Q7JsNUxGI+otFIPnjbemZj31iS5O2dmF0="
+    }
+  },
+  "icon": {
+    "url": "https://raw.githubusercontent.com/NextendoNetwork/citron-nextendo/c7e70d0466fafe088dc1c41aac958ba42e5587ff/dist/citron.svg",
+    "hash": "sha256-gv8kEMTAYbeN5Em2nJBR37Dd+ZW3H+Q8v7bD/7nE+mc="
+  },
+  "inputRules": {
+    "url": "https://raw.githubusercontent.com/NextendoNetwork/citron-nextendo/c7e70d0466fafe088dc1c41aac958ba42e5587ff/dist/72-citron-input.rules",
+    "hash": "sha256-JXygDyVHZ74HVt8uLJju/RZkNvXkLwCPihJg+QDl4VI="
+  }
+}
