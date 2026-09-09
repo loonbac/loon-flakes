@@ -8,6 +8,7 @@
 , piLauncher
 , gentleAiLauncher
 , engramLauncher
+, betterClaudeCodeUi
 }:
 
 let
@@ -471,12 +472,12 @@ writeShellApplication {
     local_package_root="$HOME/.local/share/loon-pi-packages"
     better_ui_source="$local_package_root/better-claude-code-ui"
     mkdir -p "$local_package_root"
-    if [ ! -L "$better_ui_source" ] || [ "$(readlink -f "$better_ui_source" || true)" != "${../pi/better-claude-code-ui}" ]; then
+    if [ ! -L "$better_ui_source" ] || [ "$(readlink -f "$better_ui_source" || true)" != "${betterClaudeCodeUi}" ]; then
       if [ -e "$better_ui_source" ] || [ -L "$better_ui_source" ]; then
         mkdir -p "$backup_dir/local-packages"
         mv "$better_ui_source" "$backup_dir/local-packages/better-claude-code-ui"
       fi
-      ln -s "${../pi/better-claude-code-ui}" "$better_ui_source"
+      ln -s "${betterClaudeCodeUi}" "$better_ui_source"
     fi
 
     # Install Pi only when absent. Subsequent upgrades belong to `pi update`,
@@ -668,12 +669,12 @@ NODE
     # This local UI fork is the deliberate declarative exception to mutable
     # extension updates. Its package path stays immutable and versioned here.
     better_ui="$npm_node_modules/better-claude-code-ui"
-    if [ ! -L "$better_ui" ] || [ "$(readlink -f "$better_ui" || true)" != "${../pi/better-claude-code-ui}" ]; then
+    if [ ! -L "$better_ui" ] || [ "$(readlink -f "$better_ui" || true)" != "${betterClaudeCodeUi}" ]; then
       if [ -e "$better_ui" ] || [ -L "$better_ui" ]; then
         mkdir -p "$backup_dir/packages"
         mv "$better_ui" "$backup_dir/packages/better-claude-code-ui"
       fi
-      ln -s "${../pi/better-claude-code-ui}" "$better_ui"
+      ln -s "${betterClaudeCodeUi}" "$better_ui"
     fi
 
     # Reconcile only Nix-managed providers and preserve any local providers.

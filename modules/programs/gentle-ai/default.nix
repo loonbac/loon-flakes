@@ -8,8 +8,9 @@ let
   engramLauncher = pkgs.callPackage ../../../pkgs/engram-launcher {
     inherit engramUpdater;
   };
+  betterClaudeCodeUi = pkgs.callPackage ../../../pkgs/pi/better-claude-code-ui { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
-    inherit piLauncher gentleAiLauncher engramLauncher;
+    inherit piLauncher gentleAiLauncher engramLauncher betterClaudeCodeUi;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
     inherit piLauncher gentleAiLauncher engramLauncher;

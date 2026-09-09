@@ -55,8 +55,9 @@
       engramLauncher = pkgs.callPackage ./pkgs/engram-launcher {
         inherit engramUpdater;
       };
+      betterClaudeCodeUi = pkgs.callPackage ./pkgs/pi/better-claude-code-ui { };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
-        inherit piLauncher gentleAiLauncher engramLauncher;
+        inherit piLauncher gentleAiLauncher engramLauncher betterClaudeCodeUi;
       };
       gentleStackUpdate = pkgs.callPackage ./pkgs/gentle-stack-update {
         inherit piLauncher gentleAiLauncher engramLauncher;
@@ -152,6 +153,7 @@
         engram-update = engramUpdater;
         gga = pkgs.callPackage ./pkgs/gga { };
         pi = piLauncher;
+        better-claude-code-ui = betterClaudeCodeUi;
         gentle-ai-bootstrap = gentleAiBootstrap;
         gentle-stack-update = gentleStackUpdate;
         cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
