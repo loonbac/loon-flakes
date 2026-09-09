@@ -1,26 +1,28 @@
 { writeShellApplication
 , writeText
 , coreutils
+, bash
 , git
+, gzip
 , nodejs
-, gentleAi
-, engram
-, piStack
+, piLauncher
+, gentleAiLauncher
+, engramLauncher
 }:
 
 let
-  # These are the packages Pi loads from its user configuration. Their
-  # versions are also recorded in package.json/package-lock.json.
+  # Nix owns the desired package set, while Pi owns the mutable versions.
+  # Unversioned npm specs make `pi update --extensions` the single update lane.
   piPackages = [
-    "npm:pi-antigravity@0.7.2"
-    "npm:better-claude-code-ui@0.1.7"
-    "${piStack}/lib/pi/node_modules/gentle-pi"
-    "npm:gentle-engram@0.1.10"
-    "npm:@juicesharp/rpiv-ask-user-question@2.7.1"
-    "npm:pi-web-access@0.27.0"
-    "npm:pi-btw@0.4.1"
-    "npm:pi-commandcode-provider@0.6.0"
-    "npm:pi-mcp-adapter@2.31.0"
+    "npm:pi-antigravity"
+    "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
+    "npm:gentle-pi"
+    "npm:gentle-engram"
+    "npm:@juicesharp/rpiv-ask-user-question"
+    "npm:pi-web-access"
+    "npm:pi-btw"
+    "npm:pi-commandcode-provider"
+    "npm:pi-mcp-adapter"
   ];
 
   piPackageNames = [
@@ -147,14 +149,11 @@ let
       gentlePortableConfig
       ;
     managedPiPackageNames = piPackageNames ++ retiredPiPackageNames;
-    gentleAiVersion = gentleAi.version;
-    engramVersion = engram.version;
-    piVersion = piStack.version;
   });
 
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers.engram = {
-      command = "${engram}/bin/engram";
+      command = "${engramLauncher}/bin/engram";
       args = [ "mcp" "--tools=agent" ];
       lifecycle = "lazy";
       directTools = false;
@@ -192,9 +191,12 @@ let
 
     const managed = new Set(manifest.managedPiPackageNames);
     const existing = Array.isArray(settings.packages) ? settings.packages : [];
+    const desiredPackages = manifest.piPackages.map((spec) =>
+      String(spec).replace(/^@HOME@/, process.env.HOME ?? ""),
+    );
     settings.packages = existing
       .filter((spec) => !managed.has(packageName(spec)))
-      .concat(manifest.piPackages);
+      .concat(desiredPackages);
 
     const previous = fs.existsSync(settingsPath) ? fs.statSync(settingsPath) : null;
     const mode = previous ? previous.mode & 0o777 : 0o644;
@@ -242,6 +244,29 @@ let
     fs.writeFileSync(temporary, `''${JSON.stringify(sortKeys(models), null, 2)}\n`, { mode });
     fs.renameSync(temporary, modelsPath);
     fs.chmodSync(modelsPath, mode);
+  '';
+
+  mergeNpmPolicy = writeText "merge-pi-npm-policy.mjs" ''
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageJsonPath] = process.argv.slice(2);
+    const packageJson = fs.existsSync(packageJsonPath)
+      ? JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
+      : { name: "pi-extensions", private: true };
+
+    // npm 11 blocks lifecycle scripts until they are explicitly approved.
+    // gentle-pi's postinstall is the supported installer for its versioned,
+    // checksum-verified Gentle AI binary, so approve that package alone.
+    if (!packageJson.allowScripts || typeof packageJson.allowScripts !== "object" || Array.isArray(packageJson.allowScripts)) {
+      packageJson.allowScripts = {};
+    }
+    packageJson.allowScripts["gentle-pi"] = true;
+
+    fs.mkdirSync(path.dirname(packageJsonPath), { recursive: true });
+    const temporary = `''${packageJsonPath}.nix-tmp-''${process.pid}`;
+    fs.writeFileSync(temporary, `''${JSON.stringify(packageJson, null, 2)}\n`, { mode: 0o644 });
+    fs.renameSync(temporary, packageJsonPath);
   '';
 
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
@@ -426,51 +451,65 @@ in
 
 writeShellApplication {
   name = "gentle-ai-bootstrap";
-  runtimeInputs = [ coreutils git nodejs gentleAi ];
+  # bash supplies `sh` for the one explicitly approved npm lifecycle script.
+  # gzip is required by gentle-pi's trusted `/usr/bin/tar -xzf` extractor.
+  runtimeInputs = [ coreutils bash git gzip nodejs piLauncher gentleAiLauncher engramLauncher ];
 
   text = ''
     agent_dir="''${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
     npm_node_modules="$agent_dir/npm/node_modules"
     state_path="$HOME/.gentle-ai/state.json"
     repo_dir="''${GENTLE_AI_NIXOS_REPO:-$HOME/.nixos}"
-    stack_node_modules="${piStack}/lib/pi/node_modules"
+    npm_prefix="''${PI_NPM_PREFIX:-$HOME/.local/share/loon-pi/npm-prefix}"
+    mutable_pi="$npm_prefix/bin/pi"
     backup_dir="$agent_dir/backups/nix-gentle-ai/$(date +%Y%m%d%H%M%S)"
 
-    mkdir -p "$npm_node_modules" "$HOME/.gentle-ai"
+    mkdir -p "$npm_node_modules" "$HOME/.gentle-ai" "$npm_prefix"
 
-    # A fresh machine gets RDD enabled once. Reconcile its managed prompt when
-    # it is already on, while respecting an explicit later `disable`.
-    if [ -d "$repo_dir/.git" ]; then
-      if [ ! -f "$state_path" ] || node -e '
-        const fs = require("node:fs");
-        const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-        process.exit(!Object.prototype.hasOwnProperty.call(state, "rdd_mode") || state.rdd_mode === "on" ? 0 : 1);
-      ' "$state_path"; then
-        gentle-ai review mode enable --scope global --cwd "$repo_dir" >/dev/null
+    # Give Pi a stable, unhashed local-package identity for the customized UI
+    # while keeping its bytes owned by the flake.
+    local_package_root="$HOME/.local/share/loon-pi-packages"
+    better_ui_source="$local_package_root/better-claude-code-ui"
+    mkdir -p "$local_package_root"
+    if [ ! -L "$better_ui_source" ] || [ "$(readlink -f "$better_ui_source" || true)" != "${../pi/better-claude-code-ui}" ]; then
+      if [ -e "$better_ui_source" ] || [ -L "$better_ui_source" ]; then
+        mkdir -p "$backup_dir/local-packages"
+        mv "$better_ui_source" "$backup_dir/local-packages/better-claude-code-ui"
+      fi
+      ln -s "${../pi/better-claude-code-ui}" "$better_ui_source"
+    fi
+
+    # Install Pi only when absent. Subsequent upgrades belong to `pi update`,
+    # which now sees a normal, writable global npm installation.
+    if [ ! -x "$mutable_pi" ]; then
+      npm install --global --prefix "$npm_prefix" \
+        --ignore-scripts --no-audit --no-fund --loglevel=error \
+        @earendil-works/pi-coding-agent@latest >/dev/null
+    fi
+
+    # The previous migration placed Pi in the general npm prefix, whose bin
+    # directory is in PATH. Preserve that package in the backup and leave the
+    # stable Nix launcher as the single visible `pi` command.
+    legacy_pi_prefix="$HOME/.npm-global"
+    if [ "$npm_prefix" != "$legacy_pi_prefix" ]; then
+      legacy_pi_bin="$legacy_pi_prefix/bin/pi"
+      legacy_pi_package="$legacy_pi_prefix/lib/node_modules/@earendil-works/pi-coding-agent"
+      if [ -e "$legacy_pi_bin" ] || [ -L "$legacy_pi_bin" ]; then
+        mkdir -p "$backup_dir/legacy-pi/bin"
+        mv "$legacy_pi_bin" "$backup_dir/legacy-pi/bin/pi"
+      fi
+      if [ -e "$legacy_pi_package" ] || [ -L "$legacy_pi_package" ]; then
+        mkdir -p "$backup_dir/legacy-pi/lib/node_modules/@earendil-works"
+        mv "$legacy_pi_package" "$backup_dir/legacy-pi/lib/node_modules/@earendil-works/pi-coding-agent"
       fi
     fi
 
-    link_package() {
-      package_name="$1"
-      source="$stack_node_modules/$package_name"
-      destination="$npm_node_modules/$package_name"
+    # Install Engram only when its mutable runtime is absent. Explicit updates
+    # are handled by `engram update` and `gentle-stack-update`.
+    engram version >/dev/null
 
-      if [ ! -e "$source" ]; then
-        echo "Missing Nix package in Pi stack: $package_name" >&2
-        exit 1
-      fi
-      mkdir -p "$(dirname "$destination")"
-
-      if [ -L "$destination" ] && [ "$(readlink -f "$destination")" = "$source" ]; then
-        return
-      fi
-      if [ -e "$destination" ] || [ -L "$destination" ]; then
-        mkdir -p "$(dirname "$backup_dir/$package_name")"
-        mv "$destination" "$backup_dir/$package_name"
-      fi
-      ln -s "$source" "$destination"
-    }
-
+    # One-time migration from the previous Nix closure. Only store links from
+    # loon-gentle-pi-stack are retired; mutable packages are never replaced.
     for package_name in \
       pi-antigravity \
       better-claude-code-ui \
@@ -481,12 +520,21 @@ writeShellApplication {
       pi-btw \
       pi-commandcode-provider \
       pi-mcp-adapter; do
-      link_package "$package_name"
+      destination="$npm_node_modules/$package_name"
+      if [ -L "$destination" ]; then
+        resolved="$(readlink -f "$destination" || true)"
+        case "$resolved" in
+          /nix/store/*-loon-gentle-pi-stack-*)
+            mkdir -p "$(dirname "$backup_dir/store-links/$package_name")"
+            mv "$destination" "$backup_dir/store-links/$package_name"
+            ;;
+        esac
+      fi
     done
 
     link_skill() {
       skill_name="$1"
-      source="${piStack}/share/pi/skills/$skill_name"
+      source="${../pi/skills}/$skill_name"
       destination="$agent_dir/skills/$skill_name"
 
       if [ ! -d "$source" ]; then
@@ -537,8 +585,8 @@ writeShellApplication {
     retire_package "@tintinweb/pi-subagents"
     retire_package "@juicesharp/rpiv-todo"
 
-    # Retire the old mutable executables so doctor and PATH cannot select a
-    # second Gentle-AI/Pi/Engram implementation. They remain recoverable.
+    # Retire only obsolete standalone companions. Pi is intentionally mutable
+    # now, and the `gentle-ai` launcher resolves gentle-pi's verified binary.
     retire_binary() {
       legacy_path="$1"
       if [ -e "$legacy_path" ] || [ -L "$legacy_path" ]; then
@@ -549,7 +597,6 @@ writeShellApplication {
     retire_binary "$HOME/go/bin/gentle-ai"
     retire_binary "$HOME/.local/bin/engram"
     retire_binary "$HOME/.local/bin/gga"
-    retire_binary "$HOME/.npm-global/bin/pi"
 
     # A development-binary selector points outside the Nix store and makes a
     # clean host behave differently. Retire it like the mutable executables.
@@ -565,15 +612,84 @@ writeShellApplication {
     fi
     node "${mergeSettings}" "$settings_path" "${manifest}"
 
+    # npm's lifecycle-script allowlist lives beside Pi's mutable extension
+    # project. Create it before the first extension install and preserve any
+    # other approvals the user may have added.
+    npm_project="$agent_dir/npm"
+    node "${mergeNpmPolicy}" "$npm_project/package.json"
+
+    # The settings now contain unversioned npm sources. Install any missing
+    # package set in one transaction; later upgrades remain explicit.
+    missing_packages=0
+    for package_name in \
+      pi-antigravity \
+      gentle-pi \
+      gentle-engram \
+      @juicesharp/rpiv-ask-user-question \
+      pi-web-access \
+      pi-btw \
+      pi-commandcode-provider \
+      pi-mcp-adapter; do
+      if [ ! -e "$npm_node_modules/$package_name" ]; then
+        missing_packages=1
+        break
+      fi
+    done
+    if [ "$missing_packages" -eq 1 ]; then
+      (
+        cd "$HOME"
+        "$mutable_pi" update --extensions --no-approve
+      )
+    fi
+
+    gentle_pi_root="$npm_node_modules/gentle-pi"
+    verify_gentle_ai_runtime() {
+      node --input-type=module - "$gentle_pi_root" <<'NODE' >/dev/null 2>&1
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
+
+const packageRoot = process.argv[2];
+const moduleUrl = pathToFileURL(join(packageRoot, "runtime", "gentle-ai-binary.mjs"));
+const { resolveGentleAiBinary } = await import(moduleUrl.href);
+resolveGentleAiBinary(packageRoot);
+NODE
+    }
+
+    # Repair installations created before the npm policy existed. Future
+    # gentle-pi upgrades run the same approved postinstall automatically.
+    if ! verify_gentle_ai_runtime; then
+      npm rebuild gentle-pi --prefix "$npm_project" --foreground-scripts
+    fi
+    if ! verify_gentle_ai_runtime; then
+      echo "gentle-ai-bootstrap: gentle-pi's verified Gentle AI runtime is unavailable" >&2
+      exit 1
+    fi
+
+    # This local UI fork is the deliberate declarative exception to mutable
+    # extension updates. Its package path stays immutable and versioned here.
+    better_ui="$npm_node_modules/better-claude-code-ui"
+    if [ ! -L "$better_ui" ] || [ "$(readlink -f "$better_ui" || true)" != "${../pi/better-claude-code-ui}" ]; then
+      if [ -e "$better_ui" ] || [ -L "$better_ui" ]; then
+        mkdir -p "$backup_dir/packages"
+        mv "$better_ui" "$backup_dir/packages/better-claude-code-ui"
+      fi
+      ln -s "${../pi/better-claude-code-ui}" "$better_ui"
+    fi
+
     # Reconcile only Nix-managed providers and preserve any local providers.
     node "${mergeModels}" "$agent_dir/models.json" "${manifest}"
 
-    # Install every managed Gentle Pi agent, chain and support contract from
-    # the pinned store closure. This makes an empty home fully functional.
+    if [ ! -d "$gentle_pi_root/assets" ]; then
+      echo "gentle-ai-bootstrap: gentle-pi did not install correctly" >&2
+      exit 1
+    fi
+
+    # Reconcile the mutable package's current assets with the declarative
+    # model routes. A package update therefore needs no Nix source edit.
     mkdir -p "$agent_dir/agents" "$agent_dir/chains" "$agent_dir/gentle-ai/support"
-    cp "$stack_node_modules/gentle-pi/assets/agents/"*.md "$agent_dir/agents/"
-    cp "$stack_node_modules/gentle-pi/assets/chains/"*.md "$agent_dir/chains/"
-    cp "$stack_node_modules/gentle-pi/assets/support/"*.md "$agent_dir/gentle-ai/support/"
+    cp "$gentle_pi_root/assets/agents/"*.md "$agent_dir/agents/"
+    cp "$gentle_pi_root/assets/chains/"*.md "$agent_dir/chains/"
+    cp "$gentle_pi_root/assets/support/"*.md "$agent_dir/gentle-ai/support/"
     cp ${piBtwAgent} "$agent_dir/agents/pi-btw.md"
     chmod 644 \
       "$agent_dir/agents/"*.md \
@@ -591,14 +707,31 @@ writeShellApplication {
     if ! [ -L "$mcp_path" ] && [ -e "$mcp_path" ]; then
       mkdir -p "$(dirname "$backup_dir/mcp.json")"
       mv "$mcp_path" "$backup_dir/mcp.json"
-    elif [ -L "$mcp_path" ] && [ "$(readlink -f "$mcp_path")" = "${mcpConfig}" ]; then
-      mcp_path=""
+    elif [ -L "$mcp_path" ]; then
+      if [ "$(readlink -f "$mcp_path" || true)" = "${mcpConfig}" ]; then
+        mcp_path=""
+      else
+        mkdir -p "$(dirname "$backup_dir/mcp.json")"
+        mv "$mcp_path" "$backup_dir/mcp.json"
+      fi
     fi
     if [ -n "$mcp_path" ]; then
       ln -s "${mcpConfig}" "$mcp_path"
     fi
 
     node "${mergeState}" "$state_path"
-    echo "Gentle-AI, Pi y Engram quedaron inicializados desde el store Nix (sin descargas npm)."
+
+    # A fresh machine gets RDD enabled once. Respect any later explicit disable.
+    if [ -d "$repo_dir/.git" ]; then
+      if [ ! -f "$state_path" ] || node -e '
+        const fs = require("node:fs");
+        const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        process.exit(!Object.prototype.hasOwnProperty.call(state, "rdd_mode") || state.rdd_mode === "on" ? 0 : 1);
+      ' "$state_path"; then
+        gentle-ai review mode enable --scope global --cwd "$repo_dir" >/dev/null
+      fi
+    fi
+
+    echo "Gentle AI y Pi quedaron inicializados en su instalación mutable administrada por el usuario."
   '';
 }

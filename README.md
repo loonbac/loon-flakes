@@ -15,10 +15,13 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── niri-cycle/                    # mover ventanas con wrap infinito
 │   ├── mpvpaper-wallpaper/            # fondo animado (video en loop)
 │   ├── niri-backdrop/                 # fondo estático del backdrop
-│   ├── gentle-ai/                     # Gentle-AI estable, compilado por Nix
-│   ├── engram/                        # Engram estable, compilado por Nix
-│   ├── pi/                             # Pi + extensiones, lockfile npm fijado
+│   ├── gentle-ai-launcher/            # resuelve el runtime verificado de gentle-pi
+│   ├── engram-launcher/               # launcher de Engram mutable
+│   ├── engram-updater/                # descarga releases y verifica SHA-256
+│   ├── pi-launcher/                    # bootstrap/launcher de Pi mutable
+│   ├── pi/                             # assets locales de Pi (skills + UI custom)
 │   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
+│   ├── gentle-stack-update/            # actualiza Pi + extensiones + Gentle AI + Engram
 │   └── cisco-packet-tracer/           # paquete con .deb propietario por hash
 ├── hosts/
 │   ├── loon-laptop/
@@ -215,45 +218,34 @@ niri-backdrop set IMAGEN   # setea una imagen específica
 niri-backdrop stop         # detiene el fondo
 ```
 
-### Gentle-AI + Pi + Engram — instalación reproducible
+### Gentle-AI + Pi + Engram — configuración declarativa, runtime actualizable
 
-El stack está declarado en `modules/programs/gentle-ai/` y sus paquetes están
-en `pkgs/`. Gentle-AI está fijado en la versión estable `2.6.0`; Gentle-Pi usa
-el snapshot reproducible de `main` `8103f0fa` con Gentle Agents y Gentle Todo.
-Engram está fijado en `1.20.0`, GGA en `2.10.1` y Pi en `0.84.4`, con estas
-extensiones exactas:
+El módulo `modules/programs/gentle-ai/` separa configuración y runtime:
 
-- `gentle-pi` `main@8103f0fa`
-- `gentle-engram` `0.1.10`
-- `pi-mcp-adapter` `2.31.0`
-- `pi-web-access` `0.27.0`
-- `@juicesharp/rpiv-ask-user-question` `2.7.1`
-- `pi-btw` `0.4.1`
-- `pi-commandcode-provider` `0.6.0`
-- `pi-antigravity` `0.7.2`
-- `better-claude-code-ui` `0.1.7` con los ajustes locales versionados
+- NixOS declara los launchers, los modelos predeterminados, las rutas de los
+  agentes, GGA, MCP y las preferencias portables.
+- Pi vive en `~/.local/share/loon-pi/npm-prefix` como una instalación npm
+  global normal y escribible, pero fuera de `PATH`; el launcher de Nix es la
+  única entrada visible.
+- Las extensiones viven en `~/.pi/agent/npm`; sus fuentes npm no llevan una
+  versión fija, de modo que `pi update --extensions` puede actualizarlas.
+- `gentle-pi` instala dentro de su propio paquete el binario exacto y verificado
+  de Gentle AI con el que es compatible. El launcher `gentle-ai` siempre
+  resuelve ese binario; no existe una segunda copia fijada por Nix.
+- Engram vive en `~/.local/share/loon-engram`; `engram update` instala la última
+  release oficial después de verificar su checksum publicado.
 
-`gentle-ai-bootstrap` se ejecuta al iniciar la sesión y también puede
-ejecutarse manualmente. Enlaza los paquetes desde `/nix/store`, conserva una
-copia de cualquier instalación anterior en `~/.pi/agent/backups/`, configura
-Engram en `~/.pi/agent/mcp.json` y activa RDD global en una instalación nueva.
-Gentle Agents reemplaza los plugins anteriores de subagentes y ejecuta cada
-agente como un hijo RPC aislado; Gentle Todo reemplaza `@juicesharp/rpiv-todo`.
-El bootstrap retira esas extensiones de forma recuperable, instala los agentes
-y perfiles declarativos y conserva las sesiones y los campos de configuración
-que el flake no gestiona.
-Las preferencias portables, el tema, el proveedor/modelo predeterminados y
-las rutas de modelos para subagentes se reconcilian desde el flake en cada
-host. Las skills presentes en la laptop de referencia también se distribuyen
-desde el store. Credenciales, sesiones y cachés de modelos permanecen fuera de
-Git.
-El proveedor local `ollama-vast` se fusiona declarativamente en
-`~/.pi/agent/models.json`; cualquier otro proveedor configurado por el usuario
-se conserva.
-También retira los binarios mutables antiguos de `~/go/bin`, `~/.local/bin`
-(incluido GGA) y `~/.npm-global/bin` hacia ese backup para que no haya dos
-implementaciones en `PATH`. No reemplaza credenciales, el catálogo descubierto
-de modelos, sesiones ni la base de datos de Engram.
+`gentle-ai-bootstrap` se ejecuta al iniciar sesión y también puede ejecutarse
+manualmente. En una máquina nueva instala únicamente lo que falta; nunca
+actualiza silenciosamente una instalación existente. Durante la migración
+retira de forma recuperable los antiguos enlaces a `loon-gentle-pi-stack` y
+los conserva bajo `~/.pi/agent/backups/`.
+
+El bootstrap mantiene declarativos el tema, el proveedor/modelo principal,
+las rutas de modelos para subagentes y el proveedor local `ollama-vast`. No
+reemplaza credenciales, modelos descubiertos, sesiones ni la base de datos de
+Engram. `better-claude-code-ui` es la única extensión deliberadamente fijada:
+usa la variante local versionada en este repositorio.
 
 ```bash
 gentle-ai-bootstrap
@@ -263,27 +255,30 @@ pi --version
 gentle-ai doctor
 ```
 
-#### Defensa contra ataques a la cadena de suministro
+#### Actualizaciones
 
-Aunque el ecosistema Pi publica instrucciones con npm, npm solo se usa dentro
-del build reproducible de Nix. `pkgs/pi/package-lock.json` contiene versiones,
-URLs del registry e integridad SHA-512 para toda la clausura; `npmDepsHash`
-fija además la caché que consume Nix. Nix obtiene esa caché una vez y verifica
-su hash; después npm solo ejecuta `npm ci --offline` y
-`npm rebuild --ignore-scripts`, sin resolver ni descargar nada y sin ejecutar
-`postinstall` de terceros. En particular, se bloquea el instalador de
-`gentle-pi` que intentaría descargar otro binario de Gentle-AI: Pi recibe el
-mismo binario `gentle-ai` fijado en el store Nix mediante
-`GENTLE_PI_GENTLE_AI_DEV_BINARY`.
+Pi se puede actualizar directamente porque su ejecutable real ya no está en
+`/nix/store`:
 
-Por eso no se debe ejecutar `npm install`, `npm update`, `pi update` ni
-`gentle-ai upgrade` sobre esta instalación administrada. Para actualizar:
+```bash
+pi update                 # solo Pi
+pi update --extensions    # gentle-pi y las demás extensiones
+engram update             # solo Engram
+gentle-stack-update       # Pi + extensiones + Gentle AI + Engram + configuración
+```
 
-1. cambia intencionalmente la versión y los hashes en `pkgs/`;
-2. regenera el lockfile únicamente desde un registry confiable y revisa el
-   diff completo;
-3. valida con `nix flake check` y `nix build .#pi .#gentle-ai .#engram`;
-4. aplica con `rebuild`.
+Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
+correspondiente con verificación de integridad. npm autoriza únicamente el
+script de instalación de `gentle-pi`, no los scripts de todas las dependencias.
+`gentle-stack-update` vuelve a aplicar después los perfiles de modelos del
+flake. No hay que editar versiones ni hashes Nix para actualizaciones normales
+del stack.
+
+Este diseño intercambia reproducibilidad binaria entre hosts por la capacidad
+de autoactualización solicitada: el repositorio sigue declarando qué se instala
+y cómo se configura, mientras que cada host decide cuándo avanzar sus versiones.
+Las actualizaciones permanecen manuales y explícitas; el login solo repara
+componentes ausentes.
 
 La autenticación, sesiones, contenido de `~/.engram/` y cualquier token quedan
 fuera de Git y del store Nix.
@@ -462,7 +457,8 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
   fastfetch, ghostty, nodejs, zen-browser, vscode-insiders,
   equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
   (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
-  Gentle-AI, Engram, Pi, Packet Tracer y `gentle-ai-bootstrap`, además de
+  Gentle-AI, Engram, Pi, Packet Tracer, `gentle-ai-bootstrap` y
+  `gentle-stack-update`, además de
   utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode, inxi,
   lshw, iw).
 - **Keyring** (`services.gnome.gnome-keyring.enable`): requisito de Settings
@@ -496,8 +492,9 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 | `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
 
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
-`niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`, `pi` y
-`gentle-ai-bootstrap`, `cisco-packet-tracer`.
+`niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`,
+`engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
+`cisco-packet-tracer`.
 
 **VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
 sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con

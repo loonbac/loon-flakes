@@ -1,25 +1,41 @@
 { pkgs, ... }:
 
 let
-  gentleAi = pkgs.callPackage ../../../pkgs/gentle-ai { };
-  engram = pkgs.callPackage ../../../pkgs/engram { };
   gga = pkgs.callPackage ../../../pkgs/gga { };
-  piStack = pkgs.callPackage ../../../pkgs/pi { inherit gentleAi; };
+  piLauncher = pkgs.callPackage ../../../pkgs/pi-launcher { };
+  gentleAiLauncher = pkgs.callPackage ../../../pkgs/gentle-ai-launcher { };
+  engramUpdater = pkgs.callPackage ../../../pkgs/engram-updater { };
+  engramLauncher = pkgs.callPackage ../../../pkgs/engram-launcher {
+    inherit engramUpdater;
+  };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
-    inherit gentleAi engram piStack;
+    inherit piLauncher gentleAiLauncher engramLauncher;
+  };
+  stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
+    inherit piLauncher gentleAiLauncher engramLauncher;
+    gentleAiBootstrap = bootstrap;
   };
 in
 {
-  # Nix owns the executable and the complete Pi dependency closure. The
-  # bootstrap below only initializes mutable per-user configuration.
-  environment.systemPackages = [ gentleAi engram gga piStack bootstrap ];
+  # Nix owns stable launchers and declarative configuration. Pi, its
+  # extensions, and gentle-pi's verified Gentle AI binary live in writable
+  # user storage so their supported update commands can replace them.
+  environment.systemPackages = [
+    engramLauncher
+    engramUpdater
+    gga
+    piLauncher
+    gentleAiLauncher
+    bootstrap
+    stackUpdate
+  ];
 
-  # Reconcile ~/.pi and ~/.gentle-ai at login without npm, network access, or
-  # overwriting credentials, discovered model catalogs, sessions, or Engram's
-  # database.
+  # Bootstrap only installs missing mutable components. Routine upgrades stay
+  # explicit through `pi update` or `gentle-stack-update`.
   systemd.user.services.gentle-ai-bootstrap = {
-    description = "Initialize the reproducible Gentle-AI, Pi and Engram stack";
+    description = "Initialize the user-managed Gentle AI and Pi stack";
     wantedBy = [ "default.target" ];
+    after = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${bootstrap}/bin/gentle-ai-bootstrap";

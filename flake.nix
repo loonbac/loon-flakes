@@ -46,14 +46,21 @@
         config.allowUnfree = true;
       };
 
-      # Gentle-AI stack: all versions and dependency hashes live under pkgs/.
-      # The Pi package receives the same pinned Gentle-AI binary so both sides
-      # use one RDD implementation and cannot drift silently.
-      gentleAi = pkgs.callPackage ./pkgs/gentle-ai { };
-      engram = pkgs.callPackage ./pkgs/engram { };
-      piStack = pkgs.callPackage ./pkgs/pi { inherit gentleAi; };
+      # Gentle-AI stack: Nix owns stable launchers and configuration; the
+      # user-writable Pi installation owns its own updates and gentle-pi's
+      # verified, version-matched Gentle AI runtime.
+      piLauncher = pkgs.callPackage ./pkgs/pi-launcher { };
+      gentleAiLauncher = pkgs.callPackage ./pkgs/gentle-ai-launcher { };
+      engramUpdater = pkgs.callPackage ./pkgs/engram-updater { };
+      engramLauncher = pkgs.callPackage ./pkgs/engram-launcher {
+        inherit engramUpdater;
+      };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
-        inherit gentleAi engram piStack;
+        inherit piLauncher gentleAiLauncher engramLauncher;
+      };
+      gentleStackUpdate = pkgs.callPackage ./pkgs/gentle-stack-update {
+        inherit piLauncher gentleAiLauncher engramLauncher;
+        gentleAiBootstrap = gentleAiBootstrap;
       };
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
@@ -140,11 +147,13 @@
         waydroid-app = pkgs.callPackage ./pkgs/waydroid-app { };
         # Control de brillo con suelo mínimo del 10% remapeado a 0%
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
-        gentle-ai = gentleAi;
-        engram = engram;
+        gentle-ai = gentleAiLauncher;
+        engram = engramLauncher;
+        engram-update = engramUpdater;
         gga = pkgs.callPackage ./pkgs/gga { };
-        pi = piStack;
+        pi = piLauncher;
         gentle-ai-bootstrap = gentleAiBootstrap;
+        gentle-stack-update = gentleStackUpdate;
         cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
         accela = accela;
         sls-steam = nix-tools-steam.packages.${system}.sls-steam;
