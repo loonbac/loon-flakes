@@ -5,6 +5,8 @@
 , git
 , gzip
 , nodejs
+, libnotify
+, pipewire
 , piLauncher
 , gentleAiLauncher
 , engramLauncher
@@ -160,6 +162,115 @@ let
       directTools = false;
     };
   });
+
+  # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
+  # separately through lifecycle events, so bridge every blocking extension
+  # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
+  # This deliberately does not depend on the terminal bell: Ghostty ships with
+  # audio bells disabled, and Pi may also be run from another terminal.
+  piNotifications = writeText "loon-pi-notifications.ts" ''
+    import { spawn } from "node:child_process";
+    import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+    const NOTIFY_SEND = "${libnotify}/bin/notify-send";
+    const PW_PLAY = "${pipewire}/bin/pw-play";
+    const NOTIFICATION_SOUND = "${../pi/assets/snd_shineselect.wav}";
+    const PROMPT_DEDUP_MS = 2500;
+
+    type UnknownRecord = Record<string, unknown>;
+
+    function isRecord(value: unknown): value is UnknownRecord {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+
+    function clean(value: unknown, fallback: string, limit = 220): string {
+      if (typeof value !== "string") return fallback;
+      const text = value.replace(/[\x00-\x1f\x7f]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!text) return fallback;
+      return text.length <= limit ? text : text.slice(0, limit - 1) + "…";
+    }
+
+    function launch(command: string, args: string[]): void {
+      try {
+        const child = spawn(command, args, { detached: true, stdio: "ignore" });
+        child.on("error", () => {});
+        child.unref();
+      } catch {
+        // Notifications are best effort and must never interrupt Pi.
+      }
+    }
+
+    function desktopNotification(title: string, body: string, icon: string): void {
+      launch(NOTIFY_SEND, [
+        "--app-name=Pi",
+        "--urgency=normal",
+        "--expire-time=10000",
+        "--icon=" + icon,
+        title,
+        body,
+      ]);
+    }
+
+    function play(sound: string): void {
+      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.70", sound]);
+    }
+
+    export default function loonPiNotifications(pi: ExtensionAPI): void {
+      let context: ExtensionContext | undefined;
+      let lastPromptAt = 0;
+
+      pi.on("session_start", (_event, ctx) => {
+        context = ctx;
+      });
+
+      const prompt = (body: unknown): void => {
+        // Ignore dialogs opened manually while Pi is idle (settings, model
+        // picker, etc.). The alerts are for agent work blocked on the user.
+        if (context?.isIdle()) return;
+        const now = Date.now();
+        if (now - lastPromptAt < PROMPT_DEDUP_MS) return;
+        lastPromptAt = now;
+        desktopNotification(
+          "Pi necesita tu respuesta",
+          clean(body, "Hay una pregunta esperando en la terminal."),
+          "dialog-question",
+        );
+        play(NOTIFICATION_SOUND);
+      };
+
+      // Pi 0.85+ emits this for every select/confirm/input/editor/custom UI,
+      // including prompts created by third-party plugins.
+      pi.on("ui_prompt_start", (event, ctx) => {
+        context = ctx;
+        prompt(event.title);
+      });
+
+      // Compatibility and richer text for the two installed question tools.
+      // Their event fires before ui_prompt_start, which the dedupe window then
+      // suppresses, so each prompt still produces exactly one alert.
+      pi.events.on("rpiv:ask-user:prompt", (payload) => {
+        const questions = isRecord(payload) && Array.isArray(payload.questions)
+          ? payload.questions
+          : [];
+        const first = questions.find(isRecord);
+        prompt(first?.question);
+      });
+      pi.events.on("gentle-pi:ask-user-choice:blocked", (payload) => {
+        if (isRecord(payload) && payload.active === true) prompt(undefined);
+      });
+      pi.events.on("pi-permission-system:permission-request", (payload) => {
+        if (isRecord(payload) && payload.state === "waiting") prompt(payload.message);
+      });
+
+      // agent_settled is the correct full-request boundary: unlike agent_end,
+      // it does not fire before automatic retries, compaction or follow-ups.
+      pi.on("agent_settled", (_event, ctx) => {
+        context = ctx;
+        desktopNotification("Pi terminó", "El agente está listo para recibir instrucciones.", "dialog-information");
+        play(NOTIFICATION_SOUND);
+      });
+    }
+  '';
 
   mergeSettings = writeText "merge-pi-settings.mjs" ''
     import fs from "node:fs";
@@ -571,6 +682,21 @@ writeShellApplication {
       wrangler; do
       link_skill "$skill_name"
     done
+
+    # Global extension managed by the flake. Keep a user-created regular file
+    # recoverable, while updated Nix store links can be replaced in place.
+    notifications_source="${piNotifications}"
+    notifications_destination="$agent_dir/extensions/loon-notifications.ts"
+    mkdir -p "$agent_dir/extensions"
+    if [ -L "$notifications_destination" ]; then
+      ln -sfn "$notifications_source" "$notifications_destination"
+    elif [ -e "$notifications_destination" ]; then
+      mkdir -p "$backup_dir/extensions"
+      mv "$notifications_destination" "$backup_dir/extensions/loon-notifications.ts"
+      ln -s "$notifications_source" "$notifications_destination"
+    else
+      ln -s "$notifications_source" "$notifications_destination"
+    fi
 
     # Remove the replaced subagent/todo implementations from the mutable Pi
     # tree. Keep them recoverable in the same backup area used for migrations.

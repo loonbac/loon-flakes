@@ -267,6 +267,15 @@ engram update             # solo Engram
 gentle-stack-update       # Pi + extensiones + Gentle AI + Engram + configuración
 ```
 
+Las esperas de Pi también están integradas con el escritorio: cualquier
+`select`, `confirm`, `input`, editor o UI custom que un plugin abra mientras el
+agente trabaja genera una notificación en SwayNC y reproduce un sonido por
+PipeWire. Al terminar por completo una petición (`agent_settled`) se muestra y
+suena otra alerta. La extensión que hace de puente se instala declarativamente
+en `~/.pi/agent/extensions/loon-notifications.ts`; no depende del BEL de la
+terminal ni se pierde al actualizar los paquetes npm. Ambos avisos usan el WAV
+versionado en `pkgs/pi/assets/snd_shineselect.wav`, que Nix copia a su store.
+
 Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
 correspondiente con verificación de integridad. npm autoriza únicamente el
 script de instalación de `gentle-pi`, no los scripts de todas las dependencias.
