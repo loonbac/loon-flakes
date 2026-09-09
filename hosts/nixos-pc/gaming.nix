@@ -18,13 +18,19 @@
       "com.pokemmo.PokeMMO"
     ];
 
-    # Discord Rich Presence: permite a Sober conectarse tanto al socket de
-    # Discord Flatpak como al de clientes nativos (Discord/Equibop). Solo se
-    # exponen estos dos endpoints del runtime del usuario.
-    overrides."org.vinegarhq.Sober".Context.filesystems = [
-      "xdg-run/app/com.discordapp.Discord:create"
-      "xdg-run/discord-ipc-0"
-    ];
+    overrides."org.vinegarhq.Sober".Context = {
+      # Discord Rich Presence: permite a Sober conectarse tanto al socket de
+      # Discord Flatpak como al de clientes nativos (Discord/Equibop). Solo se
+      # exponen estos dos endpoints del runtime del usuario.
+      filesystems = [
+        "xdg-run/app/com.discordapp.Discord:create"
+        "xdg-run/discord-ipc-0"
+      ];
+
+      # Impide que Sober vea /dev/input (gamepads/controladores). El teclado y
+      # el mouse siguen llegando normalmente a través del socket de Wayland.
+      devices = [ "!input" ];
+    };
 
     # PokeMMO necesita poder seleccionar ROMs y otros archivos guardados en
     # cualquier carpeta del usuario.
