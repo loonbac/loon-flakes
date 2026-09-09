@@ -8,6 +8,7 @@
     ./games-disk.nix
     ./projects-disk.nix
     ./gaming.nix
+    ./moonshine.nix
   ];
 
   networking.hostName = "nixos-pc";
