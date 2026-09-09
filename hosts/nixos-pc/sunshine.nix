@@ -13,6 +13,7 @@
     settings = {
       sunshine_name = "nixos-pc";
       address_family = "both";
+      csrf_allowed_origins = "https://192.168.0.10:47990";
       capture = "kms";
       # Sunshine 2026.516 interpreta incorrectamente el nombre estable DP-2
       # con KMS; su listado de arranque asigna el monitor principal al ID 1.
