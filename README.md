@@ -472,7 +472,9 @@ Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
 
 Explorador de archivos GNOME. En NixOS 26.05 la opción `programs.nautilus` fue
 removida, así que el módulo instala `nautilus` + `gvfs` (montajes, trash,
-samba) en `systemPackages` y habilita `programs.dconf` para los settings GTK.
+samba), `file-roller` (integración gráfica de archivos comprimidos) y `p7zip`
+(soporte para abrir y extraer 7-Zip) en `systemPackages`, y habilita
+`programs.dconf` para los settings GTK.
 
 ### waybar (`waybar/`)
 
