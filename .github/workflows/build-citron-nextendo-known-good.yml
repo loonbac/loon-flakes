@@ -1,0 +1,145 @@
+name: Build known-good Citron Nextendo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-citron-nextendo-known-good
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPOSITORY: NextendoNetwork/citron-nextendo
+  CITRON_REVISION: c7e70d0466fafe088dc1c41aac958ba42e5587ff
+  CITRON_SHORT_REVISION: c7e70d046
+  TOOLING_REVISION: 2061df046419e27d91a9a460d703c6b6539683e0
+  PKGFORGE_REVISION: 1671ca1286279a8a5a7dd528c9e99df0f0f9ac62
+  RELEASE_TAG: citron-nextendo-c7e70d046-rebuilt
+
+jobs:
+  build:
+    name: Build x86-64-v3 AppImage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+
+    steps:
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --silent --show-error \
+            "https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${TOOLING_REVISION}/get-dependencies.sh" \
+            --output get-dependencies.sh
+          chmod +x get-dependencies.sh
+          ./get-dependencies.sh
+
+      - name: Download pinned build tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in build-citron.sh package-citron.sh; do
+            curl --fail --location --retry 4 --silent --show-error \
+              "https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${TOOLING_REVISION}/${script}" \
+              --output "${script}"
+            chmod +x "${script}"
+          done
+
+          # The upstream build helper normally clones main. Pin it to the
+          # last AppImage that users confirmed can launch games, including
+          # every submodule revision belonging to that commit.
+          # These variables must remain literal here: the generated helper
+          # expands them later, when the build step executes it.
+          # shellcheck disable=SC2016
+          sed -i '/cd \.\/citron/a\\git checkout --detach "$CITRON_REVISION"\ngit submodule sync --recursive\ngit submodule update --init --recursive' \
+            build-citron.sh
+          # shellcheck disable=SC2016
+          sed -i 's/^JOBS=$(nproc --all)$/JOBS="${JOBS:-$(nproc --all)}"/' \
+            build-citron.sh
+
+          # Pin the two AppImage helper downloads too. This keeps reruns from
+          # silently changing when pkgforge-dev updates its main branch.
+          sed -i \
+            "s|refs/heads/main|${PKGFORGE_REVISION}|g" \
+            package-citron.sh
+
+      - name: Build pinned Citron
+        shell: bash
+        env:
+          DEVEL: "true"
+          JOBS: "4"
+        run: ./build-citron.sh v3
+
+      - name: Package AppImage
+        shell: bash
+        env:
+          APP_VERSION: ${{ env.CITRON_SHORT_REVISION }}
+          ARCH_SUFFIX: _v3
+          DEVEL: "false"
+        run: ./package-citron.sh
+
+      - name: Verify build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="dist/citron_nightly-${CITRON_SHORT_REVISION}-linux-x86_64_v3.AppImage"
+          test -s "$asset"
+          chmod +x "$asset"
+          sha256sum "$asset" | tee dist/SHA256SUMS
+
+      - name: Upload immutable workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: citron-nextendo-${{ env.CITRON_SHORT_REVISION }}-v3
+          path: |
+            dist/citron_nightly-${{ env.CITRON_SHORT_REVISION }}-linux-x86_64_v3.AppImage
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish immutable recovery release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download verified workflow artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: citron-nextendo-${{ env.CITRON_SHORT_REVISION }}-v3
+          path: dist
+
+      - name: Verify artifact checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum --check SHA256SUMS
+
+      - name: Publish recovery build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset="dist/citron_nightly-${CITRON_SHORT_REVISION}-linux-x86_64_v3.AppImage"
+          notes="Recovery build produced by loon-flakes GitHub Actions from the pinned upstream commit https://github.com/${UPSTREAM_REPOSITORY}/commit/${CITRON_REVISION}. This is not a byte-for-byte copy of a retained upstream release: Nextendo replaces its rolling release assets."
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$asset" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Citron Nextendo ${CITRON_SHORT_REVISION} recovery build" \
+              --notes "$notes"
+          else
+            gh release create "$RELEASE_TAG" "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Citron Nextendo ${CITRON_SHORT_REVISION} recovery build" \
+              --notes "$notes"
+          fi
