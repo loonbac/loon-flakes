@@ -8,6 +8,9 @@ let
 in
 {
   boot.loader.systemd-boot.enable = true;
+  # La ESP es de 196 MiB; conservar rollbacks suficientes sin saturarla con
+  # initrds de generaciones antiguas.
+  boot.loader.systemd-boot.configurationLimit = 10;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Muestra el selector NixOS/Windows; el resto de hosts conserva el arranque
@@ -44,11 +47,12 @@ in
     };
   };
 
-  # La RTX 3060 usa el driver NVIDIA con modulos de kernel abiertos. El modulo
-  # de NixOS incorpora tambien nvidia-smi al PATH del sistema.
+  # La RTX 3060 usa el módulo de kernel propietario de NVIDIA: libfunnel
+  # necesita sus capacidades DRM de sincronización explícita para PipeWire.
+  # NixOS incorpora también nvidia-smi al PATH del sistema.
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia = {
-    open = true;
+    open = false;
     modesetting.enable = true;
   };
 }
