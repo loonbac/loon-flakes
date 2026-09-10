@@ -2,10 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FALLBACK_CHAIN,
   cooldownDeadline,
+  fallbackIndex,
   isQuotaExhaustion,
   parseWaitDurationMs,
 } from "./antigravity-quota-fallback.ts";
+
+test("orders Experiential DeepSeek before OpenCode Muse", () => {
+  assert.deepEqual(
+    FALLBACK_CHAIN.map(({ provider, model }) => `${provider}/${model}`),
+    [
+      "explabs/deepseek-v4.1-flash",
+      "opencode-go/muse-spark-1.3-contributor",
+    ],
+  );
+  assert.equal(fallbackIndex("explabs", "deepseek-v4.1-flash"), 0);
+  assert.equal(fallbackIndex("opencode-go", "muse-spark-1.3-contributor"), 1);
+  assert.equal(fallbackIndex("antigravity", "gemini-3.8-flash"), -1);
+});
 
 test("recognizes the Antigravity quota error and its compact reset duration", () => {
   const error = "Quota reached. Please wait 22h46m49s. Next: switch models or try again after reset.";

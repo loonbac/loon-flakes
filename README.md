@@ -288,8 +288,10 @@ aviso.
 La extensión global `loon-antigravity-quota-fallback.ts` detecta únicamente
 errores de agotamiento de cuota emitidos por el proveedor `antigravity`. Usa el
 plazo de reinicio incluido en el error como cooldown compartido, cambia esa
-petición y las de los subagentes a
-`opencode-go/muse-spark-1.3-contributor`, y restaura después el modelo original.
+petición y las de los subagentes primero a
+`explabs/deepseek-v4.1-flash`. Si ese proveedor no está configurado o la llamada
+falla, continúa con `opencode-go/muse-spark-1.3-contributor`; después restaura el
+modelo original.
 Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
 puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con
 `/antigravity-fallback clear`. Muse Contributor puede usar prompts y respuestas

@@ -10,8 +10,18 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-export const FALLBACK_PROVIDER = "opencode-go";
-export const FALLBACK_MODEL = "muse-spark-1.3-contributor";
+export const FALLBACK_CHAIN = [
+  {
+    provider: "explabs",
+    model: "deepseek-v4.1-flash",
+    label: "Experiential DeepSeek V4.1 Flash",
+  },
+  {
+    provider: "opencode-go",
+    model: "muse-spark-1.3-contributor",
+    label: "Muse Spark 1.3",
+  },
+] as const;
 
 const STATE_VERSION = 1;
 const DEFAULT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -48,6 +58,10 @@ export function parseWaitDurationMs(errorMessage: string): number | undefined {
 
 export function cooldownDeadline(errorMessage: string, now = Date.now()): number {
   return now + (parseWaitDurationMs(errorMessage) ?? DEFAULT_COOLDOWN_MS) + RESET_BUFFER_MS;
+}
+
+export function fallbackIndex(provider: string, model: string): number {
+  return FALLBACK_CHAIN.findIndex((route) => route.provider === provider && route.model === model);
 }
 
 function statePath(): string {
@@ -101,41 +115,53 @@ function remaining(state: CooldownState): string {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-export default function antigravityQuotaFallback(pi: ExtensionAPI): void {
+export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promise<void> {
+  // Use Pi's own transient-error classifier so the extension does not enqueue
+  // a second turn when Pi is already going to retry the failed request.
+  const { isRetryableAssistantError } = await import("@earendil-works/pi-ai");
   let originalModel: ExtensionContext["model"];
-  let fallbackActive = false;
-  let retryQueued = false;
+  let activeFallbackIndex: number | undefined;
+  let queuedFallbackIndexes = new Set<number>();
   let switchInProgress = false;
 
   const showState = (ctx: ExtensionContext, state = readState()): void => {
     ctx.ui.setStatus(
       STATUS_KEY,
-      state ? `Antigravity → Muse Spark 1.3 (${remaining(state)})` : undefined,
+      state ? `Antigravity → DeepSeek V4.1 → Muse Spark 1.3 (${remaining(state)})` : undefined,
     );
   };
 
-  const activateFallback = async (ctx: ExtensionContext): Promise<boolean> => {
-    if (fallbackActive || switchInProgress) return fallbackActive;
-    const fallback = ctx.modelRegistry.find(FALLBACK_PROVIDER, FALLBACK_MODEL);
-    if (!fallback) {
-      ctx.ui.notify(
-        `No se encontró ${FALLBACK_PROVIDER}/${FALLBACK_MODEL}; no se pudo activar el fallback.`,
-        "error",
-      );
-      return false;
-    }
-
+  const activateFallback = async (
+    ctx: ExtensionContext,
+    startIndex: number,
+  ): Promise<number | undefined> => {
+    if (switchInProgress) return activeFallbackIndex;
     switchInProgress = true;
     try {
       if (ctx.model?.provider === "antigravity") originalModel = ctx.model;
-      fallbackActive = await pi.setModel(fallback);
-      if (!fallbackActive) {
+
+      for (let index = startIndex; index < FALLBACK_CHAIN.length; index += 1) {
+        const route = FALLBACK_CHAIN[index];
+        const fallback = ctx.modelRegistry.find(route.provider, route.model);
+        if (!fallback) {
+          ctx.ui.notify(
+            `No se encontró ${route.provider}/${route.model}; probando el siguiente fallback.`,
+            "warning",
+          );
+          continue;
+        }
+        if (await pi.setModel(fallback)) {
+          activeFallbackIndex = index;
+          return index;
+        }
         ctx.ui.notify(
-          `La autenticación de ${FALLBACK_PROVIDER}/${FALLBACK_MODEL} no está disponible.`,
-          "error",
+          `La autenticación de ${route.provider}/${route.model} no está disponible; probando el siguiente fallback.`,
+          "warning",
         );
       }
-      return fallbackActive;
+
+      ctx.ui.notify("No queda ningún modelo disponible en la cadena de fallback.", "error");
+      return undefined;
     } finally {
       switchInProgress = false;
     }
@@ -143,8 +169,8 @@ export default function antigravityQuotaFallback(pi: ExtensionAPI): void {
 
   pi.on("session_start", (_event, ctx) => {
     originalModel = undefined;
-    fallbackActive = false;
-    retryQueued = false;
+    activeFallbackIndex = undefined;
+    queuedFallbackIndexes = new Set<number>();
     showState(ctx);
   });
 
@@ -155,41 +181,61 @@ export default function antigravityQuotaFallback(pi: ExtensionAPI): void {
     const state = readState();
     showState(ctx, state);
     if (state && ctx.model?.provider === "antigravity") {
-      await activateFallback(ctx);
+      await activateFallback(ctx, 0);
     }
   });
 
   // Pi persists provider failures as assistant messages. Switch the current
-  // run and queue one continuation; the failed message remains as evidence but
-  // is ignored by providers when the request is reconstructed.
+  // run and continue it exactly once: transient errors use Pi's built-in retry,
+  // while quota errors need an explicit follow-up. The failed message remains
+  // as evidence but is ignored when the provider request is reconstructed.
   pi.on("message_end", async (event, ctx) => {
     const message = event.message;
-    if (
-      retryQueued ||
-      message.role !== "assistant" ||
-      message.provider !== "antigravity" ||
-      message.stopReason !== "error" ||
-      !isQuotaExhaustion(message.errorMessage)
-    ) {
-      return;
+    if (message.role !== "assistant" || message.stopReason !== "error") return;
+
+    let startIndex: number;
+    let reason: string;
+    if (message.provider === "antigravity" && isQuotaExhaustion(message.errorMessage)) {
+      const state = writeState(message.errorMessage, message.model);
+      showState(ctx, state);
+      startIndex = 0;
+      reason = "Antigravity agotó su cuota";
+    } else {
+      const failedIndex = fallbackIndex(message.provider, message.model);
+      if (
+        failedIndex < 0 ||
+        activeFallbackIndex !== failedIndex ||
+        !originalModel ||
+        failedIndex + 1 >= FALLBACK_CHAIN.length
+      ) {
+        return;
+      }
+      startIndex = failedIndex + 1;
+      reason = `${FALLBACK_CHAIN[failedIndex].label} falló`;
     }
 
-    const state = writeState(message.errorMessage, message.model);
-    showState(ctx, state);
-    if (!(await activateFallback(ctx))) return;
+    const activatedIndex = await activateFallback(ctx, startIndex);
+    if (activatedIndex === undefined || queuedFallbackIndexes.has(activatedIndex)) return;
 
-    retryQueued = true;
+    queuedFallbackIndexes.add(activatedIndex);
+    const route = FALLBACK_CHAIN[activatedIndex];
     ctx.ui.notify(
-      `Cuota de Antigravity agotada; continuando con ${FALLBACK_PROVIDER}/${FALLBACK_MODEL}.`,
+      `${reason}; continuando con ${route.provider}/${route.model}.`,
       "warning",
     );
+    if (isRetryableAssistantError(message)) return;
+
     pi.sendMessage(
       {
         customType: "antigravity-quota-fallback",
         content:
-          "Antigravity agotó su cuota. Continúa automáticamente la petición pendiente con el modelo de respaldo; no pidas al usuario que la repita.",
+          `${reason}. Continúa automáticamente la petición pendiente con ${route.label}; no pidas al usuario que la repita.`,
         display: true,
-        details: { fallbackProvider: FALLBACK_PROVIDER, fallbackModel: FALLBACK_MODEL },
+        details: {
+          fallbackProvider: route.provider,
+          fallbackModel: route.model,
+          fallbackIndex: activatedIndex,
+        },
       },
       { triggerTurn: true, deliverAs: "followUp" },
     );
@@ -199,17 +245,19 @@ export default function antigravityQuotaFallback(pi: ExtensionAPI): void {
   // original route remains in the session and will be tried again once the
   // provider-reported cooldown has expired.
   pi.on("agent_settled", async (_event, ctx) => {
+    const currentFallbackIndex = ctx.model
+      ? fallbackIndex(ctx.model.provider, ctx.model.id)
+      : -1;
     if (
-      fallbackActive &&
+      activeFallbackIndex !== undefined &&
       originalModel &&
-      ctx.model?.provider === FALLBACK_PROVIDER &&
-      ctx.model.id === FALLBACK_MODEL
+      currentFallbackIndex === activeFallbackIndex
     ) {
       await pi.setModel(originalModel);
     }
     originalModel = undefined;
-    fallbackActive = false;
-    retryQueued = false;
+    activeFallbackIndex = undefined;
+    queuedFallbackIndexes = new Set<number>();
     showState(ctx);
   });
 
@@ -228,7 +276,7 @@ export default function antigravityQuotaFallback(pi: ExtensionAPI): void {
         return;
       }
       ctx.ui.notify(
-        `Fallback activo durante ${remaining(state)} hacia ${FALLBACK_PROVIDER}/${FALLBACK_MODEL}.`,
+        `Fallback activo durante ${remaining(state)}: DeepSeek V4.1 Flash y luego Muse Spark 1.3.`,
         "info",
       );
     },
