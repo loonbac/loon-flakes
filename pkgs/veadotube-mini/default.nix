@@ -86,6 +86,11 @@ buildFHSEnv {
 
   extraBwrapArgs = [
     "--ro-bind ${unpacked} /opt/veadotube-mini"
+    # El FHS env contiene Mesa para las dependencias genéricas, pero este host
+    # renderiza con NVIDIA. Sin el vendor EGL del driver, libfunnel no puede
+    # habilitar la sincronización explícita que PipeWire requiere en NVIDIA.
+    "--setenv __EGL_VENDOR_LIBRARY_FILENAMES /run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json"
+    "--setenv __GLX_VENDOR_LIBRARY_NAME nvidia"
   ];
   runScript = "/opt/veadotube-mini/veadotube-mini";
 
