@@ -51,16 +51,30 @@ jobs:
             "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
           published_at="$(jq -r '.published_at' <<<"$release_json")"
 
-          for suffix in x86_64 x86_64_v3 aarch64; do
-            asset="citron_nightly-${short_revision}-linux-${suffix}.AppImage"
-            count="$(jq --arg asset "$asset" \
-              '[.assets[] | select(.name == $asset and (.digest | startswith("sha256:")))] | length' \
-              <<<"$release_json")"
-            if [[ "$count" != 1 ]]; then
-              echo "Official release does not contain one verified $asset asset" >&2
-              exit 1
-            fi
-          done
+          # Upstream may add a build qualifier such as "-use-nopgo". Select
+          # exactly one verified AppImage per architecture instead of relying
+          # on a permanently fixed filename. Ambiguous releases fail closed.
+          select_asset() {
+            local label="$1"
+            local regex="$2"
+            jq -er --arg label "$label" --arg regex "$regex" '
+              [
+                .assets[]
+                | select(.name | test($regex))
+                | select(.digest | type == "string" and startswith("sha256:"))
+              ]
+              | if length == 1 then .[0].name
+                else error("expected exactly one verified " + $label + " AppImage")
+                end
+            ' <<<"$release_json"
+          }
+
+          generic_asset="$(select_asset x86_64 \
+            "^citron_nightly-${short_revision}-linux-x86_64(-[A-Za-z0-9_-]+)?[.]AppImage$")"
+          v3_asset="$(select_asset x86_64_v3 \
+            "^citron_nightly-${short_revision}-linux-x86_64_v3(-[A-Za-z0-9_-]+)?[.]AppImage$")"
+          arm_asset="$(select_asset aarch64 \
+            "^citron_nightly-${short_revision}-linux-aarch64(-[A-Za-z0-9_-]+)?[.]AppImage$")"
 
           release_exists=false
           needs_mirror=true
@@ -69,8 +83,7 @@ jobs:
             2>/dev/null)"; then
             release_exists=true
             needs_mirror=false
-            for suffix in x86_64 x86_64_v3 aarch64; do
-              asset="citron_nightly-${short_revision}-linux-${suffix}.AppImage"
+            for asset in "$generic_asset" "$v3_asset" "$arm_asset"; do
               upstream_digest="$(jq -r --arg asset "$asset" \
                 '.assets[] | select(.name == $asset) | .digest' \
                 <<<"$release_json")"
@@ -90,30 +103,36 @@ jobs:
             echo "published_at=$published_at"
             echo "release_exists=$release_exists"
             echo "needs_mirror=$needs_mirror"
+            echo "generic_asset=$generic_asset"
+            echo "v3_asset=$v3_asset"
+            echo "arm_asset=$arm_asset"
           } >>"$GITHUB_OUTPUT"
 
       - name: Download official AppImages
         if: steps.release.outputs.needs_mirror == 'true'
         shell: bash
         env:
-          SHORT_REVISION: ${{ steps.release.outputs.short_revision }}
+          GENERIC_ASSET: ${{ steps.release.outputs.generic_asset }}
+          V3_ASSET: ${{ steps.release.outputs.v3_asset }}
+          ARM_ASSET: ${{ steps.release.outputs.arm_asset }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/citron-nextendo"
           cd "$RUNNER_TEMP/citron-nextendo"
 
-          gh release download "$UPSTREAM_RELEASE_TAG" \
-            --repo "$UPSTREAM_REPOSITORY" \
-            --pattern "citron_nightly-${SHORT_REVISION}-linux-*.AppImage"
+          for asset in "$GENERIC_ASSET" "$V3_ASSET" "$ARM_ASSET"; do
+            gh release download "$UPSTREAM_RELEASE_TAG" \
+              --repo "$UPSTREAM_REPOSITORY" \
+              --pattern "$asset"
+          done
 
           release_json="$(gh api \
             "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
-          for asset in ./*.AppImage; do
-            name="${asset#./}"
+          for name in "$GENERIC_ASSET" "$V3_ASSET" "$ARM_ASSET"; do
             expected="$(jq -r --arg name "$name" \
               '.assets[] | select(.name == $name) | .digest' \
               <<<"$release_json")"
-            actual="sha256:$(sha256sum "$asset" | cut -d' ' -f1)"
+            actual="sha256:$(sha256sum "$name" | cut -d' ' -f1)"
             if [[ "$actual" != "$expected" ]]; then
               echo "SHA-256 mismatch for $name" >&2
               exit 1
@@ -156,6 +175,9 @@ jobs:
           REVISION: ${{ steps.release.outputs.revision }}
           SHORT_REVISION: ${{ steps.release.outputs.short_revision }}
           PUBLISHED_AT: ${{ steps.release.outputs.published_at }}
+          GENERIC_ASSET: ${{ steps.release.outputs.generic_asset }}
+          V3_ASSET: ${{ steps.release.outputs.v3_asset }}
+          ARM_ASSET: ${{ steps.release.outputs.arm_asset }}
         run: |
           set -euo pipefail
 
@@ -163,16 +185,14 @@ jobs:
             "repos/${UPSTREAM_REPOSITORY}/releases/tags/${UPSTREAM_RELEASE_TAG}")"
 
           asset_digest() {
-            local suffix="$1"
-            local name="citron_nightly-${SHORT_REVISION}-linux-${suffix}.AppImage"
+            local name="$1"
             jq -er --arg name "$name" \
               '.assets[] | select(.name == $name) | .digest' \
               <<<"$release_json"
           }
 
           asset_url() {
-            local suffix="$1"
-            local name="citron_nightly-${SHORT_REVISION}-linux-${suffix}.AppImage"
+            local name="$1"
             printf 'https://github.com/%s/releases/download/%s/%s\n' \
               "$GITHUB_REPOSITORY" "$IMMUTABLE_TAG" "$name"
           }
@@ -187,12 +207,12 @@ jobs:
           PY
           }
 
-          generic_url="$(asset_url x86_64)"
-          generic_hash="$(sri_from_digest "$(asset_digest x86_64)")"
-          v3_url="$(asset_url x86_64_v3)"
-          v3_hash="$(sri_from_digest "$(asset_digest x86_64_v3)")"
-          arm_url="$(asset_url aarch64)"
-          arm_hash="$(sri_from_digest "$(asset_digest aarch64)")"
+          generic_url="$(asset_url "$GENERIC_ASSET")"
+          generic_hash="$(sri_from_digest "$(asset_digest "$GENERIC_ASSET")")"
+          v3_url="$(asset_url "$V3_ASSET")"
+          v3_hash="$(sri_from_digest "$(asset_digest "$V3_ASSET")")"
+          arm_url="$(asset_url "$ARM_ASSET")"
+          arm_hash="$(sri_from_digest "$(asset_digest "$ARM_ASSET")")"
 
           icon_url="https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${REVISION}/dist/citron.svg"
           rules_url="https://raw.githubusercontent.com/${UPSTREAM_REPOSITORY}/${REVISION}/dist/72-citron-input.rules"
