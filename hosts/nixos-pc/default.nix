@@ -8,6 +8,7 @@
     ./games-disk.nix
     ./projects-disk.nix
     ./gaming.nix
+    ./streaming.nix
     ./sunshine.nix
   ];
 

@@ -116,6 +116,12 @@
       };
       citronNextendoModule = ./modules/programs/citron-nextendo;
 
+      veadotubeMiniPackage = pkgsUnfree.callPackage ./pkgs/veadotube-mini { };
+      veadotubeMiniOverlay = final: _prev: {
+        veadotube-mini = final.callPackage ./pkgs/veadotube-mini { };
+      };
+      veadotubeMiniModule = ./modules/programs/veadotube-mini;
+
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
       # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
@@ -176,20 +182,24 @@
         citron-nextendo-v3 = pkgs.callPackage ./pkgs/citron-nextendo {
           x86_64Variant = "v3";
         };
+        veadotube-mini = veadotubeMiniPackage;
       };
 
       overlays = {
         steamidra = steamidraOverlay;
         citron-nextendo = citronNextendoOverlay;
+        veadotube-mini = veadotubeMiniOverlay;
         default = lib.composeManyExtensions [
           steamidraOverlay
           citronNextendoOverlay
+          veadotubeMiniOverlay
         ];
       };
 
       nixosModules = {
         steamidra = steamidraModule;
         citron-nextendo = citronNextendoModule;
+        veadotube-mini = veadotubeMiniModule;
         default = steamidraModule;
       };
 

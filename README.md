@@ -368,6 +368,26 @@ El archivo actual es una beta `9.0.0` con vencimiento declarado `2025-12-31`.
 Si Cisco te entrega una versión nueva, cambia el nombre y el hash del paquete
 Nix de forma intencional antes del rebuild.
 
+### Veadotube Mini
+
+Veadotube Mini 2.2 está empaquetado como binario externo para `nixos-pc`.
+Su ZIP de itch.io usa enlaces temporales y no se guarda en Git; el paquete
+fija el nombre y SHA-256 del release en `pkgs/veadotube-mini/default.nix`.
+Antes del primer rebuild, añade el ZIP exacto al store:
+
+```bash
+nix store add --mode flat --hash-algo sha256 \
+  --name veadotube-mini-linux-x64.zip \
+  /ruta/a/veadotube-mini-linux-x64.zip
+rebuild
+```
+
+El wrapper FHS conserva el layout `lib/` distribuido por upstream y aporta las
+bibliotecas de sistema necesarias en NixOS. La app queda instalada en el perfil
+del sistema con su entrada de escritorio, por lo que después del rebuild se
+puede eliminar el ZIP original sin afectar la instalación. Se activa solo en
+`hosts/nixos-pc/streaming.nix` mediante `programs.veadotube-mini.enable`.
+
 ### Citron Nextendo
 
 El paquete `citron-nextendo` fija por hash la nightly oficial del fork Citron
@@ -609,8 +629,8 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
 `niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
-`cisco-packet-tracer`, `steamidra`, `citron-nextendo` y
-`citron-nextendo-v3`.
+`cisco-packet-tracer`, `steamidra`, `citron-nextendo`, `citron-nextendo-v3` y
+`veadotube-mini`.
 
 **VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
 sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con
