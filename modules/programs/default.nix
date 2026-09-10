@@ -11,6 +11,8 @@
     ./equibop
     ./nautilus
     ./gtk
+    ./obs-studio
+    ./obs-pwvideo
     ./hyprlock
     ./waydroid
     ./virtualbox

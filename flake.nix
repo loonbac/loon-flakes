@@ -122,6 +122,12 @@
       };
       veadotubeMiniModule = ./modules/programs/veadotube-mini;
 
+      obsPwvideoPackage = pkgs.callPackage ./pkgs/obs-pwvideo { };
+      obsPwvideoOverlay = final: _prev: {
+        obs-pwvideo = final.callPackage ./pkgs/obs-pwvideo { };
+      };
+      obsPwvideoModule = ./modules/programs/obs-pwvideo;
+
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
       # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
@@ -183,16 +189,19 @@
           x86_64Variant = "v3";
         };
         veadotube-mini = veadotubeMiniPackage;
+        obs-pwvideo = obsPwvideoPackage;
       };
 
       overlays = {
         steamidra = steamidraOverlay;
         citron-nextendo = citronNextendoOverlay;
         veadotube-mini = veadotubeMiniOverlay;
+        obs-pwvideo = obsPwvideoOverlay;
         default = lib.composeManyExtensions [
           steamidraOverlay
           citronNextendoOverlay
           veadotubeMiniOverlay
+          obsPwvideoOverlay
         ];
       };
 
@@ -200,6 +209,7 @@
         steamidra = steamidraModule;
         citron-nextendo = citronNextendoModule;
         veadotube-mini = veadotubeMiniModule;
+        obs-pwvideo = obsPwvideoModule;
         default = steamidraModule;
       };
 

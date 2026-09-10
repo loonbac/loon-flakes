@@ -169,7 +169,6 @@ in
     antigravity-cli
     grok-cli
     codexLatest
-    obs-studio
     zoom-us
     prismlauncher
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para

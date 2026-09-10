@@ -3,4 +3,5 @@
 
 {
   programs.veadotube-mini.enable = true;
+  programs.obs-pwvideo.enable = true;
 }
