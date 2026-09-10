@@ -18,6 +18,7 @@ let
   # Unversioned npm specs make `pi update --extensions` the single update lane.
   piPackages = [
     "npm:pi-antigravity"
+    "@HOME@/.local/share/loon-pi-packages/pi-antigravity-alt"
     "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
     "npm:gentle-pi"
     "npm:gentle-engram"
@@ -30,6 +31,7 @@ let
 
   piPackageNames = [
     "pi-antigravity"
+    "pi-antigravity-alt"
     "better-claude-code-ui"
     "gentle-pi"
     "gentle-engram"
@@ -164,7 +166,7 @@ let
   });
 
   antigravityQuotaFallback = ../pi/extensions/antigravity-quota-fallback.ts;
-
+  antigravityAliasSchema = 1;
   # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
   # separately through lifecycle events, so bridge every blocking extension
   # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
@@ -354,9 +356,11 @@ let
 
     const managed = new Set(manifest.managedPiPackageNames);
     const existing = Array.isArray(settings.packages) ? settings.packages : [];
-    const desiredPackages = manifest.piPackages.map((spec) =>
-      String(spec).replace(/^@HOME@/, process.env.HOME ?? ""),
-    );
+    const desiredPackages = manifest.piPackages
+      .map((spec) => String(spec).replace(/^@HOME@/, process.env.HOME ?? ""))
+      // Generated local packages are added on the second reconciliation after
+      // their upstream npm package has been installed and cloned.
+      .filter((spec) => !spec.startsWith("/") || fs.existsSync(spec));
     settings.packages = existing
       .filter((spec) => !managed.has(packageName(spec)))
       .concat(desiredPackages);
@@ -430,6 +434,69 @@ let
     const temporary = `''${packageJsonPath}.nix-tmp-''${process.pid}`;
     fs.writeFileSync(temporary, `''${JSON.stringify(packageJson, null, 2)}\n`, { mode: 0o644 });
     fs.renameSync(temporary, packageJsonPath);
+  '';
+
+  patchAntigravitySecondAccount = writeText "patch-antigravity-second-account.mjs" ''
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageRoot] = process.argv.slice(2);
+    if (!packageRoot) throw new Error("missing cloned package root");
+
+    function replace(relativePath, replacements) {
+      const target = path.join(packageRoot, relativePath);
+      let text = fs.readFileSync(target, "utf8");
+      for (const [from, to, expected] of replacements) {
+        const count = text.split(from).length - 1;
+        if (expected !== undefined && count !== expected) {
+          throw new Error(`upstream compatibility check failed for ''${relativePath}: expected ''${expected} occurrence(s) of ''${JSON.stringify(from)}, found ''${count}`);
+        }
+        text = text.replaceAll(from, to);
+      }
+      fs.writeFileSync(target, text);
+    }
+
+    const packagePath = path.join(packageRoot, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    if (packageJson.name !== "pi-antigravity" || typeof packageJson.version !== "string") {
+      throw new Error("upstream compatibility check failed for package.json");
+    }
+    packageJson.name = "pi-antigravity-alt";
+    packageJson.description = "Generated second-account alias of pi-antigravity";
+    packageJson.loonAliasSource = {
+      name: "pi-antigravity",
+      version: packageJson.version,
+      schema: ${toString antigravityAliasSchema},
+    };
+    fs.writeFileSync(packagePath, `''${JSON.stringify(packageJson, null, 2)}\n`);
+
+    replace("src/models/models.ts", [
+      ['export const PROVIDER_ID = "antigravity";', 'export const PROVIDER_ID = "antigravity-alt";', 1],
+      ['export const PROVIDER_NAME = "Antigravity";', 'export const PROVIDER_NAME = "Antigravity (cuenta B)";', 1],
+      ["(Antigravity)", "(Antigravity cuenta B)"],
+    ]);
+    replace("src/models/discovery.ts", [
+      ['export const ANTIGRAVITY_PERSIST_KEY = "pi-antigravity";', 'export const ANTIGRAVITY_PERSIST_KEY = "pi-antigravity-alt";', 1],
+      ['provider: "antigravity",', 'provider: "antigravity-alt",', 1],
+    ]);
+    replace("src/types/types.ts", [
+      ['export const ANTIGRAVITY_API = "antigravity-api" as const;', 'export const ANTIGRAVITY_API = "antigravity-alt-api" as const;', 1],
+    ]);
+    replace("src/index.ts", [
+      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 1],
+      ['name: "generate_image",', 'name: "generate_image_alt",', 1],
+      ['label: "Generate image",', 'label: "Generate image (cuenta B)",', 1],
+      ["/login antigravity", "/login antigravity-alt"],
+      ["/antigravity.", "/antigravity-alt."],
+      ['registerCommand("antigravity.', 'registerCommand("antigravity-alt.'],
+    ]);
+    replace("src/usage/usage.ts", [
+      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 1],
+      ["/antigravity.models", "/antigravity-alt.models"],
+    ]);
+    for (const relativePath of ["src/auth/oauth.ts", "src/client/client.ts"]) {
+      replace(relativePath, [["/login antigravity", "/login antigravity-alt"]]);
+    }
   '';
 
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
@@ -833,6 +900,44 @@ writeShellApplication {
         "$mutable_pi" update --extensions --no-approve
       )
     fi
+
+    # Generate a second, independently authenticated provider from the exact
+    # installed pi-antigravity release. Only provider/API/persistence ids,
+    # commands and the duplicate image-tool name are changed. A version change
+    # is picked up by gentle-stack-update's post-update bootstrap pass.
+    antigravity_official="$npm_node_modules/pi-antigravity"
+    antigravity_alt="$local_package_root/pi-antigravity-alt"
+    official_antigravity_identity="$(node -p 'require(process.argv[1]).version' "$antigravity_official/package.json"):${toString antigravityAliasSchema}"
+    installed_alias_identity="$(node -e '
+      try {
+        const source = require(process.argv[1]).loonAliasSource;
+        if (typeof source?.version === "string" && Number.isInteger(source?.schema)) {
+          process.stdout.write(source.version + ":" + source.schema);
+        }
+      } catch {}
+    ' "$antigravity_alt/package.json")"
+
+    if [ "$installed_alias_identity" != "$official_antigravity_identity" ]; then
+      antigravity_alt_tmp="$(mktemp -d "$local_package_root/.pi-antigravity-alt.XXXXXX")"
+      cp -a "$antigravity_official/." "$antigravity_alt_tmp/"
+      if node "${patchAntigravitySecondAccount}" "$antigravity_alt_tmp"; then
+        # The copied package resolves its ordinary npm dependencies through
+        # Pi's managed extension tree without copying another dependency set.
+        ln -s "$npm_node_modules" "$antigravity_alt_tmp/node_modules"
+        if [ -e "$antigravity_alt" ] || [ -L "$antigravity_alt" ]; then
+          mkdir -p "$backup_dir/local-packages"
+          mv "$antigravity_alt" "$backup_dir/local-packages/pi-antigravity-alt"
+        fi
+        mv "$antigravity_alt_tmp" "$antigravity_alt"
+      else
+        rm -rf "$antigravity_alt_tmp"
+        echo "gentle-ai-bootstrap: pi-antigravity changed incompatibly; preserving the previous account-B clone" >&2
+      fi
+    fi
+
+    # The first settings pass intentionally skipped this generated path on a
+    # clean machine. Add it now that its official source is available.
+    node "${mergeSettings}" "$settings_path" "${manifest}"
 
     gentle_pi_root="$npm_node_modules/gentle-pi"
     verify_gentle_ai_runtime() {

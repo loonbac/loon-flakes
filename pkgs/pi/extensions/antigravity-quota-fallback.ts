@@ -71,17 +71,29 @@ export const AGENT_FALLBACK_CHAINS: Readonly<Record<string, readonly FallbackRou
   "sdd-onboard": [DEEPSEEK_HIGH, MUSE_XHIGH],
 };
 
-const STATE_VERSION = 1;
+export const PRIMARY_ANTIGRAVITY_PROVIDER = "antigravity";
+export const SECONDARY_ANTIGRAVITY_PROVIDER = "antigravity-alt";
+const ANTIGRAVITY_PROVIDERS = [
+  PRIMARY_ANTIGRAVITY_PROVIDER,
+  SECONDARY_ANTIGRAVITY_PROVIDER,
+] as const;
+type AntigravityProvider = (typeof ANTIGRAVITY_PROVIDERS)[number];
+
+const STATE_VERSION = 2;
 const DEFAULT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const RESET_BUFFER_MS = 2 * 60 * 1000;
 const STATUS_KEY = "antigravity-quota-fallback";
 const QUOTA_ERROR = /(?:quota\s+(?:reached|exceeded|exhausted)|resource[_\s-]?exhausted|usage\s+(?:limit|quota)[^\n]*(?:reached|exceeded|exhausted)|(?:daily|monthly)\s+(?:usage\s+)?limit[^\n]*(?:reached|exceeded|exhausted))/i;
 
-interface CooldownState {
-  version: number;
+interface ProviderCooldown {
   activeUntil: number;
   detectedAt: number;
   sourceModel: string;
+}
+
+interface CooldownState {
+  version: number;
+  providers: Partial<Record<AntigravityProvider, ProviderCooldown>>;
 }
 
 export function isQuotaExhaustion(errorMessage: unknown): errorMessage is string {
@@ -208,29 +220,70 @@ function statePath(): string {
 function readState(now = Date.now()): CooldownState | undefined {
   const path = statePath();
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<CooldownState>;
-    if (
-      parsed.version !== STATE_VERSION ||
-      typeof parsed.activeUntil !== "number" ||
-      !Number.isFinite(parsed.activeUntil) ||
-      parsed.activeUntil <= now
-    ) {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+
+    // Preserve an active cooldown written by version 1 as account A's state.
+    if (parsed.version === 1) {
+      const activeUntil = parsed.activeUntil;
+      if (typeof activeUntil !== "number" || !Number.isFinite(activeUntil) || activeUntil <= now) {
+        return undefined;
+      }
+      return {
+        version: STATE_VERSION,
+        providers: {
+          [PRIMARY_ANTIGRAVITY_PROVIDER]: {
+            activeUntil,
+            detectedAt: typeof parsed.detectedAt === "number" ? parsed.detectedAt : now,
+            sourceModel: typeof parsed.sourceModel === "string" ? parsed.sourceModel : "unknown",
+          },
+        },
+      };
+    }
+
+    if (parsed.version !== STATE_VERSION || !parsed.providers || typeof parsed.providers !== "object") {
       return undefined;
     }
-    return parsed as CooldownState;
+    const providers: CooldownState["providers"] = {};
+    for (const provider of ANTIGRAVITY_PROVIDERS) {
+      const entry = (parsed.providers as Record<string, unknown>)[provider] as
+        | Partial<ProviderCooldown>
+        | undefined;
+      if (
+        entry &&
+        typeof entry.activeUntil === "number" &&
+        Number.isFinite(entry.activeUntil) &&
+        entry.activeUntil > now &&
+        typeof entry.detectedAt === "number" &&
+        typeof entry.sourceModel === "string"
+      ) {
+        providers[provider] = entry as ProviderCooldown;
+      }
+    }
+    return Object.keys(providers).length > 0 ? { version: STATE_VERSION, providers } : undefined;
   } catch {
     return undefined;
   }
 }
 
-function writeState(errorMessage: string, sourceModel: string, now = Date.now()): CooldownState {
+function writeState(
+  provider: AntigravityProvider,
+  errorMessage: string,
+  sourceModel: string,
+  now = Date.now(),
+): CooldownState {
   const path = statePath();
   const current = readState(now);
+  const previous = current?.providers[provider];
   const state: CooldownState = {
     version: STATE_VERSION,
-    activeUntil: Math.max(current?.activeUntil ?? 0, cooldownDeadline(errorMessage, now)),
-    detectedAt: now,
-    sourceModel,
+    providers: {
+      ...current?.providers,
+      [provider]: {
+        activeUntil: Math.max(previous?.activeUntil ?? 0, cooldownDeadline(errorMessage, now)),
+        detectedAt: now,
+        sourceModel,
+      },
+    },
   };
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = `${path}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
@@ -244,7 +297,7 @@ function clearState(): void {
   rmSync(statePath(), { force: true });
 }
 
-function remaining(state: CooldownState): string {
+function remaining(state: ProviderCooldown): string {
   const totalMinutes = Math.max(1, Math.ceil((state.activeUntil - Date.now()) / 60000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -260,32 +313,80 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   let originalModel: ExtensionContext["model"];
   let originalThinkingLevel: ReturnType<ExtensionAPI["getThinkingLevel"]> | undefined;
   let activeFallbackIndex: number | undefined;
-  let queuedFallbackIndexes = new Set<number>();
+  let activeRoute: { provider: string; model: string; label: string } | undefined;
+  let queuedRoutes = new Set<string>();
   let switchInProgress = false;
 
   const routeLabel = (route: FallbackRoute): string =>
     `${route.label}${route.thinking ? ` ${route.thinking}` : ""}`;
 
-  const chainLabel = (): string => fallbackChain.map(routeLabel).join(" → ");
+  const chainLabel = (): string =>
+    [`Antigravity cuenta B`, ...fallbackChain.map(routeLabel)].join(" → ");
 
   const showState = (ctx: ExtensionContext, state = readState()): void => {
+    const cooldowns = state
+      ? ANTIGRAVITY_PROVIDERS.flatMap((provider) => {
+          const entry = state.providers[provider];
+          if (!entry) return [];
+          return [`${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} ${remaining(entry)}`];
+        }).join(", ")
+      : "";
     ctx.ui.setStatus(
       STATUS_KEY,
-      state ? `Antigravity → ${chainLabel()} (${remaining(state)})` : undefined,
+      state ? `Antigravity A → ${chainLabel()} (${cooldowns})` : undefined,
     );
+  };
+
+  const rememberOriginal = (ctx: ExtensionContext): void => {
+    if (
+      ctx.model &&
+      ANTIGRAVITY_PROVIDERS.includes(ctx.model.provider as AntigravityProvider) &&
+      !originalModel
+    ) {
+      originalModel = ctx.model;
+      originalThinkingLevel = pi.getThinkingLevel();
+    }
+  };
+
+  const activateSecondary = async (
+    ctx: ExtensionContext,
+    sourceModel: string,
+    state = readState(),
+  ): Promise<{ provider: string; model: string; label: string } | undefined> => {
+    if (state?.providers[SECONDARY_ANTIGRAVITY_PROVIDER]) return undefined;
+    const secondary = ctx.modelRegistry.find(SECONDARY_ANTIGRAVITY_PROVIDER, sourceModel);
+    if (!secondary) {
+      ctx.ui.notify(
+        `No se encontró ${SECONDARY_ANTIGRAVITY_PROVIDER}/${sourceModel}; probando fallbacks externos.`,
+        "warning",
+      );
+      return undefined;
+    }
+    if (!(await pi.setModel(secondary))) {
+      ctx.ui.notify(
+        "La cuenta B de Antigravity aún no está autenticada; probando fallbacks externos.",
+        "warning",
+      );
+      return undefined;
+    }
+    if (originalThinkingLevel) pi.setThinkingLevel(originalThinkingLevel);
+    activeFallbackIndex = undefined;
+    activeRoute = {
+      provider: SECONDARY_ANTIGRAVITY_PROVIDER,
+      model: sourceModel,
+      label: "Antigravity cuenta B",
+    };
+    return activeRoute;
   };
 
   const activateFallback = async (
     ctx: ExtensionContext,
     startIndex: number,
-  ): Promise<number | undefined> => {
-    if (switchInProgress) return activeFallbackIndex;
+  ): Promise<{ provider: string; model: string; label: string } | undefined> => {
+    if (switchInProgress) return activeRoute;
     switchInProgress = true;
     try {
-      if (ctx.model?.provider === "antigravity" && !originalModel) {
-        originalModel = ctx.model;
-        originalThinkingLevel = pi.getThinkingLevel();
-      }
+      rememberOriginal(ctx);
 
       for (let index = startIndex; index < fallbackChain.length; index += 1) {
         const route = fallbackChain[index];
@@ -300,7 +401,8 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
         if (await pi.setModel(fallback)) {
           if (route.thinking) pi.setThinkingLevel(route.thinking);
           activeFallbackIndex = index;
-          return index;
+          activeRoute = { provider: route.provider, model: route.model, label: routeLabel(route) };
+          return activeRoute;
         }
         ctx.ui.notify(
           `La autenticación de ${route.provider}/${route.model} no está disponible; probando el siguiente fallback.`,
@@ -319,7 +421,8 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     originalModel = undefined;
     originalThinkingLevel = undefined;
     activeFallbackIndex = undefined;
-    queuedFallbackIndexes = new Set<number>();
+    activeRoute = undefined;
+    queuedRoutes = new Set<string>();
     showState(ctx);
   });
 
@@ -329,7 +432,19 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   pi.on("before_agent_start", async (_event, ctx) => {
     const state = readState();
     showState(ctx, state);
-    if (state && ctx.model?.provider === "antigravity") {
+    if (!state || !ctx.model) return;
+
+    if (
+      ctx.model.provider === PRIMARY_ANTIGRAVITY_PROVIDER &&
+      state.providers[PRIMARY_ANTIGRAVITY_PROVIDER]
+    ) {
+      rememberOriginal(ctx);
+      const secondary = await activateSecondary(ctx, ctx.model.id, state);
+      if (!secondary) await activateFallback(ctx, 0);
+    } else if (
+      ctx.model.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
+      state.providers[SECONDARY_ANTIGRAVITY_PROVIDER]
+    ) {
       await activateFallback(ctx, 0);
     }
   });
@@ -342,13 +457,29 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     const message = event.message;
     if (message.role !== "assistant" || message.stopReason !== "error") return;
 
-    let startIndex: number;
+    let activated: { provider: string; model: string; label: string } | undefined;
     let reason: string;
-    if (message.provider === "antigravity" && isQuotaExhaustion(message.errorMessage)) {
-      const state = writeState(message.errorMessage, message.model);
+    if (
+      ANTIGRAVITY_PROVIDERS.includes(message.provider as AntigravityProvider) &&
+      isQuotaExhaustion(message.errorMessage)
+    ) {
+      const provider = message.provider as AntigravityProvider;
+      rememberOriginal(ctx);
+      const state = writeState(provider, message.errorMessage, message.model);
       showState(ctx, state);
-      startIndex = 0;
-      reason = "Antigravity agotó su cuota";
+      reason = `Antigravity cuenta ${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} agotó su cuota`;
+      if (provider === PRIMARY_ANTIGRAVITY_PROVIDER) {
+        activated = await activateSecondary(ctx, message.model, state);
+      }
+      if (!activated) activated = await activateFallback(ctx, 0);
+    } else if (
+      message.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
+      activeRoute?.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
+      activeRoute.model === message.model &&
+      originalModel
+    ) {
+      reason = "Antigravity cuenta B falló";
+      activated = await activateFallback(ctx, 0);
     } else {
       const failedIndex = fallbackIndex(message.provider, message.model, fallbackChain);
       if (
@@ -359,17 +490,17 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       ) {
         return;
       }
-      startIndex = failedIndex + 1;
       reason = `${routeLabel(fallbackChain[failedIndex])} falló`;
+      activated = await activateFallback(ctx, failedIndex + 1);
     }
 
-    const activatedIndex = await activateFallback(ctx, startIndex);
-    if (activatedIndex === undefined || queuedFallbackIndexes.has(activatedIndex)) return;
+    if (!activated) return;
+    const routeKey = `${activated.provider}/${activated.model}`;
+    if (queuedRoutes.has(routeKey)) return;
 
-    queuedFallbackIndexes.add(activatedIndex);
-    const route = fallbackChain[activatedIndex];
+    queuedRoutes.add(routeKey);
     ctx.ui.notify(
-      `${reason}; continuando con ${route.provider}/${route.model}.`,
+      `${reason}; continuando con ${activated.provider}/${activated.model}.`,
       "warning",
     );
     if (isRetryableAssistantError(message)) return;
@@ -378,12 +509,12 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       {
         customType: "antigravity-quota-fallback",
         content:
-          `${reason}. Continúa automáticamente la petición pendiente con ${routeLabel(route)}; no pidas al usuario que la repita.`,
+          `${reason}. Continúa automáticamente la petición pendiente con ${activated.label}; no pidas al usuario que la repita.`,
         display: true,
         details: {
-          fallbackProvider: route.provider,
-          fallbackModel: route.model,
-          fallbackIndex: activatedIndex,
+          fallbackProvider: activated.provider,
+          fallbackModel: activated.model,
+          fallbackIndex: activeFallbackIndex,
         },
       },
       { triggerTurn: true, deliverAs: "followUp" },
@@ -394,13 +525,11 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   // original route remains in the session and will be tried again once the
   // provider-reported cooldown has expired.
   pi.on("agent_settled", async (_event, ctx) => {
-    const currentFallbackIndex = ctx.model
-      ? fallbackIndex(ctx.model.provider, ctx.model.id, fallbackChain)
-      : -1;
     if (
-      activeFallbackIndex !== undefined &&
+      activeRoute &&
       originalModel &&
-      currentFallbackIndex === activeFallbackIndex
+      ctx.model?.provider === activeRoute.provider &&
+      ctx.model.id === activeRoute.model
     ) {
       await pi.setModel(originalModel);
       if (originalThinkingLevel) pi.setThinkingLevel(originalThinkingLevel);
@@ -408,7 +537,8 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     originalModel = undefined;
     originalThinkingLevel = undefined;
     activeFallbackIndex = undefined;
-    queuedFallbackIndexes = new Set<number>();
+    activeRoute = undefined;
+    queuedRoutes = new Set<string>();
     showState(ctx);
   });
 
@@ -427,7 +557,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
         return;
       }
       ctx.ui.notify(
-        `Fallback activo durante ${remaining(state)}${gentleAgentName ? ` para ${gentleAgentName}` : ""}: ${chainLabel()}.`,
+        `Fallback activo${gentleAgentName ? ` para ${gentleAgentName}` : ""}: Antigravity A → ${chainLabel()}.`,
         "info",
       );
     },

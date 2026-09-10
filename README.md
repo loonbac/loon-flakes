@@ -285,13 +285,29 @@ remita a la UI principal sí. Las preguntas usan `dialog-question`, los permisos
 ignora el BEL auxiliar de `rpiv-ask-user-question` para que no suene un segundo
 aviso.
 
-La extensión global `loon-antigravity-quota-fallback.ts` detecta únicamente
-errores de agotamiento de cuota emitidos por el proveedor `antigravity`. Usa el
-plazo de reinicio incluido en el error como cooldown compartido, cambia esa
-petición y las de los subagentes primero a
-`explabs/deepseek-v4.1-flash`. Si ese proveedor no está configurado o la llamada
-falla, continúa con `opencode-go/muse-spark-1.3-contributor`; después restaura el
-modelo original.
+El bootstrap genera `pi-antigravity-alt` desde la versión instalada del paquete
+oficial `pi-antigravity`, cambiando solo los identificadores necesarios para que
+Pi lo trate como otra instancia. Sus modelos aparecen como
+`antigravity-alt/<modelo>`, su OAuth se guarda por separado y sus comandos usan
+el prefijo `/antigravity-alt.*`. Para iniciar o reparar la cuenta B:
+
+```text
+/login antigravity-alt
+/antigravity-alt.usage
+/antigravity-alt.models
+```
+
+`gentle-stack-update` actualiza primero el paquete oficial y luego regenera el
+clon desde esa misma versión. El parche valida la estructura esperada antes de
+reemplazarlo; si una actualización upstream resulta incompatible, conserva el
+clon anterior y muestra una advertencia.
+
+La extensión global `loon-antigravity-quota-fallback.ts` detecta errores de
+agotamiento de cuota de ambas cuentas y mantiene un cooldown separado para
+cada una. Usa el plazo de reinicio incluido en el error y cambia la petición y
+las de los subagentes en este orden: Antigravity cuenta A → Antigravity cuenta
+B con el mismo modelo y thinking → los dos fallbacks externos de la tabla. Al
+terminar restaura el modelo original.
 
 Los subagentes con Gemini 3.8 usan dos fallbacks específicos; no se configura
 un tercero:

@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   AGENT_FALLBACK_CHAINS,
   FALLBACK_CHAIN,
+  PRIMARY_ANTIGRAVITY_PROVIDER,
+  SECONDARY_ANTIGRAVITY_PROVIDER,
   appendedSystemPrompts,
   cooldownDeadline,
   fallbackChainForAgent,
@@ -15,6 +17,8 @@ import {
 } from "./antigravity-quota-fallback.ts";
 
 test("orders Experiential DeepSeek before OpenCode Muse", () => {
+  assert.equal(PRIMARY_ANTIGRAVITY_PROVIDER, "antigravity");
+  assert.equal(SECONDARY_ANTIGRAVITY_PROVIDER, "antigravity-alt");
   assert.deepEqual(
     FALLBACK_CHAIN.map(({ provider, model }) => `${provider}/${model}`),
     [
@@ -25,6 +29,7 @@ test("orders Experiential DeepSeek before OpenCode Muse", () => {
   assert.equal(fallbackIndex("explabs", "deepseek-v4.1-flash"), 0);
   assert.equal(fallbackIndex("opencode-go", "muse-spark-1.3-contributor"), 1);
   assert.equal(fallbackIndex("antigravity", "gemini-3.8-flash"), -1);
+  assert.equal(fallbackIndex("antigravity-alt", "gemini-3.8-flash"), -1);
 });
 
 test("assigns exactly two ordered fallbacks and the requested effort to every target agent", () => {
