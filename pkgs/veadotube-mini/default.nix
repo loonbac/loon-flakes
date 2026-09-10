@@ -132,6 +132,11 @@ buildFHSEnv {
   ];
 
   extraBwrapArgs = [
+    # The app otherwise discovers Mesa first inside the FHS environment while
+    # the PipeWire stream allocates NVIDIA GBM buffers.  Keep the EGL vendor
+    # and external platform implementation on the same NVIDIA driver.
+    "--setenv __EGL_VENDOR_LIBRARY_FILENAMES /run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json"
+    "--setenv __EGL_EXTERNAL_PLATFORM_CONFIG_DIRS /run/opengl-driver/share/egl/egl_external_platform.d"
     "--setenv FUNNEL_RENDER_NODE /dev/dri/renderD128"
     "--ro-bind ${runtime} /opt/veadotube-mini"
   ];
