@@ -292,6 +292,26 @@ petición y las de los subagentes primero a
 `explabs/deepseek-v4.1-flash`. Si ese proveedor no está configurado o la llamada
 falla, continúa con `opencode-go/muse-spark-1.3-contributor`; después restaura el
 modelo original.
+
+Los subagentes con Gemini 3.8 usan dos fallbacks específicos; no se configura
+un tercero:
+
+| Subagente | Fallback 1 | Fallback 2 |
+| --- | --- | --- |
+| `gentle-ai-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
+| `gentle-ai-worker` | Muse Spark 1.3 `max` | DeepSeek V4.1 Flash `high` |
+| `jd-fix-agent` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `max` |
+| `sdd-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
+| `sdd-spec` | Muse Spark 1.3 `xhigh` | DeepSeek V4.1 Flash `high` |
+| `sdd-tasks` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
+| `sdd-apply` | Muse Spark 1.3 `max` | DeepSeek V4.1 Flash `high` |
+| `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
+
+`max` se conserva como la política solicitada. El catálogo actual de
+`opencode-go/muse-spark-1.3-contributor` (free tier) declara `max: null`, por lo
+que Pi lo ajusta a `xhigh`, su máximo efectivo; la extensión no sustituye ese
+modelo por la variante de pago.
+
 Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
 puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con
 `/antigravity-fallback clear`. Muse Contributor puede usar prompts y respuestas
