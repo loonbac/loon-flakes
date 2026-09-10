@@ -285,6 +285,16 @@ remita a la UI principal sí. Las preguntas usan `dialog-question`, los permisos
 ignora el BEL auxiliar de `rpiv-ask-user-question` para que no suene un segundo
 aviso.
 
+La extensión global `loon-antigravity-quota-fallback.ts` detecta únicamente
+errores de agotamiento de cuota emitidos por el proveedor `antigravity`. Usa el
+plazo de reinicio incluido en el error como cooldown compartido, cambia esa
+petición y las de los subagentes a
+`opencode-go/muse-spark-1.3-contributor`, y restaura después el modelo original.
+Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
+puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con
+`/antigravity-fallback clear`. Muse Contributor puede usar prompts y respuestas
+para entrenamiento, según la política de OpenCode Go.
+
 Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
 correspondiente con verificación de integridad. npm autoriza únicamente el
 script de instalación de `gentle-pi`, no los scripts de todas las dependencias.

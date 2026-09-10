@@ -163,6 +163,8 @@ let
     };
   });
 
+  antigravityQuotaFallback = ../pi/extensions/antigravity-quota-fallback.ts;
+
   # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
   # separately through lifecycle events, so bridge every blocking extension
   # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
@@ -745,6 +747,20 @@ writeShellApplication {
       ln -s "$notifications_source" "$notifications_destination"
     else
       ln -s "$notifications_source" "$notifications_destination"
+    fi
+
+    # Keep quota handling outside gentle-pi: this global Pi extension also
+    # loads in Gentle Agents child processes and shares one reset deadline.
+    fallback_source="${antigravityQuotaFallback}"
+    fallback_destination="$agent_dir/extensions/loon-antigravity-quota-fallback.ts"
+    if [ -L "$fallback_destination" ]; then
+      ln -sfn "$fallback_source" "$fallback_destination"
+    elif [ -e "$fallback_destination" ]; then
+      mkdir -p "$backup_dir/extensions"
+      mv "$fallback_destination" "$backup_dir/extensions/loon-antigravity-quota-fallback.ts"
+      ln -s "$fallback_source" "$fallback_destination"
+    else
+      ln -s "$fallback_source" "$fallback_destination"
     fi
 
     # Remove the replaced subagent/todo implementations from the mutable Pi
