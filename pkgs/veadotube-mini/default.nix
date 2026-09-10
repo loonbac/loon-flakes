@@ -1,6 +1,16 @@
 { lib
 , buildFHSEnv
+, fetchFromGitHub
+, libdrm
+, libgbm
+, libglvnd
+, meson
+, mesa
+, ninja
+, pipewire
+, pkg-config
 , requireFile
+, stdenv
 , stdenvNoCC
 , unzip
 }:
@@ -37,6 +47,43 @@ let
       install -d "$out"
       unzip -q "$src" -d "$out"
       chmod +x "$out/veadotube-mini" "$out/lib/input.sh" "$out/lib/ovrlipsync.sh"
+
+      runHook postInstall
+    '';
+  };
+
+  # Veadotube Mini 2.2 bundles an older libfunnel.  In an NVIDIA EGL context
+  # that library can fail to obtain EGL's DRM-node attribute.  Build the
+  # current compatible library with a small, opt-in fallback instead.
+  funnel = stdenv.mkDerivation {
+    pname = "libfunnel-veadotube";
+    version = "2026-03-18";
+
+    src = fetchFromGitHub {
+      owner = "hoshinolina";
+      repo = "libfunnel";
+      rev = "779586dab6ad396ce4a363204c8b9a18f473ca5d";
+      hash = "sha256-eBuWoE13PDWePSzxCNVFnuM0SRZ/HxzUtSgs0SFHu/c=";
+    };
+
+    patches = [ ./funnel-render-node-fallback.patch ];
+    nativeBuildInputs = [ meson ninja pkg-config ];
+    buildInputs = [ libdrm libgbm libglvnd mesa pipewire ];
+    mesonFlags = [ "-Degl=true" "-Dvulkan=false" "-Dtest_apps=false" ];
+  };
+
+  runtime = stdenvNoCC.mkDerivation {
+    pname = "veadotube-mini-runtime";
+    inherit version;
+    src = unpacked;
+
+    installPhase = ''
+      runHook preInstall
+
+      cp -a "$src/." "$out"
+      chmod -R u+w "$out"
+      install -Dm755 ${funnel}/lib/libfunnel.so "$out/lib/libfunnel.so"
+      install -Dm755 ${funnel}/lib/libfunnel-egl.so "$out/lib/libfunnel-egl.so"
 
       runHook postInstall
     '';
@@ -85,7 +132,8 @@ buildFHSEnv {
   ];
 
   extraBwrapArgs = [
-    "--ro-bind ${unpacked} /opt/veadotube-mini"
+    "--setenv FUNNEL_RENDER_NODE /dev/dri/renderD128"
+    "--ro-bind ${runtime} /opt/veadotube-mini"
   ];
   runScript = "/opt/veadotube-mini/veadotube-mini";
 

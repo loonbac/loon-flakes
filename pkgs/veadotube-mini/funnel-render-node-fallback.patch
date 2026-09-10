@@ -1,0 +1,10 @@
+--- a/src/egl.c
++++ b/src/egl.c
+@@ -10,0 +11 @@
++#include <stdlib.h>
+@@ -120,0 +122,5 @@ int funnel_stream_init_egl(struct funnel_stream *stream, EGLDisplay display) {
++    /* Some NVIDIA EGL contexts do not expose a DRM node through EGLDevice.
++     * A caller may provide the render node after selecting its GPU. */
++    if (!render_node)
++        render_node = getenv("FUNNEL_RENDER_NODE");
++
