@@ -218,7 +218,7 @@ let
     }
 
     function play(sound: string): void {
-      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.50", sound]);
+      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.15", sound]);
     }
 
     export default function loonPiNotifications(pi: ExtensionAPI): void {
