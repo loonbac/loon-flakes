@@ -407,6 +407,18 @@ El PC también incluye `obs-pipewire-audio-capture`, que añade fuentes PipeWire
 para capturar por separado una aplicación, una entrada o una salida de audio.
 Se declara sólo en `hosts/nixos-pc/streaming.nix`; no afecta los demás hosts.
 
+Para juegos y aplicaciones Vulkan/OpenGL, el estándar del PC es
+`obs-vkcapture`: se crea una fuente **Captura de juego** y el programa se inicia
+con `obs-gamecapture programa` o con un wrapper que defina `OBS_VKCAPTURE=1`.
+La fuente espera silenciosamente al ejecutable y no usa el portal. Citron ya
+incluye ese wrapper, por lo que **Citron-Video** se conecta automáticamente al
+abrir el emulador.
+
+Las capturas de ventanas genéricas bajo Wayland siguen dependiendo del portal.
+Su `RestoreToken` sólo puede restaurarse si el contenido continúa disponible;
+si la ventana desapareció, el protocolo abre nuevamente el selector. No se
+debe usar una fuente PipeWire para un juego compatible con `obs-vkcapture`.
+
 ### Twitch GLaDOS TTS para OBS
 
 `pkgs/obs-twitch-glados-tts/` instala un script Python nativo de OBS que escucha
@@ -423,10 +435,11 @@ velocidad se ajustan en **Herramientas → Scripts** y se recargan en vivo.
 
 ### Restauración limpia del streaming en `nixos-pc`
 
-El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor y captura
-de audio PipeWire), NVENC, Veadotube Mini, Pear Desktop con `pear_twitch`, el
-TTS con su modelo GLaDOS, los overlays locales y los parches de Equibop. No se
-deben copiar plugins manualmente a `~/.config` ni `~/.local/share`.
+El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor, captura
+de audio PipeWire y captura de juego Vulkan), NVENC, Veadotube Mini, Pear
+Desktop con `pear_twitch`, el TTS con su modelo GLaDOS, los overlays locales y
+los parches de Equibop. No se deben copiar plugins manualmente a `~/.config` ni
+`~/.local/share`.
 
 El estado personal no se publica en Git. Para recuperar la misma disposición y
 cuentas después de formatear, conservar de forma privada:

@@ -24,13 +24,16 @@ let
   # activo vive bajo /run/opengl-driver y no forma parte del wrapper genérico.
   # Este paquete vacío aporta el argumento soportado por wrapOBS sin fijar una
   # versión concreta del driver NVIDIA en el store.
-  obsNvidiaRuntime = pkgs.runCommand "obs-nvidia-runtime" {
-    passthru.obsWrapperArguments = [
-      "--prefix LD_LIBRARY_PATH : /run/opengl-driver/lib"
-    ];
-  } ''
-    mkdir -p "$out"
-  '';
+  obsNvidiaRuntime =
+    pkgs.runCommand "obs-nvidia-runtime"
+      {
+        passthru.obsWrapperArguments = [
+          "--prefix LD_LIBRARY_PATH : /run/opengl-driver/lib"
+        ];
+      }
+      ''
+        mkdir -p "$out"
+      '';
 in
 {
   programs.veadotube-mini.enable = true;
@@ -40,7 +43,12 @@ in
     obsAudioMonitor
     obsNvidiaRuntime
     pkgs.obs-studio-plugins.obs-pipewire-audio-capture
+    pkgs.obs-studio-plugins.obs-vkcapture
   ];
+
+  # Además del plugin dentro de OBS, instala la capa Vulkan y el lanzador
+  # `obs-gamecapture` para poder capturar cualquier aplicación compatible.
+  environment.systemPackages = [ pkgs.obs-studio-plugins.obs-vkcapture ];
 
   # Ruta estable que OBS conserva en la colección aunque cambie la generación.
   environment.etc."obs-scripts/twitch-glados-tts.py".source =

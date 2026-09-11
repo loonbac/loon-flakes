@@ -1,15 +1,30 @@
 # Aplicaciones de juegos exclusivas del PC de escritorio.
 { pkgs, ... }:
 
+let
+  citronNextendo = pkgs.callPackage ../../pkgs/citron-nextendo {
+    x86_64Variant = "v3";
+  };
+
+  # La captura de juego espera a Citron sin invocar el selector del portal
+  # PipeWire cuando el emulador todavía no está abierto.
+  citronWithObsCapture = pkgs.symlinkJoin {
+    name = "citron-nextendo-with-obs-capture";
+    paths = [ citronNextendo ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram "$out/bin/citron" --set OBS_VKCAPTURE 1
+    '';
+    inherit (citronNextendo) meta passthru;
+  };
+in
 {
   programs.steamidra.enable = true;
   programs.citron-nextendo = {
     enable = true;
     # El Ryzen 7 5700X soporta el baseline x86-64-v3 de la build optimizada.
     # Desde 0698ff8cc upstream usa el pipeline Linux corregido y sin PGO.
-    package = pkgs.callPackage ../../pkgs/citron-nextendo {
-      x86_64Variant = "v3";
-    };
+    package = citronWithObsCapture;
   };
 
   loon.programs.steam = {
