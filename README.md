@@ -600,6 +600,12 @@ caer o cambiar la red y conserva el modo elegido tras reiniciar el equipo.
 Tailscale recibe únicamente `ALL_PROXY=socks5://127.0.0.1:1080`; no se deben
 añadir `HTTP_PROXY` ni `HTTPS_PROXY` con esquema SOCKS5.
 
+`elastika-vps` mantiene disponible el peer relay en UDP 41641; su transporte
+normal de Tailscale usa UDP 41642. El relay y el grant del tailnet permanecen
+habilitados: `ts-bypass on|off` conmuta únicamente el cliente de la laptop.
+Al apagarlo, el comando espera que `tailscaled` arranque y avisa si la red
+directa no puede alcanzar `nixos-pc`, sin confundirlo con un fallo del toggle.
+
 ---
 
 ## Programas (`modules/programs/`)

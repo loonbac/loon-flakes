@@ -208,6 +208,11 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `on|off|restart|status|logs` y valida el peer `nixos-pc`.
 - **Estado persistente**: `/var/lib/ts-bypass/tailscaled.env`. Su presencia
   activa el túnel en el siguiente arranque; `ts-bypass off` lo elimina.
+- **Peer relay**: `elastika-vps` escucha en UDP 41641 y su transporte normal
+  de Tailscale usa UDP 41642. El grant central permite a `loon-laptop`
+  (`100.81.168.104`) y `nixos-pc` (`100.73.247.39`) usar el relay
+  (`100.93.232.28`). El relay queda siempre disponible; el toggle solo cambia
+  el transporte del cliente de la laptop.
 - Tailscale debe recibir **solo** `ALL_PROXY=socks5://127.0.0.1:1080`.
   Nunca configurar `HTTP_PROXY`/`HTTPS_PROXY` con esquema SOCKS5: el cliente
   DERP los trata como proxy HTTP, envía `CONNECT` y el SOCKS responde con EOF.

@@ -53,6 +53,19 @@ pkgs.writeShellApplication {
       return 1
     }
 
+    wait_for_running() {
+      local _attempt _state
+
+      for _attempt in $(seq 1 20); do
+        _state="$(tailscale status --json 2>/dev/null | jq -r '.BackendState // empty' || true)"
+        if [[ "$_state" == "Running" ]]; then
+          return 0
+        fi
+        sleep 1
+      done
+      return 1
+    }
+
     show_status() {
       local failed=0
 
@@ -145,10 +158,20 @@ pkgs.writeShellApplication {
       "$sudo_cmd" systemctl unset-environment \
         ALL_PROXY all_proxy HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \
         NO_PROXY no_proxy
-      "$sudo_cmd" systemctl restart tailscaled.service
       "$sudo_cmd" systemctl stop "$service" || true
+      "$sudo_cmd" systemctl restart tailscaled.service
+
+      if ! wait_for_running; then
+        echo "TS-Bypass quedó desactivado, pero tailscaled no terminó de arrancar." >&2
+        systemctl --no-pager --full status tailscaled.service >&2 || true
+        exit 1
+      fi
+
       echo "TS-Bypass desactivado."
-      tailscale status
+      if ! tailscale ping --until-direct=false --c 1 --timeout 5s "$peer"; then
+        echo "Aviso: la red directa no alcanza $peer; usa 'ts-bypass on' en esta red." >&2
+      fi
+      tailscale status || true
     }
 
     case "''${1:-}" in
@@ -159,10 +182,15 @@ pkgs.writeShellApplication {
         disable_bypass
         ;;
       restart)
+        if [[ ! -s /var/lib/ts-bypass/tailscaled.env ]]; then
+          echo "TS-Bypass está desactivado; usa 'ts-bypass on' para activarlo." >&2
+          exit 1
+        fi
         "$sudo_cmd" systemctl restart "$service"
         wait_for_tunnel
         "$sudo_cmd" systemctl restart tailscaled.service
         wait_for_peer
+        echo "TS-Bypass reiniciado y verificado con $peer."
         ;;
       status)
         show_status
