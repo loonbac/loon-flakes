@@ -14,13 +14,15 @@
 let
   wallpapersDir = "$HOME/Videos/Wallpapers";
   stateFile = "$HOME/.config/mpvpaper/current.txt";
+  # 1.9 corrige la fuga de fences OpenGL con libmpv 0.41 (#132).
+  mpvpaperFixed = pkgs.callPackage ../mpvpaper-fixed { };
 in
 pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   set -euo pipefail
 
   DIR="${wallpapersDir}"
   STATE="${stateFile}"
-  MPVPAPER="${pkgs.mpvpaper}/bin/mpvpaper"
+  MPVPAPER="${mpvpaperFixed}/bin/mpvpaper"
   RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(${pkgs.coreutils}/bin/id -u)}"
   IPC_DIR="$RUNTIME_DIR/mpvpaper-wallpaper"
   IPC="$IPC_DIR/mpv.sock"
