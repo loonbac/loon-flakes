@@ -53,12 +53,38 @@ case "$1" in
   gabox-invertido) model=bs_karaoke_inv_gabox ;;
   frazer-becruily) model=bs_karaoke_becruily ;;
   anvuew) model=bs_karaoke_anvuew ;;
-  polarformer) model=bs_pope_vocals_zfturbo ;;
+  polarformer) model=model_bs_polarformer_float16 ;;
   *) usage >&2; exit 2 ;;
 esac
 
 input=$2
 output=${3:-"$(dirname "$input")/separado-$1"}
 mkdir -p "$output"
+
+if [ "$1" = "polarformer" ]; then
+  cd "$runtime_dir"
+  exec "$venv_dir/bin/python" -c '
+from inference import Separator
+import os
+import sys
+import sysconfig
+
+# El Python del venv apunta al intérprete Nix, cuyo include no existe bajo
+# /run/current-system/sw. Triton lo necesita para compilar su helper CUDA.
+get_paths = sysconfig.get_paths
+def nix_get_paths(*args, **kwargs):
+    paths = get_paths(*args, **kwargs)
+    paths["include"] = os.environ["KARAOKE_PYTHON_INCLUDE_DIR"]
+    return paths
+sysconfig.get_paths = nix_get_paths
+
+Separator(source="hface").custom_separate(
+    input_files=[sys.argv[1]], output_dir=sys.argv[2], output_format="flac",
+    template="NAME_(STEM)_MODEL", model_type="bs_roformer",
+    ckpt=sys.argv[3], conf=sys.argv[4],
+)
+' "$input" "$output" "$models_dir/model_bs_polarformer_float16.ckpt" "$models_dir/model_bs_polarformer_float16.yaml"
+fi
+
 exec "$venv_dir/bin/python" "$runtime_dir/inference.py" separate \
   -i "$input" -o "$output" -of flac -mn "$model" -tm 'NAME_(STEM)_MODEL'
