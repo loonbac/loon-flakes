@@ -407,17 +407,18 @@ El PC también incluye `obs-pipewire-audio-capture`, que añade fuentes PipeWire
 para capturar por separado una aplicación, una entrada o una salida de audio.
 Se declara sólo en `hosts/nixos-pc/streaming.nix`; no afecta los demás hosts.
 
-Para juegos y aplicaciones Vulkan/OpenGL, el estándar del PC es
-`obs-vkcapture`: se crea una fuente **Captura de juego** y el programa se inicia
-con `obs-gamecapture programa` o con un wrapper que defina `OBS_VKCAPTURE=1`.
-La fuente espera silenciosamente al ejecutable y no usa el portal. Citron ya
-incluye ese wrapper, por lo que **Citron-Video** se conecta automáticamente al
-abrir el emulador.
+El PC incluye además la fuente **Captura de aplicación (Niri)**. Su selector
+lista todas las ventanas nativas y XWayland publicadas por Niri y guarda la
+aplicación mediante su `app_id`. Por debajo usa PipeWire y el objetivo oficial
+**niri Dynamic Cast Target** del portal: se autoriza una sola vez al crear la
+fuente y luego OBS restaura ese objetivo estable sin preguntar de nuevo. Si la
+aplicación está cerrada, la fuente queda vacía; cuando vuelve a abrirse,
+encuentra su nuevo ID de ventana y se reconecta.
 
-Las capturas de ventanas genéricas bajo Wayland siguen dependiendo del portal.
-Su `RestoreToken` sólo puede restaurarse si el contenido continúa disponible;
-si la ventana desapareció, el protocolo abre nuevamente el selector. No se
-debe usar una fuente PipeWire para un juego compatible con `obs-vkcapture`.
+Esta fuente es el estándar para capturar aplicaciones completas en `nixos-pc`.
+No exige wrappers por programa y sirve para cualquier aplicación. Niri comparte
+un único objetivo dinámico entre todas las fuentes, así que está diseñada para
+la aplicación o juego activo, no para dos ventanas independientes a la vez.
 
 ### Twitch GLaDOS TTS para OBS
 
@@ -436,7 +437,7 @@ velocidad se ajustan en **Herramientas → Scripts** y se recargan en vivo.
 ### Restauración limpia del streaming en `nixos-pc`
 
 El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor, captura
-de audio PipeWire y captura de juego Vulkan), NVENC, Veadotube Mini, Pear
+de audio PipeWire y captura de ventanas Niri), NVENC, Veadotube Mini, Pear
 Desktop con `pear_twitch`, el TTS con su modelo GLaDOS, los overlays locales y
 los parches de Equibop. No se deben copiar plugins manualmente a `~/.config` ni
 `~/.local/share`.

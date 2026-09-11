@@ -4,6 +4,7 @@
 let
   twitchGladosTts = pkgs.callPackage ../../pkgs/obs-twitch-glados-tts { };
   obsAudioMonitor = pkgs.callPackage ../../pkgs/obs-audio-monitor { };
+  obsNiriWindowCapture = pkgs.callPackage ../../pkgs/obs-niri-window-capture { };
 
   # OBS no ofrece una ruta declarativa global para scripts: los guarda dentro
   # de cada colección de escenas. Este wrapper registra el script de forma
@@ -41,14 +42,10 @@ in
   programs.obs-studio.package = obsWithTwitchGladosTts;
   programs.obs-studio.plugins = [
     obsAudioMonitor
+    obsNiriWindowCapture
     obsNvidiaRuntime
     pkgs.obs-studio-plugins.obs-pipewire-audio-capture
-    pkgs.obs-studio-plugins.obs-vkcapture
   ];
-
-  # Además del plugin dentro de OBS, instala la capa Vulkan y el lanzador
-  # `obs-gamecapture` para poder capturar cualquier aplicación compatible.
-  environment.systemPackages = [ pkgs.obs-studio-plugins.obs-vkcapture ];
 
   # Ruta estable que OBS conserva en la colección aunque cambie la generación.
   environment.etc."obs-scripts/twitch-glados-tts.py".source =

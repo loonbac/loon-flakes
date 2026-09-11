@@ -142,6 +142,8 @@ in
     btop
     bat                # alternativa moderna a cat con resaltado de sintaxis
     poppler-utils      # pdftotext, pdfinfo, etc.
+    pandoc             # conversión entre Markdown, HTML, PDF y DOCX
+    wkhtmltopdf        # motor HTML-a-PDF usado por pandoc con --pdf-engine
     python3            # intérprete de Python
     uv                 # gestor de Python (venv + paquetes)
     fastfetch
@@ -208,6 +210,9 @@ in
     # Acento dinámico: extrae el color del wallpaper para niri/loon-bar.
     (pkgs.callPackage ../../pkgs/accent-wallpaper { })
     ffmpeg
+    # Separación local de voces con RoFormer/CUDA. Los pesos quedan fuera del
+    # store, en ~/Proyectos/separador-vocal/modelos, y se cargan sólo al usarlo.
+    (pkgs.callPackage ../../pkgs/karaoke-separator { })
     imagemagick
     # Script para gestionar el fondo animado (Super+B en niri).
     (pkgs.callPackage ../../pkgs/mpvpaper-wallpaper {
