@@ -200,6 +200,20 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   evaluación o el paquete AppImage ya publicado; el build C++ puede consumir
   decenas de GiB de RAM.
 
+### Editar TS-Bypass de loon-laptop
+
+- **Módulo/servicio**: `modules/services/tailscale/default.nix` define
+  `ts-bypass-tunnel.service`, exclusivo de `loon-laptop`.
+- **Comando**: `pkgs/ts-bypass/default.nix`; soporta
+  `on|off|restart|status|logs` y valida el peer `nixos-pc`.
+- **Estado persistente**: `/var/lib/ts-bypass/tailscaled.env`. Su presencia
+  activa el túnel en el siguiente arranque; `ts-bypass off` lo elimina.
+- Tailscale debe recibir **solo** `ALL_PROXY=socks5://127.0.0.1:1080`.
+  Nunca configurar `HTTP_PROXY`/`HTTPS_PROXY` con esquema SOCKS5: el cliente
+  DERP los trata como proxy HTTP, envía `CONNECT` y el SOCKS responde con EOF.
+- Verificar con `ts-bypass status` y
+  `tailscale ping --until-direct=false nixos-pc`.
+
 ---
 
 ## Lecciones aprendidas (gotchas)
@@ -256,6 +270,9 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `default_public_and_private_interfaces` (el de Vesktop PR #1283).
   - Si Equibop cambia la estructura del bundle al actualizar, el parche puede
     fallar: verificar que `dist/js/main.js` exista en el asar y ajustar.
+- **TS-Bypass**: `ALL_PROXY` usa el dialer SOCKS nativo de Tailscale. No
+  duplicarlo en `HTTP_PROXY`/`HTTPS_PROXY`; esos nombres seleccionan la ruta
+  HTTP CONNECT y causan `derphttp ... unexpected EOF` contra `ssh -D`.
 
 ---
 

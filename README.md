@@ -583,6 +583,23 @@ sudo tailscale up   # autenticar y unir la máquina a la tailnet (una vez)
 tailscale status    # ver el estado y los dispositivos
 ```
 
+En `loon-laptop`, `ts-bypass` permite transportar el plano TCP de Tailscale
+por un SOCKS5 creado mediante SSH-over-TLS hacia `elastika-vps` cuando la red
+local bloquea Tailscale:
+
+```bash
+ts-bypass on       # activa, persiste y verifica contra nixos-pc
+ts-bypass status   # comprueba systemd, SOCKS, DERP y Tailscale
+ts-bypass restart  # reconstruye el túnel y vuelve a verificar
+ts-bypass off      # restaura la conexión directa
+ts-bypass logs     # diagnóstico de ambos servicios
+```
+
+El túnel vive en `ts-bypass-tunnel.service`, se reinicia automáticamente al
+caer o cambiar la red y conserva el modo elegido tras reiniciar el equipo.
+Tailscale recibe únicamente `ALL_PROXY=socks5://127.0.0.1:1080`; no se deben
+añadir `HTTP_PROXY` ni `HTTPS_PROXY` con esquema SOCKS5.
+
 ---
 
 ## Programas (`modules/programs/`)
