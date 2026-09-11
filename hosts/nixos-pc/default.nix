@@ -7,6 +7,7 @@
     ./platform.nix
     ./games-disk.nix
     ./projects-disk.nix
+    ./apps.nix
     ./gaming.nix
     ./streaming.nix
     ./sunshine.nix

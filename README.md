@@ -397,6 +397,56 @@ Se compila desde el último commit archivado de upstream, fijado por hash en
 OBS; no copia plugins a `~/.config/obs-studio`. Está habilitado únicamente en
 `nixos-pc` desde `hosts/nixos-pc/streaming.nix`.
 
+Ese mismo archivo añade únicamente en `nixos-pc` un argumento al wrapper de
+OBS para anteponer `/run/opengl-driver/lib` a `LD_LIBRARY_PATH`. El proceso
+auxiliar `obs-nvenc-test` puede así cargar `libnvidia-encode.so.1` del driver
+NVIDIA activo y ofrecer los codificadores NVENC de la RTX 3060. Los demás
+hosts conservan el wrapper genérico y no heredan rutas ni supuestos de NVIDIA.
+
+El PC también incluye `obs-pipewire-audio-capture`, que añade fuentes PipeWire
+para capturar por separado una aplicación, una entrada o una salida de audio.
+Se declara sólo en `hosts/nixos-pc/streaming.nix`; no afecta los demás hosts.
+
+### Twitch GLaDOS TTS para OBS
+
+`pkgs/obs-twitch-glados-tts/` instala un script Python nativo de OBS que escucha
+el comando `!t` en `#loonbac21` mediante el IRC anónimo de Twitch y sintetiza
+localmente con Sherpa-ONNX y el modelo español GLaDOS FP32. No usa OAuth, bot ni
+daemon: la conexión, los hilos de trabajo y la cola solo existen dentro de OBS.
+Los WAV se crean bajo `$XDG_RUNTIME_DIR/obs-twitch-glados-tts/` y se borran al
+terminar de reproducirse o al descargar el script.
+
+El wrapper declarado en `hosts/nixos-pc/streaming.nix` registra el script antes
+de abrir OBS. Este crea la fuente `Twitch GLaDOS TTS`, visible en el mezclador
+con fader propio. Canal, comando, límite, cooldown, volumen, monitorización y
+velocidad se ajustan en **Herramientas → Scripts** y se recargan en vivo.
+
+### Restauración limpia del streaming en `nixos-pc`
+
+El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor y captura
+de audio PipeWire), NVENC, Veadotube Mini, Pear Desktop con `pear_twitch`, el
+TTS con su modelo GLaDOS, los overlays locales y los parches de Equibop. No se
+deben copiar plugins manualmente a `~/.config` ni `~/.local/share`.
+
+El estado personal no se publica en Git. Para recuperar la misma disposición y
+cuentas después de formatear, conservar de forma privada:
+
+- `~/.config/obs-studio/basic/`: colecciones de escenas, perfiles, encoder y
+  servicio de streaming.
+- `~/.config/obs-studio/global.ini`, `user.ini` y, si se personaliza su panel,
+  `plugin_config/audio-monitor/config.json`.
+- `~/OBS/Escenas/`: HTML, imágenes y demás archivos locales usados por las
+  fuentes de la colección.
+- `~/.veadotube/data/mini/autosave.veado`: personaje actual de Veadotube.
+- El ZIP original `veadotube-mini-linux-x64.zip` 2.2 con hash
+  `sha256-JHgC9nhMTr76zavmj8kzmdTyOwWFdSJ1lEpx26yAnrA=`. Itch.io usa enlaces
+  temporales y Nix no puede descargar legalmente ese archivo por sí solo.
+
+Las sesiones de Equibop y Pear pueden iniciarse nuevamente; si se desea evitar
+el login, sus directorios privados son `~/.config/equibop` y
+`~/.config/YouTube Music`. Los WAV del TTS y el estado del overlay viven en
+`XDG_RUNTIME_DIR`, son efímeros y nunca deben respaldarse.
+
 ### Citron Nextendo
 
 El paquete `citron-nextendo` fija por hash la nightly oficial del fork Citron
@@ -584,6 +634,25 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 > sirve (Equibop no la lee). El valor `disable_non_proxied_udp` NO sirve
 > (desactiva el UDP directo y deja la llamada en *"RTC Connecting"*). El único
 > valor que funciona con VPNs es `default_public_and_private_interfaces`.
+
+El paquete local `pkgs/equibop-voice-normalizer/` añade normalización de
+recepción por participante. Usa el `voiceDb` individual de Discord, descarta
+silencio bajo `-55 dB`, suaviza 30 muestras y ajusta sólo el volumen local del
+usuario entre 35 % y 200 %. Durante una llamada aparece el control `N -24 dB`:
+permite activar/pausar el normalizador y mover el objetivo entre `-36 dB` y
+`-12 dB`; la preferencia se conserva en el almacenamiento local de Discord.
+Al salir del canal o desactivarlo se restauran los volúmenes anteriores.
+
+En Linux, el paquete también asigna a los flujos de sonido la identidad
+`Equibop` en PulseAudio/PipeWire y mantiene `AudioService` dentro del proceso.
+Esto evita que OBS y los mezcladores lo agrupen con Pear Desktop u otras
+aplicaciones Electron bajo el nombre genérico `electron`/`Chromium`.
+
+El overlay local de voz para OBS escucha únicamente en loopback. La vista
+compacta está en `http://127.0.0.1:5123/` (618×236) y la vista para la escena
+Jugando en `http://127.0.0.1:5123/jugando` (1920×1080). Esta última distribuye
+sin solapamientos a todos los hablantes en posiciones variables a lo largo del
+borde inferior y deja el resto del lienzo transparente.
 
 ---
 

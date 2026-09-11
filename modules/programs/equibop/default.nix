@@ -18,6 +18,8 @@
 { config, lib, pkgs, ... }:
 
 let
+  obs-overlay = pkgs.callPackage ../../../pkgs/equibop-obs-overlay { };
+  voice-normalizer = pkgs.callPackage ../../../pkgs/equibop-voice-normalizer { };
   equibop-fixed = pkgs.equibop.overrideAttrs (old: {
     nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.asar ];
 
@@ -28,16 +30,76 @@ let
         # en cada webContents creado (mismo fix que Vesktop PR #1283).
         asar extract "$out/opt/Equibop/resources/app.asar" "$TMPDIR/equibop-asar"
         cat >> "$TMPDIR/equibop-asar/dist/js/main.js" <<'PATCH'
+        // Da a Equibop una identidad de audio propia en Linux. Chromium ejecuta
+        // AudioService fuera del proceso por defecto y termina publicando todos
+        // los clientes Electron como "Chromium". Al mantenerlo dentro del
+        // proceso, Electron puede propagar el nombre real a Pulse/PipeWire.
+        (() => {
+          if (process.platform !== "linux") return;
+          const { app } = require("electron");
+          try { app.setDesktopName("equibop.desktop"); } catch (_) {}
+
+          const disabled = new Set(
+            app.commandLine.getSwitchValue("disable-features").split(",").filter(Boolean)
+          );
+          disabled.add("AudioServiceOutOfProcess");
+          app.commandLine.removeSwitch("disable-features");
+          app.commandLine.appendSwitch("disable-features", [...disabled].join(","));
+        })();
+        PATCH
+        cat >> "$TMPDIR/equibop-asar/dist/js/main.js" <<'PATCH'
         require("electron").app.on("web-contents-created", (_e, c) => {
           try { c.setWebRTCIPHandlingPolicy("default_public_and_private_interfaces"); } catch (_) {}
         });
         PATCH
+        cat ${../../../pkgs/equibop-obs-overlay/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
+        cat ${../../../pkgs/equibop-obs-overlay/preload.js} >> "$TMPDIR/equibop-asar/dist/js/preload.js"
+        install -Dm0644 ${../../../pkgs/equibop-obs-overlay/renderer.js} "$TMPDIR/equibop-asar/dist/js/obs-overlay-renderer.js"
+        cat ${../../../pkgs/equibop-voice-normalizer/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
+        cat ${../../../pkgs/equibop-voice-normalizer/preload.js} >> "$TMPDIR/equibop-asar/dist/js/preload.js"
+        install -Dm0644 ${../../../pkgs/equibop-voice-normalizer/renderer.js} "$TMPDIR/equibop-asar/dist/js/voice-normalizer-renderer.js"
+
         asar pack "$TMPDIR/equibop-asar" "$out/opt/Equibop/resources/app.asar"
+
+        # libvesktop se carga dinámicamente desde app.asar. Electron no ve
+        # sus dependencias Nix por defecto, así que el tray nativo falla y
+        # Waybar recibe el menú vacío de Electron. El wrapper garantiza que
+        # dlopen encuentre tanto libstdc++ como GLib al arrancar Equibop.
+        wrapProgram "$out/bin/equibop" \
+          --set PULSE_PROP 'application.name=Equibop application.process.binary=equibop application.icon_name=equibop media.role=phone' \
+          --prefix LD_LIBRARY_PATH : '${lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.glib ]}'
+
       '';
   });
 in
 {
-  environment.systemPackages = [ equibop-fixed ];
+  environment.systemPackages = [ equibop-fixed obs-overlay voice-normalizer ];
+  # Expone el renderer bajo una ruta estable. El proceso de Equibop vigila
+  # este enlace y recarga el lector cuando un nixos-rebuild instala una
+  # versión nueva, sin tener que reiniciar el cliente.
+  environment.pathsToLink = [
+    "/share/equibop-obs-overlay"
+    "/share/equibop-voice-normalizer"
+  ];
+
+  # El servidor sólo escucha 127.0.0.1:5123. Equibop deja el estado saneado
+  # bajo XDG_RUNTIME_DIR y OBS carga el HTML desde localhost; nada se envía a
+  # Discord, Reactive ni a un servicio externo.
+  systemd.user.services.equibop-obs-overlay = {
+    description = "Overlay local de voz de Equibop para OBS";
+    wantedBy = [ "loon-niri-session.target" ];
+    after = [ "niri.service" ];
+    partOf = [ "loon-niri-session.target" ];
+    serviceConfig = {
+      ExecStart = "${obs-overlay}/bin/equibop-obs-overlay";
+      Restart = "on-failure";
+      RestartSec = "1s";
+      Environment = [
+        "HOME=/home/loonbac"
+        "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+      ];
+    };
+  };
 
   # Autostart gestionado por NixOS (mismo patrón que ghostty/niri):
   # se instala en /etc/equibop/ y un tmpfiles rule crea el symlink en el home.
