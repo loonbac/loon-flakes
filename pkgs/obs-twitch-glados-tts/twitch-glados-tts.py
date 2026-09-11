@@ -19,6 +19,7 @@ TTS_TOKENS = "@ttsTokens@"
 TTS_DATA_DIR = "@ttsDataDir@"
 SOURCE_NAME = "Twitch GLaDOS TTS"
 SCENE_NAME = "Chat"
+SOURCE_NAME_PATTERN = re.compile(r"^" + re.escape(SOURCE_NAME) + r"(?: \d+)+$")
 
 channel = "loonbac21"
 command = "!t"
@@ -42,6 +43,8 @@ current_seen_playing = False
 current_last_restart = 0.0
 sequence = 0
 loaded = False
+frontend_ready = False
+loaded_at = 0.0
 
 
 def script_description():
@@ -103,7 +106,7 @@ def script_update(settings):
     speed = min(1.4, max(0.7, obs.obs_data_get_double(settings, "speed")))
     test_text = obs.obs_data_get_string(settings, "test_text").strip() or test_text
 
-    if loaded:
+    if loaded and frontend_ready:
         _ensure_source()
         _apply_source_audio_settings()
 
@@ -115,12 +118,12 @@ def script_update(settings):
 
 
 def script_load(settings):
-    global loaded, threads
+    global loaded, frontend_ready, loaded_at, threads
     loaded = True
+    frontend_ready = False
+    loaded_at = time.monotonic()
     stop_event.clear()
     _prepare_runtime_dir()
-    _ensure_source()
-    _apply_source_audio_settings()
     obs.obs_frontend_add_event_callback(_frontend_event)
     obs.timer_add(_main_tick, 100)
 
@@ -134,8 +137,10 @@ def script_load(settings):
 
 
 def script_unload():
-    global loaded, irc_socket, tts_process, threads
+    global loaded, frontend_ready, irc_socket, tts_process, threads
+    global current_wav, current_started, current_seen_playing, current_last_restart
     loaded = False
+    frontend_ready = False
     stop_event.set()
     obs.timer_remove(_main_tick)
     obs.obs_frontend_remove_event_callback(_frontend_event)
@@ -159,8 +164,15 @@ def script_unload():
     for thread in threads:
         thread.join(timeout=1.5)
     threads = []
-    _remove_source()
+    # La fuente forma parte de la colección y debe sobrevivir al cierre de OBS.
+    # Borrarla aquí provoca que el cargador de escenas y el script compitan por
+    # el mismo nombre durante el siguiente arranque.
+    _clear_source_file()
     _clean_runtime_dir()
+    current_wav = None
+    current_started = 0.0
+    current_seen_playing = False
+    current_last_restart = 0.0
 
 
 def _runtime_dir():
@@ -205,16 +217,28 @@ def _log(level, message):
 
 
 def _frontend_event(event):
+    global frontend_ready
+    if event in (
+        obs.OBS_FRONTEND_EVENT_FINISHED_LOADING,
+        obs.OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED,
+    ):
+        frontend_ready = True
+        _ensure_source()
+        _apply_source_audio_settings()
+        return
+
     if event in (
         obs.OBS_FRONTEND_EVENT_SCENE_CHANGED,
         obs.OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED,
-        obs.OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED,
-        obs.OBS_FRONTEND_EVENT_FINISHED_LOADING,
-    ):
+    ) and frontend_ready:
         _ensure_source()
 
 
 def _ensure_source():
+    if not frontend_ready:
+        return
+
+    _remove_duplicate_sources()
     source = obs.obs_get_source_by_name(SOURCE_NAME)
     if source is None:
         settings = obs.obs_data_create()
@@ -247,6 +271,23 @@ def _ensure_source():
     obs.obs_source_release(source)
 
 
+def _remove_duplicate_sources():
+    """Retira únicamente copias numéricas creadas por la carrera de arranque."""
+    sources = obs.obs_enum_sources()
+    if sources is None:
+        return
+    try:
+        for source in sources:
+            name = obs.obs_source_get_name(source) or ""
+            if not SOURCE_NAME_PATTERN.fullmatch(name):
+                continue
+            if obs.obs_source_get_id(source) != "ffmpeg_source":
+                continue
+            obs.obs_source_remove(source)
+    finally:
+        obs.source_list_release(sources)
+
+
 def _apply_source_audio_settings():
     source = obs.obs_get_source_by_name(SOURCE_NAME)
     if source is None:
@@ -261,15 +302,38 @@ def _apply_source_audio_settings():
     obs.obs_source_release(source)
 
 
-def _remove_source():
-    source = obs.obs_get_source_by_name(SOURCE_NAME)
-    if source is not None:
-        obs.obs_source_remove(source)
+def _clear_source_file(source=None):
+    owned_reference = source is None
+    if source is None:
+        source = obs.obs_get_source_by_name(SOURCE_NAME)
+    if source is None:
+        return
+    obs.obs_source_media_stop(source)
+    settings = obs.obs_data_create()
+    obs.obs_data_set_string(settings, "local_file", "")
+    obs.obs_source_update(source, settings)
+    obs.obs_data_release(settings)
+    if owned_reference:
         obs.obs_source_release(source)
 
 
 def _main_tick():
-    global current_wav, current_started, current_seen_playing, current_last_restart
+    global frontend_ready, current_wav, current_started, current_seen_playing
+    global current_last_restart
+
+    if not frontend_ready:
+        # Al cargar el script manualmente, OBS ya emitió FINISHED_LOADING. En
+        # ese caso esperamos dos segundos y exigimos que la escena destino esté
+        # presente antes de permitir la creación. Durante el arranque normal el
+        # evento anterior habilita esta ruta sin demora ni carreras.
+        if time.monotonic() - loaded_at < 2.0:
+            return
+        scene_source = obs.obs_get_source_by_name(SCENE_NAME)
+        if scene_source is None:
+            return
+        obs.obs_source_release(scene_source)
+        frontend_ready = True
+        _ensure_source()
 
     source = obs.obs_get_source_by_name(SOURCE_NAME)
     if source is None:
@@ -308,6 +372,7 @@ def _main_tick():
         except OSError:
             pass
         current_wav = None
+        _clear_source_file(source)
 
     try:
         wav_path = ready_queue.get_nowait()
