@@ -172,6 +172,9 @@ in
     grok-cli
     codexLatest
     zoom-us
+    # Orca ADE: distribución oficial Linux AppImage, empaquetada localmente
+    # porque nixpkgs solo ofrece el lector de pantalla GNOME homónimo.
+    (pkgs.callPackage ../../pkgs/orca { })
     prismlauncher
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.

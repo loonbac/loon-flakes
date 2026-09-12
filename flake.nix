@@ -163,6 +163,7 @@
         zen-browser = zen-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
+        orca = pkgs.callPackage ./pkgs/orca { };
         # Notificador de batería baja crítica (<=10%)
         battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
         # Lanza apps de Android (Waydroid) levantando contenedor+sesión bajo demanda.
