@@ -43,6 +43,7 @@ in
   programs.obs-studio.package = obsWithTwitchGladosTts;
   programs.obs-studio.plugins = [
     obsAitumVertical
+    pkgs.obs-studio-plugins.obs-aitum-multistream
     obsAudioMonitor
     obsNiriWindowCapture
     obsNvidiaRuntime
