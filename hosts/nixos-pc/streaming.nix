@@ -3,6 +3,7 @@
 
 let
   twitchGladosTts = pkgs.callPackage ../../pkgs/obs-twitch-glados-tts { };
+  obsAitumVertical = pkgs.callPackage ../../pkgs/obs-aitum-vertical { };
   obsAudioMonitor = pkgs.callPackage ../../pkgs/obs-audio-monitor { };
   obsNiriWindowCapture = pkgs.callPackage ../../pkgs/obs-niri-window-capture { };
 
@@ -41,6 +42,7 @@ in
   programs.obs-pwvideo.enable = true;
   programs.obs-studio.package = obsWithTwitchGladosTts;
   programs.obs-studio.plugins = [
+    obsAitumVertical
     obsAudioMonitor
     obsNiriWindowCapture
     obsNvidiaRuntime
