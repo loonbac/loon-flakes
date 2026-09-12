@@ -57,7 +57,7 @@ let
         install -Dm0644 ${../../../pkgs/equibop-obs-overlay/renderer.js} "$TMPDIR/equibop-asar/dist/js/obs-overlay-renderer.js"
         cat ${../../../pkgs/equibop-voice-normalizer/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
         cat ${../../../pkgs/equibop-voice-normalizer/preload.js} >> "$TMPDIR/equibop-asar/dist/js/preload.js"
-        install -Dm0644 ${../../../pkgs/equibop-voice-normalizer/renderer.js} "$TMPDIR/equibop-asar/dist/js/voice-normalizer-renderer.js"
+        install -Dm0644 ${voice-normalizer}/share/equibop-voice-normalizer/renderer.js "$TMPDIR/equibop-asar/dist/js/voice-normalizer-renderer.js"
 
         asar pack "$TMPDIR/equibop-asar" "$out/opt/Equibop/resources/app.asar"
 

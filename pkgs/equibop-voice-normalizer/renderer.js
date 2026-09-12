@@ -5,23 +5,28 @@
 
   const CONFIG = Object.freeze({
     noiseGateDb: -55,
-    minVolume: 35,
-    maxVolume: 200,
-    minimumSamples: 8,
-    sampleWindow: 30,
+    minVolume: 5,
+    maxVolume: 800,
+    minimumSamples: 4,
+    sampleWindow: 12,
     percentile: 0.7,
     intervalMs: 100,
-    applyEveryMs: 300,
+    applyEveryMs: 100,
     quietHoldMs: 1600,
-    volumeStep: 8
+    boostStepDb: 1.2,
+    cutStepDb: 3
   });
   const STORAGE_KEY = "equibop.voiceNormalizer.config.v1";
-  const runtimeConfig = { enabled: true, targetDb: -24 };
+  const runtimeConfig = { enabled: true, targetDb: -24, position: null };
+  const audio = createNormalizerAudio();
 
   try {
     const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "{}");
     if (typeof saved.enabled === "boolean") runtimeConfig.enabled = saved.enabled;
     if (Number.isFinite(saved.targetDb)) runtimeConfig.targetDb = clamp(saved.targetDb, -36, -12);
+    if (Number.isFinite(saved.position?.x) && Number.isFinite(saved.position?.y)) {
+      runtimeConfig.position = saved.position;
+    }
   } catch (_) {}
 
   const states = new Map();
@@ -35,6 +40,8 @@
   let controlButton = null;
   let controlTarget = null;
   let documentClickHandler = null;
+  let resizeHandler = null;
+  let controlStatus = null;
   let nativeMediaEngine = null;
   let voiceActivityHandler = null;
   let statsPollRunning = false;
@@ -110,14 +117,15 @@
     return sorted[index];
   }
 
-  function desiredVolume(measuredDb) {
+  function desiredVolume(measuredDb, maximum = CONFIG.maxVolume) {
     const gainDb = runtimeConfig.targetDb - measuredDb;
-    return clamp(100 * Math.pow(10, gainDb / 20), CONFIG.minVolume, CONFIG.maxVolume);
+    return clamp(100 * Math.pow(10, gainDb / 20), CONFIG.minVolume, maximum);
   }
 
   function activityToDb(value) {
     if (!Number.isFinite(value)) return null;
-    if (value <= 0) return clamp(value, -100, 0);
+    if (value === 0) return -100;
+    if (value < 0) return clamp(value, -100, 0);
     // Algunas versiones entregan amplitud lineal 0..1 en vez de dBFS.
     if (value <= 1) return clamp(20 * Math.log10(Math.max(value, 0.00001)), -100, 0);
     return null;
@@ -159,7 +167,7 @@
   function statsValueToDb(key, value) {
     if (!Number.isFinite(value)) return null;
     const name = String(key || "").toLowerCase();
-    if (!/(audio.*level|level.*audio|voice.*level|volume|rms)/.test(name)) return null;
+    if (!/(audio.*level|level.*audio|voice.*level|rms)/.test(name)) return null;
     if (value >= 0 && value <= 1) {
       return value === 0 ? -100 : clamp(20 * Math.log10(value), -100, 0);
     }
@@ -231,10 +239,8 @@
   }
 
   function setUserVolume(userId, volume) {
-    if (typeof stores?.mediaActions?.setLocalVolume === "function") {
-      stores.mediaActions.setLocalVolume(userId, volume);
-      return;
-    }
+    // La acción pública además sincroniza preferencias remotas. El evento local
+    // actualiza Store y motor sin guardar cada paso automático en Discord.
     if (typeof stores?.dispatcher?.dispatch === "function") {
       stores.dispatcher.dispatch({
         type: "AUDIO_SET_LOCAL_VOLUME",
@@ -242,6 +248,10 @@
         volume,
         context: "default"
       });
+      return;
+    }
+    if (typeof stores?.mediaActions?.setLocalVolume === "function") {
+      stores.mediaActions.setLocalVolume(userId, volume);
       return;
     }
     throw new Error("No está disponible la acción de volumen de Discord");
@@ -263,6 +273,7 @@
   function restoreAll() {
     for (const [userId, state] of states) restore(userId, state);
     states.clear();
+    audio.stop();
   }
 
   function updateControl(inCall = Boolean(voiceChannelId())) {
@@ -273,26 +284,38 @@
       controlButton.dataset.enabled = String(runtimeConfig.enabled);
     }
     if (controlTarget) controlTarget.textContent = `${runtimeConfig.targetDb} dB`;
+    if (controlStatus) {
+      const values = [...states.values()];
+      const measured = values.filter(state => state.speaking);
+      const limited = values.filter(state => state.speaking && state.appliedVolume >= (state.audioRoute ? CONFIG.maxVolume : 200));
+      controlStatus.textContent = !runtimeConfig.enabled ? "Pausado"
+        : measured.length ? `${measured.length} ${measured.length === 1 ? "voz" : "voces"} · ${values.filter(state => state.audioRoute).length} rutas de audio reales${limited.length ? " · ganancia máxima alcanzada" : ""}`
+        : "Esperando voz";
+      const errors = values.some(state => state.error);
+      if (errors) controlStatus.textContent = "No se pudo aplicar el ajuste de audio";
+    }
   }
 
   function createControl() {
     controlHost?.remove();
     controlHost = document.createElement("div");
     controlHost.id = "equibop-voice-normalizer-control";
-    controlHost.style.cssText = "position:fixed;right:16px;bottom:82px;z-index:10000;display:none";
+    controlHost.style.cssText = "position:fixed;width:max-content;left:8px;bottom:90px;z-index:10000;display:none";
     const shadow = controlHost.attachShadow({ mode: "open" });
     shadow.innerHTML = `
       <style>
         :host { color-scheme: dark; font: 13px/1.35 system-ui, sans-serif; }
         button, input { font: inherit; }
-        #toggle {
+        #toggle, #move {
           border: 1px solid #5d6070; border-radius: 7px; padding: 6px 9px;
           color: #fff; background: #2b2d31; cursor: pointer;
           box-shadow: 0 3px 12px #0008;
         }
         #toggle[data-enabled="true"] { border-color: #7ca2e0; color: #dce8ff; }
+        #move { cursor: grab; touch-action: none; user-select: none; padding-inline: 6px; }
+        #move:active { cursor: grabbing; }
         #panel {
-          display: none; position: absolute; right: 0; bottom: 38px; width: 250px;
+          display: none; position: fixed; width: min(250px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto;
           box-sizing: border-box; padding: 12px; border: 1px solid #4e5058;
           border-radius: 9px; background: #1e1f22; color: #dbdee1;
           box-shadow: 0 8px 28px #000a;
@@ -305,7 +328,8 @@
         input[type="range"] { width: 100%; accent-color: #7ca2e0; }
         .hint { margin-top: 7px; color: #949ba4; font-size: 11px; }
       </style>
-      <button id="toggle" type="button" aria-label="Configurar normalizador de voz"></button>
+      <button id="move" type="button" aria-label="Mover normalizador; usa las flechas o arrastra" title="Arrastra para mover; también puedes usar las flechas">⠿</button>
+      <button id="toggle" type="button" aria-expanded="false" aria-label="Configurar normalizador de voz"></button>
       <section id="panel" aria-label="Normalizador de voz">
         <div class="title">Normalizador por usuario</div>
         <label class="row"><span>Activado</span><input id="enabled" type="checkbox"></label>
@@ -314,19 +338,70 @@
           <input id="target" type="range" min="-36" max="-12" step="1">
         </div>
         <div class="hint">Más cerca de −12 dB suena más fuerte. El ajuste se guarda localmente.</div>
+        <div class="hint" id="status" role="status"></div>
       </section>`;
 
     controlButton = shadow.getElementById("toggle");
     controlTarget = shadow.getElementById("targetValue");
+    controlStatus = shadow.getElementById("status");
     const panel = shadow.getElementById("panel");
+    const move = shadow.getElementById("move");
     const enabled = shadow.getElementById("enabled");
     const target = shadow.getElementById("target");
     enabled.checked = runtimeConfig.enabled;
     target.value = String(runtimeConfig.targetDb);
 
+    const placePanel = () => {
+      const rect = controlHost.getBoundingClientRect();
+      panel.style.left = `${clamp(rect.left, 8, Math.max(8, window.innerWidth - panel.offsetWidth - 8))}px`;
+      const above = rect.top - panel.offsetHeight - 8;
+      panel.style.top = `${clamp(above >= 8 ? above : rect.bottom + 8, 8, Math.max(8, window.innerHeight - panel.offsetHeight - 8))}px`;
+    };
+    const place = (x, y) => {
+      const rect = controlHost.getBoundingClientRect();
+      runtimeConfig.position = {
+        x: clamp(x, 8, Math.max(8, window.innerWidth - rect.width - 8)),
+        y: clamp(y, 8, Math.max(8, window.innerHeight - rect.height - 8))
+      };
+      controlHost.style.left = `${runtimeConfig.position.x}px`;
+      controlHost.style.top = `${runtimeConfig.position.y}px`;
+      controlHost.style.bottom = "auto";
+      placePanel();
+    };
+    let drag = null;
+    move.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      const rect = controlHost.getBoundingClientRect();
+      drag = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      move.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    move.addEventListener("pointermove", event => {
+      if (drag) place(event.clientX - drag.x, event.clientY - drag.y);
+    });
+    const endDrag = () => { if (drag) saveConfig(); drag = null; };
+    move.addEventListener("pointerup", endDrag);
+    move.addEventListener("pointercancel", endDrag);
+    move.addEventListener("lostpointercapture", endDrag);
+    move.addEventListener("keydown", event => {
+      const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      const rect = controlHost.getBoundingClientRect();
+      place(rect.left + delta[0], rect.top + delta[1]);
+      saveConfig();
+    });
+    resizeHandler = () => {
+      if (runtimeConfig.position) place(runtimeConfig.position.x, runtimeConfig.position.y);
+      else placePanel();
+    };
+    window.addEventListener("resize", resizeHandler);
+
     controlButton.addEventListener("click", event => {
       event.stopPropagation();
       panel.classList.toggle("open");
+      controlButton.setAttribute("aria-expanded", String(panel.classList.contains("open")));
+      placePanel();
     });
     enabled.addEventListener("change", () => {
       runtimeConfig.enabled = enabled.checked;
@@ -340,11 +415,15 @@
       updateControl();
     });
     documentClickHandler = event => {
-      if (!event.composedPath().includes(controlHost)) panel.classList.remove("open");
+      if (!event.composedPath().includes(controlHost)) {
+        panel.classList.remove("open");
+        controlButton.setAttribute("aria-expanded", "false");
+      }
     };
     document.addEventListener("click", documentClickHandler);
     document.documentElement.appendChild(controlHost);
     updateControl();
+    resizeHandler();
   }
 
   function restore(userId, state) {
@@ -365,6 +444,7 @@
     const now = Date.now();
     void pollConnectionStats(now);
     const seen = new Set();
+    const connections = [...(nativeMediaEngine?.connections || [])];
     let channelStates = [];
     let rtcParticipants = [];
     let speakingParticipants = [];
@@ -426,12 +506,16 @@
       const eventDb = activity && now - activity.at <= CONFIG.quietHoldMs
         ? (Number.isFinite(activity.db) ? activity.db : activityToDb(activity.value))
         : null;
-      const voiceDb = Number.isFinite(participant?.voiceDb)
+      let direct = null;
+      try { direct = audio.measure(connections, userId); state.error = null; }
+      catch (_) { state.error = "audio"; }
+      state.audioRoute = Boolean(direct);
+      const voiceDb = direct ? direct.db : Number.isFinite(participant?.voiceDb)
         ? clamp(participant.voiceDb, -100, 0)
         : (eventDb ?? -100);
       const recentlyActive = Boolean(activity && now - activity.at <= 350);
       const speaking = Boolean(
-        participant?.speaking
+        direct ? direct.db >= CONFIG.noiseGateDb : participant?.speaking
         || rtcByUser.has(userId) && speakingParticipants.includes(participant)
         || recentlyActive
       )
@@ -440,6 +524,7 @@
       state.speaking = speaking;
 
       if (speaking) {
+        if (now - state.lastVoiceAt > CONFIG.quietHoldMs) state.samples = [];
         state.lastVoiceAt = now;
         state.samples.push(voiceDb);
         if (state.samples.length > CONFIG.sampleWindow) state.samples.shift();
@@ -452,23 +537,36 @@
         || now - state.lastApplyAt < CONFIG.applyEveryMs
       ) continue;
 
-      let target = desiredVolume(state.measuredDb);
-      const delta = clamp(target - state.appliedVolume, -CONFIG.volumeStep, CONFIG.volumeStep);
-      target = Math.round((state.appliedVolume + delta) * 10) / 10;
+      let target = desiredVolume(state.measuredDb, state.audioRoute ? CONFIG.maxVolume : 200);
+      // Pasos en dB: convergencia independiente del porcentaje inicial. Reduce
+      // voces fuertes más rápido de lo que amplifica voces bajas.
+      const current = Math.max(CONFIG.minVolume, state.appliedVolume);
+      const deltaDb = clamp(20 * Math.log10(target / current), -CONFIG.cutStepDb, CONFIG.boostStepDb);
+      target = Math.round(current * Math.pow(10, deltaDb / 20) * 10) / 10;
       try {
         // Cambiar el volumen local no quita el silencio local del participante;
         // Discord mantiene ambos estados por separado.
+        // Un cero elegido manualmente equivale a silencio; no volver a subirlo.
+        if (getUserVolume(userId) === 0) continue;
         setUserVolume(userId, target);
-        state.appliedVolume = target;
+        const readback = getUserVolume(userId);
+        if (!Number.isFinite(readback) || Math.abs(readback - target) > 2) {
+          state.error = "volume";
+          continue;
+        }
+        state.appliedVolume = readback;
         state.lastApplyAt = now;
-      } catch (_) {}
+      } catch (_) { state.error = "volume"; }
     }
 
     for (const [userId, state] of states) {
       if (seen.has(userId)) continue;
       restore(userId, state);
       states.delete(userId);
+      activityLevels.delete(userId);
+      statsLevels.delete(userId);
     }
+    audio.prune(connections, seen);
   }
 
   function publish() {
@@ -524,10 +622,12 @@
     detachVoiceActivity();
     restoreAll();
     if (documentClickHandler) document.removeEventListener("click", documentClickHandler);
+    if (resizeHandler) window.removeEventListener("resize", resizeHandler);
     controlHost?.remove();
     controlHost = null;
     controlButton = null;
     controlTarget = null;
+    controlStatus = null;
     documentClickHandler = null;
     bootTimer = null;
     controlTimer = null;

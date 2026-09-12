@@ -673,12 +673,28 @@ ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/p
 > valor que funciona con VPNs es `default_public_and_private_interfaces`.
 
 El paquete local `pkgs/equibop-voice-normalizer/` añade normalización de
-recepción por participante. Usa el `voiceDb` individual de Discord, descarta
-silencio bajo `-55 dB`, suaviza 30 muestras y ajusta sólo el volumen local del
-usuario entre 35 % y 200 %. Durante una llamada aparece el control `N -24 dB`:
+recepción por participante. En WebRTC mide RMS antes de la ganancia y procesa
+cada receptor con Web Audio: así el 200 % también amplifica realmente, sin el
+límite al 100 % del elemento HTML de Discord. Conserva el dispositivo de salida,
+silencios, ensordecimiento y volumen maestro; incluye un limitador suave de picos.
+Descarta silencio bajo `-55 dB`, suaviza hasta 12 muestras y ajusta sólo el volumen
+local del usuario entre 5 % y 800 % (como máximo +18 dB de ganancia individual).
+Corrige cada 100 ms en pasos de dB, reduciendo más rápido que amplificando.
+Las voces que necesiten más ganancia pueden quedar debajo del objetivo; el panel
+indica ese límite. Con otro motor usa los niveles de recepción de Discord y
+conserva el máximo de 200 %.
+Durante una llamada aparece el control `N -24 dB`:
 permite activar/pausar el normalizador y mover el objetivo entre `-36 dB` y
 `-12 dB`; la preferencia se conserva en el almacenamiento local de Discord.
-Al salir del canal o desactivarlo se restauran los volúmenes anteriores.
+El asa `⠿` permite arrastrarlo o moverlo con las flechas; recuerda la posición
+y mantiene el panel dentro de la ventana. Empieza abajo a la izquierda.
+Al salir del canal o desactivarlo se restauran los volúmenes anteriores y se
+liberan las rutas de audio. Un volumen manual de cero permanece silenciado.
+El renderer se recarga en vivo al aplicar el flake, sin reiniciar Equibop.
+Validación local: `node --test pkgs/equibop-voice-normalizer/normalizer.test.cjs`.
+`browser-check.cjs` comprueba PCM real (voces bajas y fuertes al mismo objetivo),
+arrastre, persistencia, redimensionado y desactivación con Chromium y Playwright;
+acepta `PLAYWRIGHT_MODULE` con la ruta de una instalación de Playwright para pruebas.
 
 En Linux, el paquete también asigna a los flujos de sonido la identidad
 `Equibop` en PulseAudio/PipeWire y mantiene `AudioService` dentro del proceso.
