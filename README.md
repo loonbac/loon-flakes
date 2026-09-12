@@ -677,11 +677,18 @@ recepción por participante. En WebRTC mide RMS antes de la ganancia y procesa
 cada receptor con Web Audio: así el 200 % también amplifica realmente, sin el
 límite al 100 % del elemento HTML de Discord. Conserva el dispositivo de salida,
 silencios, ensordecimiento y volumen maestro; incluye un limitador suave de picos.
-Descarta silencio bajo `-55 dB`, suaviza hasta 12 muestras y ajusta sólo el volumen
-local del usuario entre 5 % y 800 % (como máximo +18 dB de ganancia individual).
-Corrige cada 100 ms en pasos de dB, reduciendo más rápido que amplificando.
+Descarta silencio bajo `-55 dB` y ajusta cada voz entre 5 % y 800 % (como máximo
++18 dB de ganancia individual). Un `AudioWorklet` por receptor normaliza cada
+bloque en el hilo de audio, independientemente de los timers del chat. Atenúa más
+rápido que amplifica y conserva la ganancia durante los silencios. Las pruebas
+de cambios de nivel verifican convergencia al objetivo en 80 ms al bajar y
+350 ms al subir; son tiempos de prueba del normalizador, no latencia de red.
+El control muestra `Nϟ` cuando el procesador en tiempo real está activo.
+La barra de volumen de Discord se sincroniza cada 100 ms como indicación del
+ajuste; no controla la frecuencia de procesamiento del audio.
 Las voces que necesiten más ganancia pueden quedar debajo del objetivo; el panel
-indica ese límite. Con otro motor usa los niveles de recepción de Discord y
+indica ese límite. Si AudioWorklet no está disponible conserva el controlador
+compatible de 100 ms; con otro motor usa los niveles de recepción de Discord y
 conserva el máximo de 200 %.
 Durante una llamada aparece el control `N -24 dB`:
 permite activar/pausar el normalizador y mover el objetivo entre `-36 dB` y

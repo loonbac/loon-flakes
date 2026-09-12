@@ -4,6 +4,53 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const audioSource = fs.readFileSync(path.join(__dirname, 'audio.js'), 'utf8');
+const workletSource = fs.readFileSync(path.join(__dirname, 'worklet.js'), 'utf8');
+
+function realtimeFixture() {
+  let Processor;
+  vm.runInNewContext(`${workletSource}\ninstallRealtimeNormalizer()`, {
+    sampleRate: 48000,
+    AudioWorkletProcessor: class { constructor() { this.port = { postMessage() {} }; } },
+    registerProcessor(name, constructor) { Processor = constructor; }
+  });
+  const processor = new Processor({ processorOptions: { targetDb: -24, initialGain: 1 } });
+  let position = 0;
+  return {
+    processor,
+    run(amplitude, milliseconds) {
+      const blocks = Math.ceil(milliseconds * 48 / 128);
+      let power = 0;
+      for (let b = 0; b < blocks; b++) {
+        const input = Float32Array.from({length:128},()=>amplitude*Math.sin(2*Math.PI*1000*position++/48000));
+        const output = new Float32Array(128);
+        processor.process([[input]],[[output]]);
+        power = output.reduce((sum, value)=>sum+value*value,0)/128;
+      }
+      return power>0 ? 10*Math.log10(power) : -Infinity;
+    }
+  };
+}
+
+test('audio-thread AGC reaches target quickly in both directions without UI ticks', () => {
+  const f = realtimeFixture();
+  assert.ok(Math.abs(f.run(0.025,250)+24)<1);
+  const loudDb = f.run(0.5,80);
+  assert.ok(Math.abs(loudDb+24)<1, `loud after 80 ms: ${loudDb}`);
+  const quietDb = f.run(0.025,350);
+  assert.ok(Math.abs(quietDb+24)<1, `quiet after 350 ms: ${quietDb}`);
+});
+
+test('realtime silence holds gain, target changes propagate and stop releases processor', () => {
+  const f = realtimeFixture();
+  f.run(0.025,500);
+  const gain = f.processor.gain;
+  assert.equal(f.run(0,1000), -Infinity);
+  assert.equal(f.processor.gain,gain);
+  f.processor.port.onmessage({data:{targetDb:-18}});
+  assert.ok(Math.abs(f.run(0.025,350)+18)<1);
+  f.processor.port.onmessage({data:{stop:true}});
+  assert.equal(f.processor.process([],[]),false);
+});
 
 function fixture(contextName = 'default') {
   const nodes = [];

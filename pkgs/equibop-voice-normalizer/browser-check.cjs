@@ -2,15 +2,15 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const base = __dirname + '/';
-const script = `(() => { ${fs.readFileSync(base+'audio.js','utf8')}\n${fs.readFileSync(base+'renderer.js','utf8')} })();`;
+const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.readFileSync(base+file,'utf8')).join('\n')} })();`;
 (async () => {
   const browser = await chromium.launch({ executablePath: '/run/current-system/sw/bin/chromium', args: ['--autoplay-policy=no-user-gesture-required'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('http://normalizer.test/', route => route.fulfill({ contentType:'text/html', body:'<html><body>Chat de prueba</body></html>' }));
-    await page.goto('http://normalizer.test/');
+    await page.route('http://localhost/', route => route.fulfill({ contentType:'text/html', body:'<html><body>Chat de prueba</body></html>' }));
+    await page.goto('http://localhost/');
     await page.evaluate(async () => {
       const context = new AudioContext();
       await context.resume();
@@ -25,7 +25,7 @@ const script = `(() => { ${fs.readFileSync(base+'audio.js','utf8')}\n${fs.readFi
       await element.play();
       const output = { stream: destination.stream, audioElement:element, audioContext:context, _mute:false, _volume:100,
         updateAudioElement() { element.volume=this._volume/100; element.muted=this._mute; }, destroy() {} };
-      const connection = {context:'default', outputs:{other:output}, volume:100, computeLocalVolume() { return this.volume; }};
+      const connection = {context:'default', outputs:{other:output}, volume:100, getLocalVolume() { return this.volume; }, computeLocalVolume() { return this.volume; }};
       const engine = { connections:new Set([connection]), on(){}, off(){} };
       window.testFixture = { context, input, output, connection, originalStream:destination.stream };
       window.EquibopVoiceNormalizer = { publish(value) { window.metrics=value; } };
@@ -41,7 +41,7 @@ const script = `(() => { ${fs.readFileSync(base+'audio.js','utf8')}\n${fs.readFi
     await page.evaluate(script);
     await page.waitForFunction(() => window.metrics?.participants[0]?.volume > 340, null, {timeout:12000});
     const status = await page.locator('#status').textContent();
-    assert.match(status, /1 rutas de audio reales/);
+    assert.match(status, /1 en tiempo real/);
     assert.equal(await page.evaluate(() => testFixture.output.audioElement.srcObject === testFixture.originalStream),false);
     // Read actual PCM after the gain, before playback: compare input/output RMS.
     const pcm = await page.evaluate(async () => {
@@ -73,6 +73,21 @@ const script = `(() => { ${fs.readFileSync(base+'audio.js','utf8')}\n${fs.readFi
       return Math.sqrt(values.reduce((sum,value)=>sum+value*value,0)/values.length);
     });
     assert.ok(Math.abs(20*Math.log10(loudPcm/pcm.output))<1,JSON.stringify({loudPcm,quietPcm:pcm.output}));
+    // A scheduled level change must be normalized while the UI thread is blocked.
+    const busyPcm = await page.evaluate(() => {
+      const { context, output, input } = testFixture;
+      const source = context.createMediaStreamSource(output.audioElement.srcObject);
+      const analyser = context.createAnalyser();
+      source.connect(analyser);
+      input.gain.setValueAtTime(0.025, context.currentTime+0.15);
+      const until = performance.now()+700;
+      while (performance.now()<until) {}
+      const values = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(values);
+      source.disconnect(); analyser.disconnect();
+      return Math.sqrt(values.reduce((sum,value)=>sum+value*value,0)/values.length);
+    });
+    assert.ok(Math.abs(20*Math.log10(busyPcm)+24)<1,JSON.stringify({busyPcm}));
     const handle=page.locator('#move');
     const before=await handle.boundingBox();
     await page.mouse.move(before.x+8,before.y+8);
@@ -106,6 +121,6 @@ const script = `(() => { ${fs.readFileSync(base+'audio.js','utf8')}\n${fs.readFi
     await page.evaluate(()=>window.__equibopVoiceNormalizerStop());
     assert.equal(await page.locator('#equibop-voice-normalizer-control').count(),0);
     assert.deepEqual(errors,[]);
-    console.log(JSON.stringify({pcm,amplification:pcm.output/pcm.input,loud,loudPcm,drag:{before,after,reloaded,resized},status,errors},null,2));
+    console.log(JSON.stringify({pcm,amplification:pcm.output/pcm.input,loud,loudPcm,busyPcm,drag:{before,after,reloaded,resized},status,errors},null,2));
   } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

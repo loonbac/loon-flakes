@@ -280,7 +280,7 @@
     if (!controlHost) return;
     controlHost.style.display = inCall ? "block" : "none";
     if (controlButton) {
-      controlButton.textContent = `${runtimeConfig.enabled ? "N" : "N×"} ${runtimeConfig.targetDb} dB`;
+      controlButton.textContent = `${runtimeConfig.enabled ? ([...states.values()].some(state => state.realtime) ? "Nϟ" : "N") : "N×"} ${runtimeConfig.targetDb} dB`;
       controlButton.dataset.enabled = String(runtimeConfig.enabled);
     }
     if (controlTarget) controlTarget.textContent = `${runtimeConfig.targetDb} dB`;
@@ -289,7 +289,7 @@
       const measured = values.filter(state => state.speaking);
       const limited = values.filter(state => state.speaking && state.appliedVolume >= (state.audioRoute ? CONFIG.maxVolume : 200));
       controlStatus.textContent = !runtimeConfig.enabled ? "Pausado"
-        : measured.length ? `${measured.length} ${measured.length === 1 ? "voz" : "voces"} · ${values.filter(state => state.audioRoute).length} rutas de audio reales${limited.length ? " · ganancia máxima alcanzada" : ""}`
+        : measured.length ? `${measured.length} ${measured.length === 1 ? "voz" : "voces"} · ${values.filter(state => state.realtime).length} en tiempo real${limited.length ? " · ganancia máxima alcanzada" : ""}`
         : "Esperando voz";
       const errors = values.some(state => state.error);
       if (errors) controlStatus.textContent = "No se pudo aplicar el ajuste de audio";
@@ -507,9 +507,10 @@
         ? (Number.isFinite(activity.db) ? activity.db : activityToDb(activity.value))
         : null;
       let direct = null;
-      try { direct = audio.measure(connections, userId); state.error = null; }
+      try { direct = audio.measure(connections, userId, runtimeConfig.targetDb); state.error = null; }
       catch (_) { state.error = "audio"; }
       state.audioRoute = Boolean(direct);
+      state.realtime = Boolean(direct?.realtime);
       const voiceDb = direct ? direct.db : Number.isFinite(participant?.voiceDb)
         ? clamp(participant.voiceDb, -100, 0)
         : (eventDb ?? -100);
@@ -528,14 +529,14 @@
         state.lastVoiceAt = now;
         state.samples.push(voiceDb);
         if (state.samples.length > CONFIG.sampleWindow) state.samples.shift();
-        state.measuredDb = percentile(state.samples);
+        state.measuredDb = direct?.realtime ? voiceDb : percentile(state.samples);
       }
 
-      if (
+      if (!direct?.realtime && (
         state.samples.length < CONFIG.minimumSamples
         || now - state.lastVoiceAt > CONFIG.quietHoldMs
         || now - state.lastApplyAt < CONFIG.applyEveryMs
-      ) continue;
+      )) continue;
 
       let target = desiredVolume(state.measuredDb, state.audioRoute ? CONFIG.maxVolume : 200);
       // Pasos en dB: convergencia independiente del porcentaje inicial. Reduce
@@ -543,6 +544,7 @@
       const current = Math.max(CONFIG.minVolume, state.appliedVolume);
       const deltaDb = clamp(20 * Math.log10(target / current), -CONFIG.cutStepDb, CONFIG.boostStepDb);
       target = Math.round(current * Math.pow(10, deltaDb / 20) * 10) / 10;
+      if (direct?.realtime) target = Math.round(direct.gain * 1000) / 10;
       try {
         // Cambiar el volumen local no quita el silencio local del participante;
         // Discord mantiene ambos estados por separado.
