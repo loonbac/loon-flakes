@@ -100,6 +100,10 @@ function createNormalizerAudio() {
     if (route.element.srcObject === route.destination.stream) {
       route.element.srcObject = output.stream;
     }
+    if (route.keepAlive) {
+      try { route.keepAlive.stop(); } catch (_) {}
+      route.keepAlive.disconnect();
+    }
     for (const node of [route.source, route.analyser, route.gain, route.limiter]) node.disconnect();
     for (const track of route.destination.stream.getTracks()) track.stop();
     route.originalUpdate.call(output);
@@ -122,12 +126,25 @@ function createNormalizerAudio() {
     limiter.curve = curve;
     limiter.oversample = "2x";
     const destination = context.createMediaStreamDestination();
+    // Chromium puede considerar inactivo un MediaStreamDestination silencioso
+    // y encorchar su salida Pulse/PipeWire. En ese estado la voz sólo reaparece
+    // brevemente cuando una notificación despierta AudioService. Una componente
+    // DC muy por debajo del piso audible mantiene el grafo demandado sin añadir
+    // sonido perceptible ni entrar al analizador/normalizador.
+    const keepAlive = typeof context.createConstantSource === "function"
+      ? context.createConstantSource()
+      : null;
+    if (keepAlive) {
+      keepAlive.offset.value = 0.0000001;
+      keepAlive.connect(destination);
+      keepAlive.start();
+    }
     source.connect(analyser);
     analyser.connect(gain);
     gain.connect(limiter);
     limiter.connect(destination);
     const route = {
-      source, analyser, gain, limiter, destination, context,
+      source, analyser, gain, limiter, destination, keepAlive, context,
       element: output.audioElement, samples: new Float32Array(analyser.fftSize),
       originalUpdate: output.updateAudioElement, originalDestroy: output.destroy
     };
@@ -153,7 +170,7 @@ function createNormalizerAudio() {
     output.destroy = route.destroy;
     route.element.srcObject = destination.stream;
     route.update.call(output);
-    ensurePlayback(route);
+    ensurePlayback(route, true);
     void enableRealtime(route, connection, userId, output);
     return route;
   }

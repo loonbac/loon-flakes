@@ -67,6 +67,12 @@ function fixture(contextName = 'default') {
     createAnalyser() { return Object.assign(node(), { getFloatTimeDomainData(data) { data.fill(0.1); } }); },
     createGain() { return Object.assign(node(), { gain: { value: 1, setTargetAtTime(value) { this.value = value; } } }); },
     createWaveShaper: node,
+    createConstantSource() {
+      return Object.assign(node(), {
+        offset: { value: 0 }, started: false, stopped: false,
+        start() { this.started = true; }, stop() { this.stopped = true; }
+      });
+    },
     createMediaStreamDestination() { return Object.assign(node(), { stream: { getTracks: () => tracks } }); }
   };
   const stream = { getAudioTracks: () => [{}] };
@@ -124,7 +130,11 @@ test('leaving, disabling and output destruction restore playback and release res
     assert.equal(f.element.srcObject, f.stream);
     assert.equal(f.output.updateAudioElement, original);
     assert.equal(f.tracks[0].stopped, true);
-    assert.equal(f.nodes.filter(n => n.disconnects).length, 4);
+    const keepAlive = f.nodes.find(node => node.offset);
+    assert.equal(keepAlive.offset.value, 0.0000001);
+    assert.equal(keepAlive.started, true);
+    assert.equal(keepAlive.stopped, true);
+    assert.equal(f.nodes.filter(n => n.disconnects).length, 5);
     if (mode === 'destroy') assert.equal(f.output.destroyed, true);
     f.adapter.stop();
   }
