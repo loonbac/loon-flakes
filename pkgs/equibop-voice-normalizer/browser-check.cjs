@@ -20,6 +20,20 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
       const destination = context.createMediaStreamDestination();
       oscillator.connect(input).connect(destination);
       oscillator.start();
+      // Espía la señal que el adaptador envía al destino real del contexto.
+      // La producción no crea este MediaStreamDestination: sólo existe aquí
+      // para poder verificar el PCM sin depender del hardware de la prueba.
+      const outputTap = context.createMediaStreamDestination();
+      const createWaveShaper = context.createWaveShaper.bind(context);
+      context.createWaveShaper = () => {
+        const node = createWaveShaper();
+        const connect = node.connect.bind(node);
+        node.connect = (target, ...args) => {
+          if (target === context.destination) connect(outputTap);
+          return connect(target, ...args);
+        };
+        return node;
+      };
       const element = new Audio();
       element.srcObject = destination.stream;
       await element.play();
@@ -27,7 +41,7 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
         updateAudioElement() { element.volume=this._volume/100; element.muted=this._mute; }, destroy() {} };
       const connection = {context:'default', outputs:{other:output}, volume:100, getLocalVolume() { return this.volume; }, computeLocalVolume() { return this.volume; }};
       const engine = { connections:new Set([connection]), on(){}, off(){} };
-      window.testFixture = { context, input, output, connection, originalStream:destination.stream };
+      window.testFixture = { context, input, output, connection, originalStream:destination.stream, outputStream:outputTap.stream };
       window.EquibopVoiceNormalizer = { publish(value) { window.metrics=value; } };
       window.Vencord = {Webpack:{ Common:{
         UserStore:{getCurrentUser:()=>({id:'self'}),getUser:()=>({})},
@@ -42,17 +56,18 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
     await page.waitForFunction(() => window.metrics?.participants[0]?.volume > 340, null, {timeout:12000});
     const status = await page.locator('#status').textContent();
     assert.match(status, /1 en tiempo real/);
-    assert.equal(await page.evaluate(() => testFixture.output.audioElement.srcObject === testFixture.originalStream),false);
+    assert.equal(await page.evaluate(() => testFixture.output.audioElement.srcObject === testFixture.originalStream),true);
+    assert.equal(await page.evaluate(() => testFixture.output.audioElement.paused),true);
     // Discord/Chromium puede suspender el AudioContext al quedar inactivo. La
     // ruta debe despertarse sola, sin depender del sonido de una notificación.
     await page.evaluate(() => testFixture.context.suspend());
     await page.waitForFunction(() => testFixture.context.state === 'running', null, {timeout:3000});
-    assert.equal(await page.evaluate(() => testFixture.output.audioElement.paused), false);
-    // Read actual PCM after the gain, before playback: compare input/output RMS.
+    assert.equal(await page.evaluate(() => testFixture.output.audioElement.paused), true);
+    // Read actual PCM from the test tap after the gain: compare input/output RMS.
     const pcm = await page.evaluate(async () => {
-      const {context,output,originalStream}=testFixture;
+      const {context,outputStream,originalStream}=testFixture;
       const a=context.createAnalyser(), b=context.createAnalyser();
-      const sourceA=context.createMediaStreamSource(originalStream), sourceB=context.createMediaStreamSource(output.audioElement.srcObject);
+      const sourceA=context.createMediaStreamSource(originalStream), sourceB=context.createMediaStreamSource(outputStream);
       sourceA.connect(a); sourceB.connect(b);
       await new Promise(resolve=>setTimeout(resolve,350));
       const rms=n=>{const values=new Float32Array(n.fftSize); n.getFloatTimeDomainData(values); return Math.sqrt(values.reduce((s,v)=>s+v*v,0)/values.length);};
@@ -67,8 +82,8 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
     assert.ok(loud.volume>10, JSON.stringify(loud));
     assert.ok(Math.abs(loud.measured_db + 20*Math.log10(loud.volume/100)+24)<1, JSON.stringify(loud));
     const loudPcm = await page.evaluate(async () => {
-      const { context, output } = testFixture;
-      const source = context.createMediaStreamSource(output.audioElement.srcObject);
+      const { context, outputStream } = testFixture;
+      const source = context.createMediaStreamSource(outputStream);
       const analyser = context.createAnalyser();
       source.connect(analyser);
       await new Promise(resolve=>setTimeout(resolve,350));
@@ -80,8 +95,8 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
     assert.ok(Math.abs(20*Math.log10(loudPcm/pcm.output))<1,JSON.stringify({loudPcm,quietPcm:pcm.output}));
     // A scheduled level change must be normalized while the UI thread is blocked.
     const busyPcm = await page.evaluate(() => {
-      const { context, output, input } = testFixture;
-      const source = context.createMediaStreamSource(output.audioElement.srcObject);
+      const { context, outputStream, input } = testFixture;
+      const source = context.createMediaStreamSource(outputStream);
       const analyser = context.createAnalyser();
       source.connect(analyser);
       input.gain.setValueAtTime(0.025, context.currentTime+0.15);
@@ -116,6 +131,7 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
     await page.locator('#toggle').click();
     await page.locator('#enabled').uncheck();
     assert.equal(await page.evaluate(()=>testFixture.output.audioElement.srcObject===testFixture.originalStream),true);
+    assert.equal(await page.evaluate(()=>testFixture.output.audioElement.paused),false);
     assert.equal(await page.evaluate(()=>testFixture.connection.volume),100);
     await page.evaluate(()=>{testFixture.connection.volume=0;testFixture.output._volume=0;testFixture.output.updateAudioElement();});
     await page.locator('#enabled').check();

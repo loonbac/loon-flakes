@@ -18,15 +18,36 @@ function createNormalizerAudio() {
   function ensurePlayback(route, forcePlay = false) {
     if (route.context.state === "suspended" && !route.resumePending) {
       route.resumePending = Promise.resolve(route.context.resume?.())
-        .then(() => route.element.play?.())
         .catch(() => {})
         .finally(() => { route.resumePending = null; });
       return;
     }
-    if (route.context.state === "running" && (forcePlay || route.element.paused) && !route.playPending) {
-      route.playPending = Promise.resolve(route.element.play?.())
-        .catch(() => {})
-        .finally(() => { route.playPending = null; });
+    if (route.context.state === "running" && forcePlay) {
+      try { route.element.pause?.(); } catch (_) {}
+    }
+  }
+
+  function syncOutputDevice(route) {
+    const sinkId = route.element.sinkId || "default";
+    if (typeof route.context.setSinkId !== "function"
+        || route.context.sinkId === sinkId || route.pendingSinkId === sinkId) return;
+    route.pendingSinkId = sinkId;
+    Promise.resolve(route.context.setSinkId(sinkId))
+      .catch(() => {})
+      .finally(() => {
+        if (route.pendingSinkId === sinkId) route.pendingSinkId = null;
+      });
+  }
+
+  function restoreNativePlayback(route, output) {
+    route.element.srcObject = output.stream;
+    route.originalUpdate.call(output);
+    Promise.resolve(route.element.play?.()).catch(() => {});
+  }
+
+  function stopRouteNodes(route) {
+    for (const node of [route.source, route.analyser, route.gain, route.limiter]) {
+      try { node.disconnect(); } catch (_) {}
     }
   }
 
@@ -97,16 +118,8 @@ function createNormalizerAudio() {
       output.updateAudioElement = route.originalUpdate;
     }
     if (output.destroy === route.destroy) output.destroy = route.originalDestroy;
-    if (route.element.srcObject === route.destination.stream) {
-      route.element.srcObject = output.stream;
-    }
-    if (route.keepAlive) {
-      try { route.keepAlive.stop(); } catch (_) {}
-      route.keepAlive.disconnect();
-    }
-    for (const node of [route.source, route.analyser, route.gain, route.limiter]) node.disconnect();
-    for (const track of route.destination.stream.getTracks()) track.stop();
-    route.originalUpdate.call(output);
+    stopRouteNodes(route);
+    restoreNativePlayback(route, output);
   }
 
   function attach(connection, userId) {
@@ -134,26 +147,16 @@ function createNormalizerAudio() {
     const limiter = context.createWaveShaper();
     limiter.curve = curve;
     limiter.oversample = "2x";
-    const destination = context.createMediaStreamDestination();
-    // Chromium puede considerar inactivo un MediaStreamDestination silencioso
-    // y encorchar su salida Pulse/PipeWire. En ese estado la voz sólo reaparece
-    // brevemente cuando una notificación despierta AudioService. Una componente
-    // DC muy por debajo del piso audible mantiene el grafo demandado sin añadir
-    // sonido perceptible ni entrar al analizador/normalizador.
-    const keepAlive = typeof context.createConstantSource === "function"
-      ? context.createConstantSource()
-      : null;
-    if (keepAlive) {
-      keepAlive.offset.value = 0.0000001;
-      keepAlive.connect(destination);
-      keepAlive.start();
-    }
     source.connect(analyser);
     analyser.connect(gain);
     gain.connect(limiter);
-    limiter.connect(destination);
+    // MediaStreamDestination -> HTMLAudio queda ocasionalmente encorchado en
+    // Chromium/PipeWire aunque la pista WebRTC siga viva. Reproducir el grafo
+    // directamente en el destino del AudioContext mantiene el normalizador en
+    // la ruta de Equibop y deja que PipeWire duplique esa aplicación hacia OBS.
+    limiter.connect(context.destination);
     const route = {
-      source, analyser, gain, limiter, destination, keepAlive, context,
+      source, analyser, gain, limiter, context,
       inputStream: output.stream, inputTrack,
       element: output.audioElement, samples: new Float32Array(analyser.fftSize),
       originalUpdate: output.updateAudioElement, originalDestroy: output.destroy
@@ -168,7 +171,11 @@ function createNormalizerAudio() {
       // aplicarla una segunda vez.
       const amplitude = this._mute || !Number.isFinite(volume) || !(local > 0) ? 0 : Math.max(0, volume / local);
       gain.gain.setTargetAtTime(amplitude, context.currentTime, 0.035);
-      route.element.volume = 1;
+      syncOutputDevice(route);
+      // La reproducción nativa queda pausada para evitar oír la pista dos
+      // veces; el AudioContext es quien entrega la versión normalizada.
+      try { route.element.pause?.(); } catch (_) {}
+      route.element.volume = 0;
       return result;
     };
     route.destroy = function (...args) {
@@ -178,7 +185,6 @@ function createNormalizerAudio() {
     routes.set(output, route);
     output.updateAudioElement = route.update;
     output.destroy = route.destroy;
-    route.element.srcObject = destination.stream;
     route.update.call(output);
     ensurePlayback(route, true);
     void enableRealtime(route, connection, userId, output);
