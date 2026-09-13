@@ -43,6 +43,11 @@ const script = `(() => { ${['worklet.js','audio.js','renderer.js'].map(file=>fs.
     const status = await page.locator('#status').textContent();
     assert.match(status, /1 en tiempo real/);
     assert.equal(await page.evaluate(() => testFixture.output.audioElement.srcObject === testFixture.originalStream),false);
+    // Discord/Chromium puede suspender el AudioContext al quedar inactivo. La
+    // ruta debe despertarse sola, sin depender del sonido de una notificación.
+    await page.evaluate(() => testFixture.context.suspend());
+    await page.waitForFunction(() => testFixture.context.state === 'running', null, {timeout:3000});
+    assert.equal(await page.evaluate(() => testFixture.output.audioElement.paused), false);
     // Read actual PCM after the gain, before playback: compare input/output RMS.
     const pcm = await page.evaluate(async () => {
       const {context,output,originalStream}=testFixture;

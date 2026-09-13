@@ -15,8 +15,40 @@ function createNormalizerAudio() {
     return modules.get(context);
   }
 
+  function ensurePlayback(route, forcePlay = false) {
+    if (route.context.state === "suspended" && !route.resumePending) {
+      route.resumePending = Promise.resolve(route.context.resume?.())
+        .then(() => route.element.play?.())
+        .catch(() => {})
+        .finally(() => { route.resumePending = null; });
+      return;
+    }
+    if (route.context.state === "running" && (forcePlay || route.element.paused) && !route.playPending) {
+      route.playPending = Promise.resolve(route.element.play?.())
+        .catch(() => {})
+        .finally(() => { route.playPending = null; });
+    }
+  }
+
+  function disableRealtime(route, output) {
+    const processor = route.processor;
+    if (!processor) return;
+    try { processor.port.postMessage({ stop: true }); } catch (_) {}
+    try { processor.port.close(); } catch (_) {}
+    try { processor.disconnect(); } catch (_) {}
+    try { route.analyser.disconnect(); } catch (_) {}
+    route.analyser.connect(route.gain);
+    route.processor = null;
+    route.failed = true;
+    route.retryRealtimeAt = Date.now() + 3000;
+    route.update.call(output);
+    ensurePlayback(route, true);
+  }
+
   async function enableRealtime(route, connection, userId, output) {
-    if (!route.context.audioWorklet || typeof connection.getLocalVolume !== 'function') return;
+    if (route.processor || route.startingRealtime || !route.context.audioWorklet
+        || typeof connection.getLocalVolume !== 'function') return;
+    route.startingRealtime = true;
     try {
       await loadProcessor(route.context);
       if (routes.get(output) !== route) return;
@@ -25,24 +57,24 @@ function createNormalizerAudio() {
       });
       route.processor = processor;
       route.realtimeGain = Math.max(0.05, Math.min(8, connection.getLocalVolume(userId) / 100));
+      route.lastProcessAt = Date.now();
       processor.port.onmessage = ({ data }) => {
+        route.lastProcessAt = Date.now();
         if (Number.isFinite(data.gain)) route.realtimeGain = data.gain;
       };
-      processor.onprocessorerror = () => {
-        processor.port.postMessage({ stop: true });
-        processor.port.close();
-        processor.disconnect();
-        route.analyser.disconnect();
-        route.analyser.connect(route.gain);
-        route.processor = null;
-        route.failed = true;
-        route.update.call(output);
-      };
+      processor.onprocessorerror = () => disableRealtime(route, output);
       route.analyser.disconnect();
       route.analyser.connect(processor);
       processor.connect(route.gain);
+      route.failed = false;
       route.update.call(output);
-    } catch (_) { route.failed = true; }
+      ensurePlayback(route);
+    } catch (_) {
+      route.failed = true;
+      route.retryRealtimeAt = Date.now() + 3000;
+    } finally {
+      route.startingRealtime = false;
+    }
   }
   // Limitador suave con ganancia unitaria para voz normal. El compresor nativo
   // añade makeup gain automático y alteraría el objetivo incluso bajo el umbral.
@@ -121,7 +153,7 @@ function createNormalizerAudio() {
     output.destroy = route.destroy;
     route.element.srcObject = destination.stream;
     route.update.call(output);
-    route.element.play()?.catch(() => {});
+    ensurePlayback(route);
     void enableRealtime(route, connection, userId, output);
     return route;
   }
@@ -135,8 +167,18 @@ function createNormalizerAudio() {
       // Nunca interceptar audio de streams, soundboard ni nuestra propia entrada.
       const connection = connections.find(item => item?.context === "default" && item.outputs?.[userId]);
       if (!connection) return null;
+      const output = connection.outputs[userId];
       const route = attach(connection, userId);
-      if (!route || route.context.state !== "running") return null;
+      if (!route) return null;
+      ensurePlayback(route);
+      if (route.processor && Date.now() - route.lastProcessAt > 1500) {
+        disableRealtime(route, output);
+      }
+      if (!route.processor && !route.startingRealtime
+          && Date.now() >= (route.retryRealtimeAt || 0)) {
+        void enableRealtime(route, connection, userId, output);
+      }
+      if (route.context.state !== "running") return null;
       route.analyser.getFloatTimeDomainData(route.samples);
       const power = route.samples.reduce((sum, value) => sum + value * value, 0) / route.samples.length;
       return {
