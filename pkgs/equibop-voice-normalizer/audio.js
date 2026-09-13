@@ -111,11 +111,20 @@ function createNormalizerAudio() {
 
   function attach(connection, userId) {
     const output = connection.outputs?.[userId];
-    if (!output?.audioElement || !output.stream?.getAudioTracks().length
+    const inputTrack = output?.stream?.getAudioTracks?.()[0];
+    if (!output?.audioElement || !inputTrack
         || !output.audioContext || typeof connection.computeLocalVolume !== "function"
         || typeof output.updateAudioElement !== "function" || typeof output.destroy !== "function") return null;
     const previous = routes.get(output);
-    if (previous?.element === output.audioElement) return previous;
+    // Discord conserva el objeto output/audioElement, pero reemplaza el
+    // MediaStream o su pista al renegociar SSRCs y participantes. Reutilizar la
+    // ruta sólo por identidad del elemento deja el worklet leyendo una pista
+    // vieja: la voz reaparece brevemente con una notificación/desconexión y
+    // vuelve a quedar muda. La identidad completa evita esa ruta zombi.
+    if (previous?.element === output.audioElement
+        && previous.inputStream === output.stream
+        && previous.inputTrack === inputTrack
+        && inputTrack.readyState !== "ended") return previous;
     if (previous) detach(output);
     const context = output.audioContext;
     const source = context.createMediaStreamSource(output.stream);
@@ -145,6 +154,7 @@ function createNormalizerAudio() {
     limiter.connect(destination);
     const route = {
       source, analyser, gain, limiter, destination, keepAlive, context,
+      inputStream: output.stream, inputTrack,
       element: output.audioElement, samples: new Float32Array(analyser.fftSize),
       originalUpdate: output.updateAudioElement, originalDestroy: output.destroy
     };

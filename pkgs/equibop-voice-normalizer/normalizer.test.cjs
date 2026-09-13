@@ -75,7 +75,8 @@ function fixture(contextName = 'default') {
     },
     createMediaStreamDestination() { return Object.assign(node(), { stream: { getTracks: () => tracks } }); }
   };
-  const stream = { getAudioTracks: () => [{}] };
+  const sourceTrack = { readyState: 'live' };
+  const stream = { getAudioTracks: () => [sourceTrack] };
   const element = { srcObject: stream, volume: 1, muted: false, sinkId: 'headphones', play: () => Promise.resolve() };
   const output = { stream, audioContext: context, audioElement: element, _volume: 100, _mute: false,
     updateAudioElement() { this.audioElement.volume = this._volume / 100; this.audioElement.muted = this._mute; },
@@ -83,7 +84,7 @@ function fixture(contextName = 'default') {
   const connection = { context: contextName, outputs: { user: output }, volume: 200,
     computeLocalVolume() { return this.volume; } };
   const adapter = vm.runInNewContext(`${audioSource}\ncreateNormalizerAudio()`, { Float32Array });
-  return { adapter, output, connection, element, stream, nodes, tracks };
+  return { adapter, output, connection, element, stream, sourceTrack, nodes, tracks };
 }
 
 test('200% amplifies the audio route, while RMS is measured before gain', () => {
@@ -145,4 +146,21 @@ test('screen-share outputs and unknown users are not intercepted', () => {
   assert.equal(f.adapter.measure([f.connection], 'user'), null);
   assert.equal(f.adapter.measure([f.connection], 'other'), null);
   assert.equal(f.nodes.length, 0);
+});
+
+test('replaces a stale route when Discord swaps its MediaStream track', () => {
+  const f = fixture();
+  f.adapter.measure([f.connection], 'user');
+  const firstProcessedStream = f.element.srcObject;
+  const firstDestinationTrack = f.tracks[0];
+  const replacementTrack = { readyState: 'live' };
+  f.output.stream = { getAudioTracks: () => [replacementTrack] };
+
+  f.adapter.measure([f.connection], 'user');
+
+  assert.notEqual(f.element.srcObject, firstProcessedStream);
+  assert.equal(firstDestinationTrack.stopped, true);
+  const nodeCount = f.nodes.length;
+  f.adapter.measure([f.connection], 'user');
+  assert.equal(f.nodes.length, nodeCount, 'the replacement route remains stable');
 });
