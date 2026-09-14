@@ -55,6 +55,7 @@ let
     text = ''
       esp=/boot
       shim_dir="$esp/EFI/nixos-shim"
+      fallback_dir="$esp/EFI/BOOT"
       mok_dir=/var/lib/nixos-shim
       key="$mok_dir/mok.key"
       cert="$mok_dir/mok.pem"
@@ -79,8 +80,13 @@ let
       fi
 
       install -d -m0700 "$shim_dir"
+      install -d -m0700 "$fallback_dir"
       install -m0700 ${fedoraShim}/share/efi/shimx64.efi "$shim_dir/shimx64.efi"
       install -m0700 ${fedoraShim}/share/efi/mmx64.efi "$shim_dir/mmx64.efi"
+      # Mantener también la ruta removible estándar protege el arranque si
+      # una actualización del UEFI elimina las entradas NVRAM.
+      install -m0700 ${fedoraShim}/share/efi/shimx64.efi "$fallback_dir/BOOTX64.EFI"
+      install -m0700 ${fedoraShim}/share/efi/mmx64.efi "$fallback_dir/mmx64.efi"
 
       signed_loader=$(mktemp --tmpdir nixos-systemd-boot.XXXXXX.efi)
       trap 'rm -f "$signed_loader"' EXIT
@@ -90,6 +96,7 @@ let
         --output "$signed_loader" \
         "$unsigned_loader"
       install -m0700 "$signed_loader" "$shim_dir/grubx64.efi"
+      install -m0700 "$signed_loader" "$fallback_dir/grubx64.efi"
       openssl x509 -in "$cert" -outform DER -out "$shim_dir/loon-nixos-mok.der"
       chmod 0600 "$shim_dir/loon-nixos-mok.der"
       rm -f "$shim_dir/loon-nixos-db.der"
