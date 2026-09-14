@@ -34,9 +34,14 @@
     };
     # Gestión declarativa de aplicaciones Flatpak (juegos de nixos-pc).
     nix-flatpak.url = "github:gmodena/nix-flatpak/v0.7.0";
+    # Secure Boot para nixos-pc. Lanzaboote firma el cargador, kernel e initrd.
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v1.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak }:
+  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -215,7 +220,10 @@
 
       nixosConfigurations = {
         "loon-laptop" = mkHost "loon-laptop" [ ];
-        "nixos-pc" = mkHost "nixos-pc" [ nix-flatpak.nixosModules.nix-flatpak ];
+        "nixos-pc" = mkHost "nixos-pc" [
+          nix-flatpak.nixosModules.nix-flatpak
+          lanzaboote.nixosModules.lanzaboote
+        ];
         "korosoft" = mkHost "korosoft" [ ];
       };
     };

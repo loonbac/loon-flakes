@@ -1,5 +1,5 @@
 # Plataforma exclusiva de nixos-pc.
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 let
   ddcBrightness = pkgs.callPackage ../../pkgs/ddc-brightness {
@@ -7,10 +7,18 @@ let
   };
 in
 {
-  boot.loader.systemd-boot.enable = true;
-  # La ESP es de 196 MiB; conservar rollbacks suficientes sin saturarla con
-  # initrds de generaciones antiguas.
-  boot.loader.systemd-boot.configurationLimit = 10;
+  # Lanzaboote reemplaza al módulo systemd-boot y firma toda la cadena de
+  # arranque. En el primer switch permite instalar sin firma, genera las claves
+  # bajo /var/lib/sbctl y los switches posteriores instalan artefactos firmados.
+  boot.loader.systemd-boot.enable = lib.mkForce false;
+  boot.lanzaboote = {
+    enable = true;
+    pkiBundle = "/var/lib/sbctl";
+    autoGenerateKeys.enable = true;
+    # La ESP es de 196 MiB; conservar rollbacks suficientes sin saturarla con
+    # initrds de generaciones antiguas.
+    configurationLimit = 10;
+  };
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Muestra el selector NixOS/Windows; el resto de hosts conserva el arranque
@@ -26,6 +34,8 @@ in
   hardware.i2c.enable = true;
   users.users.loonbac.extraGroups = [ "i2c" ];
   environment.systemPackages = [
+    # Diagnóstico, verificación y enrolamiento manual de Secure Boot.
+    pkgs.sbctl
     pkgs.ddcutil
     ddcBrightness
   ];
