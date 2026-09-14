@@ -24,6 +24,9 @@ in
   # Conserva un menú breve para seleccionar generaciones de recuperación; el
   # resto de hosts mantiene el arranque directo definido por el módulo común.
   boot.loader.timeout = 5;
+  # El UEFI de la B550 conserva un modo de baja resolución que el monitor
+  # escala y muestra agrandado. Usar el modo GOP máximo corrige el menú.
+  boot.loader.systemd-boot.consoleMode = "max";
 
   hardware.enableRedistributableFirmware = true;
   hardware.graphics.enable = true;
