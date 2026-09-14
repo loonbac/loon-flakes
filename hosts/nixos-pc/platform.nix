@@ -147,10 +147,6 @@ in
   };
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Vanguard también comprueba que la protección DMA/IOMMU esté disponible.
-  # La opción IOMMU debe permanecer habilitada asimismo en el UEFI.
-  boot.kernelParams = [ "amd_iommu=on" "iommu=pt" ];
-
   # Muestra el selector NixOS/Windows; el resto de hosts conserva el arranque
   # directo definido por el módulo común.
   boot.loader.timeout = 5;
