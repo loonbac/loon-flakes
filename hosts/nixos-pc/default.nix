@@ -5,6 +5,7 @@
   imports = [
     ./hardware-configuration.nix
     ./platform.nix
+    ./coredump.nix
     ./games-disk.nix
     ./projects-disk.nix
     ./apps.nix

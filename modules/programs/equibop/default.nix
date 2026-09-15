@@ -20,8 +20,9 @@
 let
   obs-overlay = pkgs.callPackage ../../../pkgs/equibop-obs-overlay { };
   voice-normalizer = pkgs.callPackage ../../../pkgs/equibop-voice-normalizer { };
+  mic-hotkey = pkgs.callPackage ../../../pkgs/equibop-mic-hotkey { };
   equibop-fixed = pkgs.equibop.overrideAttrs (old: {
-    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.asar ];
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.asar pkgs.perl ];
 
     postFixup =
       (old.postFixup or "")
@@ -52,12 +53,193 @@ let
           try { c.setWebRTCIPHandlingPolicy("default_public_and_private_interfaces"); } catch (_) {}
         });
         PATCH
+        cat >> "$TMPDIR/equibop-asar/dist/js/main.js" <<'PATCH'
+        // En Wayland, desktopCapturer ya abre el portal del compositor y éste
+        // devuelve una sola fuente autorizada. Equibop muestra después un
+        // segundo modal propio sólo para confirmar calidad/audio. Sustituimos
+        // su handler al terminar de arrancar para aceptar directamente la
+        // fuente elegida en el portal de niri y evitar esa confirmación doble.
+        //
+        // Niri 26.04+ publica cada captura por IPC, incluido si el objetivo es
+        // una ventana o una salida. Esto permite escoger automáticamente el
+        // audio: sólo la aplicación de la ventana, o todo el sistema para una
+        // pantalla. Equibop/Discord queda excluido para evitar eco.
+        (() => {
+          const isWayland = process.platform === "linux"
+            && (process.env.XDG_SESSION_TYPE === "wayland" || process.env.WAYLAND_DISPLAY);
+          if (!isWayland) return;
+
+          const { execFile } = require("node:child_process");
+          const { promisify } = require("node:util");
+          const { app, BrowserWindow, desktopCapturer, session } = require("electron");
+          const execFileAsync = promisify(execFile);
+
+          const normalize = value => String(value || "")
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[^a-z0-9]+/g, "");
+
+          async function niriJson(command) {
+            try {
+              const { stdout } = await execFileAsync("${pkgs.niri}/bin/niri", ["msg", "-j", command]);
+              return JSON.parse(stdout);
+            } catch (error) {
+              console.error("Could not read niri " + command, error);
+              return [];
+            }
+          }
+
+          function requestFrame(request) {
+            if (request.frame && !request.frame.isDestroyed()) return request.frame;
+            return BrowserWindow.getAllWindows()
+              .find(window => !window.isDestroyed())
+              ?.webContents.mainFrame;
+          }
+
+          async function runInRenderer(frame, expression) {
+            if (!frame || frame.isDestroyed()) return null;
+            try {
+              return await frame.executeJavaScript(expression, true);
+            } catch (error) {
+              console.error("Could not configure Equibop screen share audio", error);
+              return null;
+            }
+          }
+
+          function findNewCast(before, after) {
+            const previous = new Set(before.map(cast => cast.stream_id));
+            return after.find(cast => cast.kind === "PipeWire" && !previous.has(cast.stream_id))
+              || [...after].reverse().find(cast => cast.kind === "PipeWire" && cast.is_active);
+          }
+
+          function appAliases(appId) {
+            const parts = String(appId || "").replace(/\.desktop$/i, "").split(/[.\/_-]+/);
+            return new Set([normalize(appId), ...parts.map(normalize)].filter(part => part.length > 2));
+          }
+
+          function audioFilter(window, targets) {
+            const aliases = appAliases(window.app_id);
+            const title = normalize(window.title);
+            let best = null;
+            let bestScore = 0;
+
+            for (const target of targets) {
+              const binary = normalize(target["application.process.binary"]);
+              const appName = normalize(target["application.name"]);
+              const mediaName = normalize(target["media.name"]);
+              let score = 0;
+
+              if (aliases.has(binary)) score += 100;
+              if (aliases.has(appName)) score += 80;
+              if (binary && [...aliases].some(alias => alias.includes(binary) || binary.includes(alias))) score += 40;
+              if (mediaName && title && (title.includes(mediaName) || mediaName.includes(title))) score += 60;
+
+              if (score > bestScore) {
+                best = target;
+                bestScore = score;
+              }
+            }
+
+            if (bestScore > 0) {
+              const binary = best["application.process.binary"];
+              const mediaName = best["media.name"];
+              const normalizedMedia = normalize(mediaName);
+              const mediaMatchesWindow = normalizedMedia && title
+                && (title.includes(normalizedMedia) || normalizedMedia.includes(title));
+
+              if (binary && mediaMatchesWindow) {
+                return {
+                  "application.process.binary": binary,
+                  "media.name": mediaName
+                };
+              }
+              if (binary) return { "application.process.binary": binary };
+              if (best["application.name"]) return { "application.name": best["application.name"] };
+            }
+
+            // Si la aplicación todavía no reproduce sonido, venmic conservará
+            // el filtro y enlazará el nodo cuando aparezca.
+            return window.app_id ? { "application.process.binary": window.app_id } : null;
+          }
+
+          async function configureAudio(request, cast) {
+            const frame = requestFrame(request);
+            await runInRenderer(frame, "VesktopNative.virtmic.stop()");
+
+            if (cast?.target?.Output) {
+              const excluded = [
+                { "application.process.id": String(process.pid) },
+                { "application.process.binary": "equibop" },
+                { "application.process.binary": "discord" },
+                { "application.process.binary": "Discord" },
+                { "application.process.binary": "vesktop" }
+              ];
+              await runInRenderer(
+                frame,
+                "VesktopNative.virtmic.startSystem(" + JSON.stringify(excluded) + ")"
+              );
+              return;
+            }
+
+            const windowId = cast?.target?.Window?.id;
+            if (windowId == null) return;
+
+            const windows = await niriJson("windows");
+            const window = windows.find(candidate => String(candidate.id) === String(windowId));
+            if (!window || ["equibop", "discord", "vesktop"].includes(normalize(window.app_id))) return;
+
+            const listed = await runInRenderer(frame, "VesktopNative.virtmic.list()");
+            const filter = audioFilter(window, listed?.ok ? listed.targets : []);
+            if (filter) {
+              await runInRenderer(
+                frame,
+                "VesktopNative.virtmic.start(" + JSON.stringify(filter) + ")"
+              );
+            }
+          }
+
+          app.whenReady().then(() => {
+            session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+              const castsBefore = await niriJson("casts");
+              const sources = await desktopCapturer.getSources({
+                types: ["window", "screen"],
+                thumbnailSize: { width: 0, height: 0 }
+              }).catch(error => {
+                console.error("Error in niri screen share portal", error);
+                return null;
+              });
+
+              if (sources?.[0]) {
+                const castsAfter = await niriJson("casts");
+                const cast = findNewCast(castsBefore, castsAfter);
+                await configureAudio(request, cast);
+              }
+
+              callback(sources?.[0] ? { video: sources[0] } : {});
+            });
+          });
+        })();
+        PATCH
+
+        # El modal normalmente inicializa currentSettings.contentHint. Como lo
+        # omitimos, conserva su valor por defecto (movimiento) en el wrapper de
+        # getDisplayMedia. El identificador previo está minificado y puede variar.
+        if ! grep -Eq '\.contentHint=String\([[:alnum:]_$]+\?\.contentHint\)' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"; then
+          echo "Equibop screenshare contentHint hook not found" >&2
+          exit 1
+        fi
+        perl -0pi -e \
+          's/\.contentHint=String\(([[:alnum:]_\$]+)\?\.contentHint\)/.contentHint=String($1?.contentHint??"motion")/' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"
+
         cat ${../../../pkgs/equibop-obs-overlay/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
         cat ${../../../pkgs/equibop-obs-overlay/preload.js} >> "$TMPDIR/equibop-asar/dist/js/preload.js"
         install -Dm0644 ${../../../pkgs/equibop-obs-overlay/renderer.js} "$TMPDIR/equibop-asar/dist/js/obs-overlay-renderer.js"
         cat ${../../../pkgs/equibop-voice-normalizer/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
         cat ${../../../pkgs/equibop-voice-normalizer/preload.js} >> "$TMPDIR/equibop-asar/dist/js/preload.js"
         install -Dm0644 ${voice-normalizer}/share/equibop-voice-normalizer/renderer.js "$TMPDIR/equibop-asar/dist/js/voice-normalizer-renderer.js"
+        cat ${../../../pkgs/equibop-mic-hotkey/equibop-hotkey-bridge.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
 
         asar pack "$TMPDIR/equibop-asar" "$out/opt/Equibop/resources/app.asar"
 
@@ -68,6 +250,29 @@ let
         wrapProgram "$out/bin/equibop" \
           --set PULSE_PROP 'application.name=Equibop application.process.binary=equibop application.icon_name=equibop media.role=phone' \
           --prefix LD_LIBRARY_PATH : '${lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.glib ]}'
+
+        # loon-launch es un servicio persistente. Si ejecuta Electron de forma
+        # directa, Chromium puede crear zygotes antes de que la instancia se
+        # mueva a su app-scope y dejarlos dentro del cgroup del launcher. Al
+        # caer Equibop esos procesos quedan huérfanos y pueden entrar en un
+        # bucle de CPU. El lanzador inicia primero la unidad dedicada; cuando
+        # ya está activa, conserva el comportamiento single-instance normal
+        # de Equibop para enfocar la ventana o reenviar una URI discord://.
+        cat > "$out/bin/equibop-systemd-launch" <<EOF
+        #!${pkgs.runtimeShell}
+        if ${pkgs.systemd}/bin/systemctl --user --quiet is-active equibop.service; then
+          exec "$out/bin/equibop" "\$@"
+        fi
+
+        ${pkgs.systemd}/bin/systemctl --user start equibop.service
+        if [ "\$#" -gt 0 ]; then
+          exec "$out/bin/equibop" "\$@"
+        fi
+        EOF
+        chmod 0755 "$out/bin/equibop-systemd-launch"
+
+        substituteInPlace "$out/share/applications/equibop.desktop" \
+          --replace-fail 'Exec=equibop %U' 'Exec=equibop-systemd-launch %U'
 
       '';
   });
@@ -101,6 +306,42 @@ in
     };
   };
 
+  # Mantiene todo el árbol de Electron dentro de un cgroup propio. Si el
+  # proceso principal falla, systemd elimina también sus zygotes y reinicia el
+  # mismo Equibop parcheado, sin tocar el perfil ni sus ajustes del usuario.
+  systemd.user.services.equibop = {
+    description = "Cliente Discord Equibop supervisado";
+    wantedBy = [ "loon-niri-session.target" ];
+    after = [ "niri.service" ];
+    partOf = [ "loon-niri-session.target" ];
+    serviceConfig = {
+      ExecStart = "${equibop-fixed}/bin/equibop";
+      Restart = "on-failure";
+      RestartSec = "2s";
+      KillMode = "control-group";
+      TimeoutStopSec = "10s";
+      Environment = [
+        "HOME=/home/loonbac"
+        "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+      ];
+    };
+  };
+
+  # Niri no recibe los F13 que salen de la interfaz secundaria del Basilisk V3
+  # en esta sesión Wayland. Este servicio lee sólo esa interfaz por evdev y
+  # usa el socket privado de Equibop para llegar a su instancia ya abierta.
+  # Si Equibop todavía no está abierto, usa su CLI como fallback.
+  systemd.services.equibop-basilisk-mic-hotkey = {
+    description = "F13 del Basilisk V3 para silenciar el micro de Equibop";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "systemd-udev-settle.service" ];
+    serviceConfig = {
+      ExecStart = "${mic-hotkey}/bin/equibop-mic-hotkey";
+      Restart = "always";
+      RestartSec = "2s";
+    };
+  };
+
   # Autostart gestionado por NixOS (mismo patrón que ghostty/niri):
   # se instala en /etc/equibop/ y un tmpfiles rule crea el symlink en el home.
   environment.etc."equibop/autostart.desktop".text = ''
@@ -108,7 +349,7 @@ in
     Type=Application
     Name=Equibop
     Comment=Equibop autostart script
-    Exec=equibop
+    Exec=equibop-systemd-launch
     StartupNotify=false
     Terminal=false
     Icon=equibop
