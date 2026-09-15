@@ -325,8 +325,15 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   const routeLabel = (route: FallbackRoute): string =>
     `${route.label}${route.thinking ? ` ${route.thinking}` : ""}`;
 
-  const chainLabel = (): string =>
-    [`Antigravity cuenta B`, ...fallbackChain.map(routeLabel)].join(" → ");
+  const chainLabel = (): string => {
+    const configuredSecondary = fallbackChain.some(
+      (route) => route.provider === SECONDARY_ANTIGRAVITY_PROVIDER,
+    );
+    return [
+      ...(configuredSecondary ? [] : ["Antigravity cuenta B"]),
+      ...fallbackChain.map(routeLabel),
+    ].join(" → ");
+  };
 
   const showState = (ctx: ExtensionContext, state = readState()): void => {
     const cooldowns = state
@@ -392,9 +399,16 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     switchInProgress = true;
     try {
       rememberOriginal(ctx);
+      const cooldownState = readState();
 
       for (let index = startIndex; index < fallbackChain.length; index += 1) {
         const route = fallbackChain[index];
+        if (
+          ANTIGRAVITY_PROVIDERS.includes(route.provider as AntigravityProvider) &&
+          cooldownState?.providers[route.provider as AntigravityProvider]
+        ) {
+          continue;
+        }
         const fallback = ctx.modelRegistry.find(route.provider, route.model);
         if (!fallback) {
           ctx.ui.notify(
@@ -448,8 +462,15 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       state.providers[PRIMARY_ANTIGRAVITY_PROVIDER]
     ) {
       rememberOriginal(ctx);
-      const secondary = await activateSecondary(ctx, ctx.model.id, state);
-      if (!secondary) await activateFallback(ctx, 0);
+      // Named Gentle agents already encode account B as Perfil B. Follow that
+      // single authoritative chain so a B cooldown advances to Perfil C
+      // instead of selecting B a second time through the implicit route.
+      if (gentleAgentName) {
+        await activateFallback(ctx, 0);
+      } else {
+        const secondary = await activateSecondary(ctx, ctx.model.id, state);
+        if (!secondary) await activateFallback(ctx, 0);
+      }
     } else if (
       ctx.model.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
       state.providers[SECONDARY_ANTIGRAVITY_PROVIDER]
@@ -479,13 +500,23 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       showState(ctx, state);
       reason = `Antigravity cuenta ${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} agotó su cuota`;
       if (provider === PRIMARY_ANTIGRAVITY_PROVIDER) {
-        activated = await activateSecondary(ctx, message.model, state);
+        if (gentleAgentName) {
+          activated = await activateFallback(ctx, 0);
+        } else {
+          activated = await activateSecondary(ctx, message.model, state);
+        }
+      } else {
+        const failedIndex = fallbackIndex(message.provider, message.model, fallbackChain);
+        const nextIndex =
+          failedIndex >= 0 && activeFallbackIndex === failedIndex ? failedIndex + 1 : 0;
+        activated = await activateFallback(ctx, nextIndex);
       }
       if (!activated) activated = await activateFallback(ctx, 0);
     } else if (
       message.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
       activeRoute?.provider === SECONDARY_ANTIGRAVITY_PROVIDER &&
       activeRoute.model === message.model &&
+      activeFallbackIndex === undefined &&
       originalModel
     ) {
       reason = "Antigravity cuenta B falló";
