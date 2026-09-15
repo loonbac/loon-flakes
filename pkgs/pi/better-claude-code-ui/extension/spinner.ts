@@ -11,7 +11,7 @@
  *
  * So we do what the audit's feasibility note prescribes: hide the built-in
  * indicator with `frames: []` (pi loader.js:44,51 — empty frames ⇒ no glyph and
- * no internal timer) and repaint the whole line ourselves on a 50ms interval via
+ * no internal timer) and repaint the whole line ourselves on a 100ms interval via
  * setWorkingMessage (pi interactive-mode.js:1878-1883 → StatusIndicator.setMessage
  * → Loader.updateDisplay → ui.requestRender, loader.js:38-41,59-67). Because the
  * line is rebuilt each tick from the live theme, a mid-session theme switch is
@@ -32,8 +32,10 @@ const FRAMES = defaultCharacters();
 const SPINNER = [...FRAMES, ...[...FRAMES].reverse()];
 // CC SpinnerAnimationRow.tsx:133 — frame = Math.floor(time / 120).
 const FRAME_MS = 120;
-// CC useAnimationFrame(50): the whole row is repainted at 20fps.
-const TICK_MS = 50;
+// Pi redraws the complete visible transcript, unlike a browser component tree.
+// 10fps remains smooth for the 120ms glyph clock while halving the work on
+// large sessions compared with CC's browser-oriented 20fps cadence.
+const TICK_MS = 100;
 // CC SpinnerAnimationRow.tsx:135 — non-requesting glimmer cadence.
 const GLIMMER_MS = 200;
 
@@ -447,21 +449,23 @@ export function registerSpinner(pi: ExtensionAPI): void {
 			| { type?: string; partial?: { usage?: { output?: number } }; message?: { usage?: { output?: number } } }
 			| undefined;
 		const kind = ame?.type;
-		let changed = false;
 		const out = (ame?.partial ?? ame?.message)?.usage?.output;
 		if (typeof out === "number" && out !== streamTokens) {
 			streamTokens = out;
-			changed = true;
 		}
+		let stateChanged = false;
 		if (kind === "thinking_start") {
 			effortSuffix = effortSuffixFor(ctx.thinkingLevel);
 			beginThinking();
-			changed = true;
+			stateChanged = true;
 		} else if (kind === "thinking_end") {
 			settleThinking();
-			changed = true;
+			stateChanged = true;
 		}
-		if (changed && ctx.hasUI) scheduleRepaint(ctx);
+		// Assistant streaming already requests a host redraw for every token.
+		// Token totals can wait for the bounded timer; scheduling another redraw
+		// here doubled the work. Thinking transitions remain immediate.
+		if (stateChanged && ctx.hasUI) scheduleRepaint(ctx);
 	});
 
 	pi.on("message_end", async (event, ctx) => {

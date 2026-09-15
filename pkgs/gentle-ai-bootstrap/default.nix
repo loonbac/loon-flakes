@@ -11,6 +11,7 @@
 , gentleAiLauncher
 , engramLauncher
 , betterClaudeCodeUi
+, gptFastModeShared
 }:
 
 let
@@ -20,6 +21,8 @@ let
     "npm:pi-antigravity"
     "@HOME@/.local/share/loon-pi-packages/pi-antigravity-alt"
     "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
+    "@HOME@/.local/share/loon-pi-packages/pi-gpt-fast-mode-shared"
+    "npm:pi-discord-activity"
     "npm:gentle-pi"
     "npm:gentle-engram"
     "npm:@juicesharp/rpiv-ask-user-question"
@@ -33,6 +36,8 @@ let
     "pi-antigravity"
     "pi-antigravity-alt"
     "better-claude-code-ui"
+    "pi-gpt-fast-mode-shared"
+    "pi-discord-activity"
     "gentle-pi"
     "gentle-engram"
     "@juicesharp/rpiv-ask-user-question"
@@ -86,29 +91,30 @@ let
 
   subagentModelProfiles = {
     gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    gentle-ai-verify = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
+    gentle-ai-verify = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-a = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
-    pi-btw = { model = "opencode-go/deepseek-v4-flash"; effort = "xhigh"; };
-    review-readability = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
+    jd-judge-a = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
+    jd-judge-b = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    pi-btw = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
+    review-readability = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
     review-reliability = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    review-resilience = { model = "opencode-go/deepseek-v4-flash"; effort = "high"; };
-    review-risk = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    review-resilience = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-risk = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-archive = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
-    sdd-design = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    sdd-archive = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
+    sdd-design = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
     sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-init = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
+    sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    sdd-proposal = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
     sdd-research = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    sdd-remediate = { model = "openai-codex/gpt-5.6-terra"; effort = "high"; };
     sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-status = { model = "opencode-go/deepseek-v4-flash"; effort = "low"; };
-    sdd-sync = { model = "opencode-go/deepseek-v4-flash"; effort = "medium"; };
+    sdd-status = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "low"; };
+    sdd-sync = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
     sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-verify = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    sdd-verify = { model = "openai-codex/gpt-6-astra"; effort = "low"; };
   };
 
   gentleModelProfiles =
@@ -117,9 +123,13 @@ let
       thinking = profile.effort;
     }) subagentModelProfiles
     // {
-      review-refuter = { model = "openai-codex/gpt-5.6-sol"; thinking = "high"; };
-      review-validator = { model = "openai-codex/gpt-5.6-sol"; thinking = "high"; };
+      review-refuter = { model = "opencode-go/deepseek-v4.1-flash"; thinking = "high"; };
+      review-validator = { model = "antigravity/claude-opus-4-6"; thinking = "xhigh"; };
     };
+
+  gentleFallbacks = builtins.fromJSON (
+    builtins.readFile ../pi/better-claude-code-ui/extension/fallback-defaults.json
+  );
 
   gentlePortableConfig = {
     backgroundSubagents = {
@@ -138,6 +148,7 @@ let
   # settings.json files during the migration. Gentle Agents and Gentle Todo
   # are built into the pinned gentle-pi main snapshot.
   retiredPiPackageNames = [
+    "better-claude-code-ui-live"
     "pi-subagents-j0k3r"
     "@tintinweb/pi-subagents"
     "@juicesharp/rpiv-todo"
@@ -151,6 +162,7 @@ let
       piModelProviders
       subagentModelProfiles
       gentleModelProfiles
+      gentleFallbacks
       gentlePortableConfig
       ;
     managedPiPackageNames = piPackageNames ++ retiredPiPackageNames;
@@ -165,7 +177,11 @@ let
     };
   });
 
-  antigravityQuotaFallback = ../pi/extensions/antigravity-quota-fallback.ts;
+  # The runtime fallback and its editor share fallback-config.ts, so keep them
+  # in the same immutable package and expose the runtime file globally.
+  antigravityQuotaFallback = writeText "loon-antigravity-quota-fallback.ts" ''
+    export { default } from "${betterClaudeCodeUi}/extension/antigravity-quota-fallback.ts";
+  '';
   antigravityAliasSchema = 1;
   # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
   # separately through lifecycle events, so bridge every blocking extension
@@ -518,6 +534,7 @@ let
     }
 
     writeJson(configPath, { model_profiles: profiles });
+    writeJson(path.join(agentDir, "gentle-fallbacks.json"), manifest.gentleFallbacks);
 
     const gentleDir = path.join(path.dirname(agentDir), "gentle-ai");
     writeJson(path.join(gentleDir, "models.json"), manifest.gentleModelProfiles);
@@ -576,8 +593,8 @@ let
     ---
     name: pi-btw
     description: Dedicated model route for Pi BTW side questions.
-    model: opencode-go/deepseek-v4-flash
-    thinking: xhigh
+    model: opencode-go/muse-spark-1.3-contributor
+    thinking: medium
     ---
 
     This agent entry is the gentle-pi model route for the `@narumitw/pi-btw` `/btw` extension.
@@ -700,6 +717,7 @@ writeShellApplication {
     # while keeping its bytes owned by the flake.
     local_package_root="$HOME/.local/share/loon-pi-packages"
     better_ui_source="$local_package_root/better-claude-code-ui"
+    fast_mode_source="$local_package_root/pi-gpt-fast-mode-shared"
     mkdir -p "$local_package_root"
     if [ ! -L "$better_ui_source" ] || [ "$(readlink -f "$better_ui_source" || true)" != "${betterClaudeCodeUi}" ]; then
       if [ -e "$better_ui_source" ] || [ -L "$better_ui_source" ]; then
@@ -707,6 +725,16 @@ writeShellApplication {
         mv "$better_ui_source" "$backup_dir/local-packages/better-claude-code-ui"
       fi
       ln -s "${betterClaudeCodeUi}" "$better_ui_source"
+    fi
+
+    # Keep the provider hook for /fast immutable too. Its tiny mutable state
+    # file remains in ~/.pi/agent/state and is deliberately not Nix-owned.
+    if [ ! -L "$fast_mode_source" ] || [ "$(readlink -f "$fast_mode_source" || true)" != "${gptFastModeShared}" ]; then
+      if [ -e "$fast_mode_source" ] || [ -L "$fast_mode_source" ]; then
+        mkdir -p "$backup_dir/local-packages"
+        mv "$fast_mode_source" "$backup_dir/local-packages/pi-gpt-fast-mode-shared"
+      fi
+      ln -s "${gptFastModeShared}" "$fast_mode_source"
     fi
 
     # Install Pi only when absent. Subsequent upgrades belong to `pi update`,
@@ -743,6 +771,7 @@ writeShellApplication {
     for package_name in \
       pi-antigravity \
       better-claude-code-ui \
+      pi-discord-activity \
       gentle-pi \
       gentle-engram \
       @juicesharp/rpiv-ask-user-question \
@@ -882,6 +911,7 @@ writeShellApplication {
     missing_packages=0
     for package_name in \
       pi-antigravity \
+      pi-discord-activity \
       gentle-pi \
       gentle-engram \
       @juicesharp/rpiv-ask-user-question \

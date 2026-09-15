@@ -5,16 +5,24 @@
  * module reads that producer-owned file only; it neither runs an analyser nor
  * writes wallpaper/theme files.
  */
-import { watch } from "node:fs";
+import { readFileSync, watch } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { paletteKeyForThemeName, setWallpaperAccent } from "./palette.js";
+import { setWallpaperAccent } from "./palette.js";
 
 const DEFAULT_DEBOUNCE_MS = 80;
 const DEFAULT_THEME_POLL_MS = 250;
-const BRAND_ROLES = ["claude", "borderAccent", "toolTitle"] as const;
-const SHIMMER_ROLES = ["claudeShimmer", "customMessageLabel"] as const;
+const WALLPAPER_REDRAW = Symbol.for("better-cc-ui:wallpaper-redraw");
+const TRANSCRIPT_THEME = Symbol.for("better-cc-ui:transcript-theme");
+// Pi composes a card border from all three roles. Update them as a unit so a
+// wallpaper change cannot leave an accent-colored title segment on an
+// otherwise neutral (and visually broken) frame.
+// Gentle INFO cards paint their title and left rail with customMessageLabel.
+// It must be the *same* accent as the frame roles; using the lighter shimmer
+// here made Status and Changes look like two different wallpaper colors.
+const BRAND_ROLES = ["claude", "border", "borderAccent", "borderMuted", "toolTitle", "customMessageLabel"] as const;
+const SHIMMER_ROLES = ["claudeShimmer"] as const;
 
 type ColorMode = "truecolor" | "256color";
 
@@ -32,6 +40,11 @@ export interface WallpaperThemeUi {
 	theme?: RuntimeTheme;
 	getTheme?: (name: string) => RuntimeTheme | undefined;
 	setTheme(theme: RuntimeTheme): unknown;
+	/** Present on Pi's interactive UI; optional for the narrow test doubles. */
+	invalidate?(): void;
+	requestRender?(): void;
+	/** Installed by Gentle Shell on its sidebar host. */
+	invalidateSidebar?(): void;
 }
 
 type WatchListener = (eventType: string, filename: string | Buffer | null) => void;
@@ -149,6 +162,12 @@ function isRuntimeTheme(theme: RuntimeTheme | undefined): theme is RuntimeTheme 
 	return theme !== undefined && theme.fgColors instanceof Map && theme.bgColors instanceof Map;
 }
 
+/** Ask the host patch to invalidate Gentle's sidebar cache, if it is mounted. */
+function redrawWallpaperCards(): void {
+	const redraw = (globalThis as unknown as Record<symbol, unknown>)[WALLPAPER_REDRAW];
+	if (typeof redraw === "function") redraw();
+}
+
 /**
  * Clone a real pi Theme without mutating it. The clone shares its prototype,
  * so setTheme receives a genuine runtime Theme instance while every non-brand
@@ -183,6 +202,21 @@ export function buildWallpaperTheme<T extends RuntimeTheme>(theme: T, accent: st
 	return clone as T;
 }
 
+/**
+ * Gentle Shell closes over the Theme object supplied when it installs its
+ * sidebar. Mutating that public Theme in place lets its cached renderers see a
+ * wallpaper accent change; swapping in a cloned Theme leaves them pointing at
+ * the old border colors.
+ */
+function applyWallpaperAccent(theme: RuntimeTheme, accent: string): void {
+	const normalized = parseAccentHex(accent);
+	if (normalized === undefined) throw new Error("applyWallpaperAccent requires a #RRGGBB accent");
+	const mode = theme.getColorMode?.();
+	const shimmer = deriveShimmer(normalized);
+	for (const role of BRAND_ROLES) theme.fgColors.set(role, fgAnsi(normalized, mode));
+	for (const role of SHIMMER_ROLES) theme.fgColors.set(role, fgAnsi(shimmer, mode));
+}
+
 /** Watches the producer file for one session and maintains the in-memory Theme override. */
 export class WallpaperAccentSync {
 	private readonly accentPath: string;
@@ -210,6 +244,18 @@ export class WallpaperAccentSync {
 		this.stop();
 		this.running = true;
 		this.ui = ui;
+		// Share the stable Theme proxy with transcript rendering. This also
+		// covers the first /reload from an older patch, where Pi can construct
+		// the extension context before the freshly loaded host patch runs.
+		if (ui.theme !== undefined) {
+			(globalThis as unknown as Record<symbol, unknown>)[TRANSCRIPT_THEME] = ui.theme;
+		}
+		// session_start listeners are registered by package order. Read the
+		// producer synchronously so Gentle's later listener constructs its
+		// sidebar with the wallpaper colors already in the shared Theme. An
+		// asynchronous first read was the startup race behind the seemingly
+		// random purple/blue cards.
+		this.primeThemeForSessionStart();
 		this.openWatcher();
 		this.themePollTimer = setInterval(() => this.syncActiveTheme(), this.themePollMs);
 		unref(this.themePollTimer);
@@ -249,11 +295,15 @@ export class WallpaperAccentSync {
 		this.syncActiveTheme();
 	}
 
-	/** Reapply after a user selects a CC theme through pi's regular settings UI. */
+	/**
+	 * Overlay Pi's shared Theme from our extension, rather than editing any
+	 * third-party package. Gentleman consumes the public Theme API, so this
+	 * makes its complete frame follow the wallpaper and survives its updates.
+	 */
 	syncActiveTheme(): void {
 		if (!this.running || this.activeAccent === undefined || this.ui === undefined) return;
 		const theme = this.ui.theme;
-		if (!isRuntimeTheme(theme) || paletteKeyForThemeName(theme.name) === undefined) {
+		if (!isRuntimeTheme(theme)) {
 			setWallpaperAccent(undefined);
 			return;
 		}
@@ -262,23 +312,41 @@ export class WallpaperAccentSync {
 			const mode = theme.getColorMode?.();
 			const expectedAccent = fgAnsi(this.activeAccent, mode);
 			const expectedShimmer = fgAnsi(deriveShimmer(this.activeAccent), mode);
-			// The UI exposes a stable global Theme proxy, so identity comparison
-			// cannot tell whether the current underlying instance is ours. Compare
-			// the roles we own instead; this also avoids a 250ms setTheme loop.
+			// Do not repeatedly redraw every 250 ms.  The roles are written onto
+			// the same Theme instance Gentleman captured when it built its cards.
 			if (
 				theme.fgColors.get("claude") === expectedAccent &&
+				theme.fgColors.get("border") === expectedAccent &&
 				theme.fgColors.get("borderAccent") === expectedAccent &&
+				theme.fgColors.get("borderMuted") === expectedAccent &&
 				theme.fgColors.get("toolTitle") === expectedAccent &&
-				theme.fgColors.get("claudeShimmer") === expectedShimmer &&
-				theme.fgColors.get("customMessageLabel") === expectedShimmer
-			) {
-				return;
-			}
-			const sourceTheme = this.ui.getTheme?.(theme.name ?? "") ?? theme;
-			const overridden = buildWallpaperTheme(sourceTheme as RuntimeTheme, this.activeAccent);
-			this.ui.setTheme(overridden);
+				theme.fgColors.get("customMessageLabel") === expectedAccent &&
+				theme.fgColors.get("claudeShimmer") === expectedShimmer
+			) return;
+			applyWallpaperAccent(theme, this.activeAccent);
+			// ctx.ui.theme is Pi's Theme *proxy*, not an instance accepted by
+			// setTheme(). Passing it there makes Pi fall back to its default theme
+			// on /reload. Keep the proxy's current Theme and redraw it in place.
+			redrawWallpaperCards();
+			this.ui.invalidateSidebar?.();
+			this.ui.invalidate?.();
+			this.ui.requestRender?.();
 		} catch {
-			// UI/theme failures must not take down an active agent session.
+			// A cosmetic patch must never interrupt an active Pi session.
+		}
+	}
+
+	/** Apply before later session_start listeners build components from Theme. */
+	private primeThemeForSessionStart(): void {
+		try {
+			const accent = parseAccentHex(readFileSync(this.accentPath, "utf8"));
+			const theme = this.ui?.theme;
+			if (accent === undefined || !isRuntimeTheme(theme)) return;
+			this.activeAccent = accent;
+			setWallpaperAccent(accent, deriveShimmer(accent));
+			applyWallpaperAccent(theme, accent);
+		} catch {
+			// The async watcher/read path below safely retries unavailable files.
 		}
 	}
 

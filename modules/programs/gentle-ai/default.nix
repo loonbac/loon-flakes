@@ -9,8 +9,9 @@ let
     inherit engramUpdater;
   };
   betterClaudeCodeUi = pkgs.callPackage ../../../pkgs/pi/better-claude-code-ui { };
+  gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
-    inherit piLauncher gentleAiLauncher engramLauncher betterClaudeCodeUi;
+    inherit piLauncher gentleAiLauncher engramLauncher betterClaudeCodeUi gptFastModeShared;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
     inherit piLauncher gentleAiLauncher engramLauncher;

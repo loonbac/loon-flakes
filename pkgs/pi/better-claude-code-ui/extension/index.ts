@@ -27,7 +27,11 @@ import { registerBuiltins } from "./tools/builtins.js";
 import { registerCommands } from "./commands.js";
 import { registerThinking } from "./thinking.js";
 import { registerPromptPointer } from "./prompt-editor.js";
+import { FastModeIndicator, type FastModeIndicatorUi } from "./fast-mode-indicator.js";
 import { WallpaperAccentSync, type WallpaperThemeUi } from "./wallpaper-sync.js";
+import { registerAntigravityUsage } from "./antigravity-usage.js";
+import { registerCommandCodeUsage } from "./commandcode-usage.js";
+import { registerOpenCodeGoUsage } from "./opencode-go-usage.js";
 
 /**
  * gentle-pi's quiet-tools extension owns the same seven built-in tool names.
@@ -76,6 +80,9 @@ function piStatuslineIsActive(): boolean {
 export default function (pi: ExtensionAPI) {
 	// Host patches (ghost blank rows, ctrl+o status residue) — before any render.
 	installHostPatches();
+	registerAntigravityUsage(pi);
+	registerCommandCodeUsage(pi);
+	registerOpenCodeGoUsage(pi);
 
 	// Layer 2: chrome
 	registerSpinner(pi);
@@ -96,10 +103,14 @@ export default function (pi: ExtensionAPI) {
 
 	// Keep the CC brand roles aligned with the wallpaper producer's live accent.
 	const wallpaperSync = new WallpaperAccentSync();
+	const fastModeIndicator = new FastModeIndicator();
 	pi.on("session_start", async (_event, ctx) => {
-		if (ctx.hasUI) await wallpaperSync.start(ctx.ui as unknown as WallpaperThemeUi);
+		if (!ctx.hasUI) return;
+		fastModeIndicator.start(ctx.ui as unknown as FastModeIndicatorUi);
+		await wallpaperSync.start(ctx.ui as unknown as WallpaperThemeUi);
 	});
 	pi.on("session_shutdown", async () => {
+		fastModeIndicator.stop();
 		wallpaperSync.stop();
 	});
 }

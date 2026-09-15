@@ -11,8 +11,12 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+  fallbackRoutesForAgent,
+  type FallbackEffort,
+} from "./fallback-config.js";
 
-export type FallbackThinking = "high" | "xhigh" | "max";
+export type FallbackThinking = FallbackEffort;
 
 export interface FallbackRoute {
   provider: string;
@@ -121,7 +125,8 @@ export function cooldownDeadline(errorMessage: string, now = Date.now()): number
 }
 
 export function fallbackChainForAgent(agentName: string | undefined): readonly FallbackRoute[] {
-  return (agentName && AGENT_FALLBACK_CHAINS[agentName]) || FALLBACK_CHAIN;
+  if (!agentName) return FALLBACK_CHAIN;
+  return fallbackRoutesForAgent(agentName);
 }
 
 export function fallbackIndex(
@@ -309,7 +314,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   // a second turn when Pi is already going to retry the failed request.
   const { isRetryableAssistantError } = await import("@earendil-works/pi-ai");
   const gentleAgentName = detectGentleAgentName();
-  const fallbackChain = fallbackChainForAgent(gentleAgentName);
+  let fallbackChain = fallbackChainForAgent(gentleAgentName);
   let originalModel: ExtensionContext["model"];
   let originalThinkingLevel: ReturnType<ExtensionAPI["getThinkingLevel"]> | undefined;
   let activeFallbackIndex: number | undefined;
@@ -418,6 +423,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   };
 
   pi.on("session_start", (_event, ctx) => {
+    fallbackChain = fallbackChainForAgent(gentleAgentName);
     originalModel = undefined;
     originalThinkingLevel = undefined;
     activeFallbackIndex = undefined;
@@ -430,6 +436,9 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   // cooldown before its run. This prevents one failed subagent per route after
   // the first Antigravity quota error has established the reset deadline.
   pi.on("before_agent_start", async (_event, ctx) => {
+    // The editor writes atomically, so an already-running child can adopt a
+    // newly saved chain on its next request without polling or a process restart.
+    fallbackChain = fallbackChainForAgent(gentleAgentName);
     const state = readState();
     showState(ctx, state);
     if (!state || !ctx.model) return;
@@ -454,6 +463,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   // while quota errors need an explicit follow-up. The failed message remains
   // as evidence but is ignored when the provider request is reconstructed.
   pi.on("message_end", async (event, ctx) => {
+    fallbackChain = fallbackChainForAgent(gentleAgentName);
     const message = event.message;
     if (message.role !== "assistant" || message.stopReason !== "error") return;
 
