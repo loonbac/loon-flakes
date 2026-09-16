@@ -738,18 +738,18 @@ function withSeparatedUsage(lines: string[], changes?: SidebarChangesSummary): s
 	const antigravityA = antigravityUsageMeter(antigravityAUsageSnapshot());
 	const antigravityB = antigravityUsageMeter(antigravityBUsageSnapshot());
 	const template = currentBody[0]!;
-	const replacement = [
-		sidebarFieldRow(template, "GPT / Codex", `Cost ${cost}`),
-		sidebarFieldRow(template, "Semana", codexValue),
-		sidebarFieldRow(template, "OpenCode Go", "5 h / sem / mes"),
-		sidebarFieldRow(template, "Restante", openCodeGo),
-		sidebarFieldRow(template, "Command Code", "5 h / sem / créditos"),
-		sidebarFieldRow(template, "Restante", commandCode),
-		sidebarFieldRow(template, "Antigravity A", "5 h sobre semanal"),
-		sidebarFieldRow(template, "Restante", antigravityA),
-		sidebarFieldRow(template, "Antigravity B", "5 h sobre semanal"),
-		sidebarFieldRow(template, "Restante", antigravityB),
-	].map((line) => gentleCardRow(template, line));
+	const providerGroups = [
+		["GPT / Codex", `Cost ${cost}`, "Semana", codexValue],
+		["OpenCode Go", "5 h / sem / mes", "Restante", openCodeGo],
+		["Command Code", "5 h / sem / créditos", "Restante", commandCode],
+		["Antigravity A", "5 h sobre semanal", "Restante", antigravityA],
+		["Antigravity B", "5 h sobre semanal", "Restante", antigravityB],
+	] as const;
+	const replacement = providerGroups.flatMap(([provider, limit, meterLabel, meter], index) => [
+		gentleCardRow(template, sidebarFieldRow(template, transcriptTone("borderAccent", provider), limit)),
+		gentleCardRow(template, sidebarFieldRow(template, `  ${meterLabel}`, meter)),
+		...(index < providerGroups.length - 1 ? [gentleCardRow(template, "")] : []),
+	]);
 	const changesRows = changes ? [
 		gentleCardRow(
 			template,
