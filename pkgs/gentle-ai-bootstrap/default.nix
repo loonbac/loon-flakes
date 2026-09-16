@@ -534,12 +534,32 @@ let
     const relativePath = "lib/agents-protocol.ts";
     const target = path.join(packageRoot, relativePath);
     let text = fs.readFileSync(target, "utf8");
-    const marker = "LOON_EFFECTIVE_ROUTE_PATCH_V2";
+    const marker = "LOON_EFFECTIVE_ROUTE_PATCH_V3";
     if (text.includes(marker)) process.exit(0);
 
-    const legacyMarker = "LOON_EFFECTIVE_ROUTE_PATCH_V1";
-    if (text.includes(legacyMarker)) {
-      text = text.replace(legacyMarker, marker);
+    const legacyUiRequest = '\t\tcase "extension_ui_request":\n'
+      + '\t\t\treturn DIALOG_METHODS.has(String(event.method)) ? [{ type: TASK_EVENT.ASK, request: askRequest(event) }] : [];';
+    const rpcStatusRoute = '\t\tcase "extension_ui_request": {\n'
+      + '\t\t\tif (event.method === "setStatus" && event.statusKey === "loon-effective-subagent-route") {\n'
+      + '\t\t\t\tconst model = childMetadata(event.statusText, 161);\n'
+      + '\t\t\t\treturn model.state === "observed" && model.value.includes("/")\n'
+      + '\t\t\t\t\t? [{ type: TASK_EVENT.EFFECTIVE_ROUTE, model: model.value }] : [];\n'
+      + '\t\t\t}\n'
+      + '\t\t\treturn DIALOG_METHODS.has(String(event.method)) ? [{ type: TASK_EVENT.ASK, request: askRequest(event) }] : [];\n'
+      + '\t\t}';
+
+    const v2Marker = "LOON_EFFECTIVE_ROUTE_PATCH_V2";
+    if (text.includes(v2Marker)) {
+      text = text.replace(v2Marker, marker);
+      const count = text.split(legacyUiRequest).length - 1;
+      if (count !== 1) throw new Error("gentle-pi effective-route V2 migration failed");
+      fs.writeFileSync(target, text.replace(legacyUiRequest, rpcStatusRoute));
+      process.exit(0);
+    }
+
+    const v1Marker = "LOON_EFFECTIVE_ROUTE_PATCH_V1";
+    if (text.includes(v1Marker)) {
+      text = text.replace(v1Marker, marker);
       const legacyThinking = '\t\tcase TASK_EVENT.EFFECTIVE_THINKING:\n'
         + '\t\t\treturn { ...resumed, thinking: event.thinking };';
       const effectiveThinking = '\t\tcase TASK_EVENT.EFFECTIVE_THINKING:\n'
@@ -548,7 +568,10 @@ let
         + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;';
       const count = text.split(legacyThinking).length - 1;
       if (count !== 1) throw new Error("gentle-pi effective-route V1 migration failed");
-      fs.writeFileSync(target, text.replace(legacyThinking, effectiveThinking));
+      text = text.replace(legacyThinking, effectiveThinking);
+      const uiCount = text.split(legacyUiRequest).length - 1;
+      if (uiCount !== 1) throw new Error("gentle-pi effective-route V1 UI migration failed");
+      fs.writeFileSync(target, text.replace(legacyUiRequest, rpcStatusRoute));
       process.exit(0);
     }
 
@@ -621,6 +644,7 @@ let
         + '\t\t\treturn task.result === null && task.error === null\n'
         + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;',
     );
+    replaceOnce(legacyUiRequest, rpcStatusRoute);
 
     fs.writeFileSync(target, text);
   '';
@@ -633,11 +657,12 @@ let
     const [packageRoot] = process.argv.slice(2);
     const source = fs.readFileSync(path.join(packageRoot, "lib", "agents-protocol.ts"), "utf8");
     for (const expected of [
-      "LOON_EFFECTIVE_ROUTE_PATCH_V2",
+      "LOON_EFFECTIVE_ROUTE_PATCH_V3",
       'EFFECTIVE_ROUTE: "effective_route"',
       'EFFECTIVE_THINKING: "effective_thinking"',
       'case "message_start"',
       'case "thinking_level_changed"',
+      'event.statusKey === "loon-effective-subagent-route"',
       "model: event.model",
       "task.result === null && task.error === null",
     ]) assert.ok(source.includes(expected), "missing effective-route patch fragment: " + expected);

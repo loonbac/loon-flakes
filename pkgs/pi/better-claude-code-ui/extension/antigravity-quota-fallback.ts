@@ -87,6 +87,10 @@ const STATE_VERSION = 2;
 const DEFAULT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const RESET_BUFFER_MS = 2 * 60 * 1000;
 const STATUS_KEY = "antigravity-quota-fallback";
+// Gentle's parent process cannot observe a child-side pi.setModel() through
+// the RPC session stream. This private status event reports the selected route
+// immediately, before the provider starts returning assistant tokens.
+const EFFECTIVE_ROUTE_STATUS_KEY = "loon-effective-subagent-route";
 const QUOTA_ERROR = /(?:quota\s+(?:reached|exceeded|exhausted)|resource[_\s-]?exhausted|usage\s+(?:limit|quota)[^\n]*(?:reached|exceeded|exhausted)|(?:daily|monthly)\s+(?:usage\s+)?limit[^\n]*(?:reached|exceeded|exhausted))/i;
 
 interface ProviderCooldown {
@@ -349,6 +353,17 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     );
   };
 
+  const reportEffectiveRoute = (
+    ctx: ExtensionContext,
+    route: { provider: string; model: string },
+  ): void => {
+    if (!gentleAgentName) return;
+    ctx.ui.setStatus(
+      EFFECTIVE_ROUTE_STATUS_KEY,
+      `${route.provider}/${route.model}`,
+    );
+  };
+
   const rememberOriginal = (ctx: ExtensionContext): void => {
     if (
       ctx.model &&
@@ -388,6 +403,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       model: sourceModel,
       label: "Antigravity cuenta B",
     };
+    reportEffectiveRoute(ctx, activeRoute);
     return activeRoute;
   };
 
@@ -421,6 +437,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
           if (route.thinking) pi.setThinkingLevel(route.thinking);
           activeFallbackIndex = index;
           activeRoute = { provider: route.provider, model: route.model, label: routeLabel(route) };
+          reportEffectiveRoute(ctx, activeRoute);
           return activeRoute;
         }
         ctx.ui.notify(
