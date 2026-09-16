@@ -133,9 +133,14 @@ function newLayer(config: GentleFallbackConfig): FallbackLayer {
 	let suffix = ordinal;
 	const names = new Set(config.fallbacks.map((layer) => layer.name));
 	while (names.has(name)) name = `Fallback ${++suffix}`;
+	const profileNames = new Set(config.fallbacks.map((layer) => layer.profile));
+	let profile = `Fallback-${suffix}`;
+	while (profileNames.has(profile)) profile = `Fallback-${++suffix}`;
+	const id = `fallback-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 	return {
-		id: `fallback-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+		id,
 		name,
+		profile,
 		model_profiles: {},
 	};
 }
