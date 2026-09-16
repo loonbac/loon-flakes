@@ -515,6 +515,134 @@ let
     }
   '';
 
+  # gentle-pi records the launch model in TaskRecord, but quota fallback can
+  # change the child route before its first provider request. Patch the mutable
+  # package after every install/update so its card follows the effective RPC
+  # response route instead of continuing to advertise the exhausted model.
+  patchGentleEffectiveRoute = writeText "patch-gentle-effective-route.mjs" ''
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageRoot] = process.argv.slice(2);
+    if (!packageRoot) throw new Error("missing gentle-pi package root");
+
+    const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
+    if (packageJson.name !== "gentle-pi" || typeof packageJson.version !== "string") {
+      throw new Error("gentle-pi effective-route patch: incompatible package.json");
+    }
+
+    const relativePath = "lib/agents-protocol.ts";
+    const target = path.join(packageRoot, relativePath);
+    let text = fs.readFileSync(target, "utf8");
+    const marker = "LOON_EFFECTIVE_ROUTE_PATCH_V2";
+    if (text.includes(marker)) process.exit(0);
+
+    const legacyMarker = "LOON_EFFECTIVE_ROUTE_PATCH_V1";
+    if (text.includes(legacyMarker)) {
+      text = text.replace(legacyMarker, marker);
+      const legacyThinking = '\t\tcase TASK_EVENT.EFFECTIVE_THINKING:\n'
+        + '\t\t\treturn { ...resumed, thinking: event.thinking };';
+      const effectiveThinking = '\t\tcase TASK_EVENT.EFFECTIVE_THINKING:\n'
+        + '\t\t\t// Ignore the fallback extension restoring the launch effort after agent_end.\n'
+        + '\t\t\treturn task.result === null && task.error === null\n'
+        + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;';
+      const count = text.split(legacyThinking).length - 1;
+      if (count !== 1) throw new Error("gentle-pi effective-route V1 migration failed");
+      fs.writeFileSync(target, text.replace(legacyThinking, effectiveThinking));
+      process.exit(0);
+    }
+
+    function replaceOnce(from, to) {
+      const count = text.split(from).length - 1;
+      if (count !== 1) {
+        throw new Error(
+          "gentle-pi effective-route patch: expected one occurrence in "
+          + relativePath + ", found " + count,
+        );
+      }
+      text = text.replace(from, to);
+    }
+
+    replaceOnce(
+      '\tRESPONSE_OBSERVATION: "response_observation",',
+      '\tRESPONSE_OBSERVATION: "response_observation",\n'
+        + '\t// ' + marker + ': observational route used only by the task card.\n'
+        + '\tEFFECTIVE_ROUTE: "effective_route",\n'
+        + '\tEFFECTIVE_THINKING: "effective_thinking",',
+    );
+    replaceOnce(
+      'export interface ResponseObservationEvent { type: typeof TASK_EVENT.RESPONSE_OBSERVATION; observation: ChildResponseObservation }\n\nexport type TaskEvent = ResponseObservationEvent | TextEvent',
+      'export interface ResponseObservationEvent { type: typeof TASK_EVENT.RESPONSE_OBSERVATION; observation: ChildResponseObservation }\n'
+        + 'export interface EffectiveRouteEvent { type: typeof TASK_EVENT.EFFECTIVE_ROUTE; model: string }\n'
+        + 'export interface EffectiveThinkingEvent { type: typeof TASK_EVENT.EFFECTIVE_THINKING; thinking: string }\n\n'
+        + 'export type TaskEvent = EffectiveRouteEvent | EffectiveThinkingEvent | ResponseObservationEvent | TextEvent',
+    );
+    replaceOnce(
+      'function childTokens(value: unknown): ChildTokenMeasurement {',
+      'function effectiveRoute(message: Raw): string | undefined {\n'
+        + '\tif (message.role !== "assistant") return undefined;\n'
+        + '\tconst provider = childMetadata(message.provider, 32);\n'
+        + '\tconst model = childMetadata(message.model, 128);\n'
+        + '\treturn provider.state === "observed" && model.state === "observed"\n'
+        + '\t\t? provider.value + "/" + model.value\n'
+        + '\t\t: undefined;\n'
+        + '}\n\n'
+        + 'function childTokens(value: unknown): ChildTokenMeasurement {',
+    );
+    replaceOnce(
+      '\tswitch (event.type) {\n\t\tcase "message_update": {',
+      '\tswitch (event.type) {\n'
+        + '\t\tcase "message_start": {\n'
+        + '\t\t\tconst model = effectiveRoute((event.message as Raw | undefined) ?? {});\n'
+        + '\t\t\treturn model ? [{ type: TASK_EVENT.EFFECTIVE_ROUTE, model }] : [];\n'
+        + '\t\t}\n'
+        + '\t\tcase "thinking_level_changed": {\n'
+        + '\t\t\tconst thinking = clean(event.level);\n'
+        + '\t\t\treturn ["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(thinking)\n'
+        + '\t\t\t\t? [{ type: TASK_EVENT.EFFECTIVE_THINKING, thinking }] : [];\n'
+        + '\t\t}\n'
+        + '\t\tcase "message_update": {',
+    );
+    replaceOnce(
+      '\t\t\tconst events: TaskEvent[] = [];\n\t\t\tif (usage) {',
+      '\t\t\tconst events: TaskEvent[] = [];\n'
+        + '\t\t\tconst model = effectiveRoute(message ?? {});\n'
+        + '\t\t\tif (model) events.push({ type: TASK_EVENT.EFFECTIVE_ROUTE, model });\n'
+        + '\t\t\tif (usage) {',
+    );
+    replaceOnce(
+      '\t\tcase TASK_EVENT.USAGE:\n\t\t\treturn { ...resumed, tokens: task.tokens + event.tokens, cost: task.cost + event.cost };',
+      '\t\tcase TASK_EVENT.USAGE:\n'
+        + '\t\t\treturn { ...resumed, tokens: task.tokens + event.tokens, cost: task.cost + event.cost };\n'
+        + '\t\tcase TASK_EVENT.EFFECTIVE_ROUTE:\n'
+        + '\t\t\treturn { ...resumed, model: event.model };\n'
+        + '\t\tcase TASK_EVENT.EFFECTIVE_THINKING:\n'
+        + '\t\t\t// Ignore the fallback extension restoring the launch effort after agent_end.\n'
+        + '\t\t\treturn task.result === null && task.error === null\n'
+        + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;',
+    );
+
+    fs.writeFileSync(target, text);
+  '';
+
+  verifyGentleEffectiveRoute = writeText "verify-gentle-effective-route.mjs" ''
+    import assert from "node:assert/strict";
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageRoot] = process.argv.slice(2);
+    const source = fs.readFileSync(path.join(packageRoot, "lib", "agents-protocol.ts"), "utf8");
+    for (const expected of [
+      "LOON_EFFECTIVE_ROUTE_PATCH_V2",
+      'EFFECTIVE_ROUTE: "effective_route"',
+      'EFFECTIVE_THINKING: "effective_thinking"',
+      'case "message_start"',
+      'case "thinking_level_changed"',
+      "model: event.model",
+      "task.result === null && task.error === null",
+    ]) assert.ok(source.includes(expected), "missing effective-route patch fragment: " + expected);
+  '';
+
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
     import crypto from "node:crypto";
     import fs from "node:fs";
@@ -991,6 +1119,12 @@ NODE
       echo "gentle-ai-bootstrap: gentle-pi's verified Gentle AI runtime is unavailable" >&2
       exit 1
     fi
+
+    # Keep this as a reproducible downstream patch instead of editing the
+    # installed plugin by hand. The compatibility checks fail loudly if an
+    # upstream update changes the relevant protocol anchors.
+    node "${patchGentleEffectiveRoute}" "$gentle_pi_root"
+    node "${verifyGentleEffectiveRoute}" "$gentle_pi_root"
 
     # This local UI fork is the deliberate declarative exception to mutable
     # extension updates. Its package path stays immutable and versioned here.
