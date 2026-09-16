@@ -141,6 +141,17 @@ tooltip label {
   color: @highlight;
   font-size: 14px;
 }
+#custom-updates.updated {
+  color: @muted;
+}
+#custom-updates.checking,
+#custom-updates.stale,
+#custom-updates.unknown {
+  color: @warning;
+}
+#custom-updates.error {
+  color: @critical;
+}
 
 /* Idle Inhibitor */
 #idle_inhibitor {

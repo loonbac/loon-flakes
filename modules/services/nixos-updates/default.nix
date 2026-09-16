@@ -12,6 +12,14 @@ in
       Type = "oneshot";
       ExecStart = "${nixosUpdatesPkg}/bin/nixos-updates check";
       Nice = 19;
+      IOSchedulingClass = "idle";
+      IOSchedulingPriority = 7;
+      CPUWeight = 10;
+      IOWeight = 10;
+      MemoryHigh = "2G";
+      MemoryMax = "4G";
+      MemorySwapMax = "2G";
+      TimeoutStartSec = "20m";
     };
   };
 
@@ -22,6 +30,8 @@ in
       OnBootSec = "3m";
       OnUnitActiveSec = "1h";
       Persistent = true;
+      AccuracySec = "1m";
+      RandomizedDelaySec = "5m";
     };
   };
 }
