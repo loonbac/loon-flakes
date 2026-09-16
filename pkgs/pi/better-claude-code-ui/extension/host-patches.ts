@@ -39,7 +39,6 @@
  */
 import { AssistantMessageComponent, InteractiveMode, ToolExecutionComponent, UserMessageComponent } from "@earendil-works/pi-coding-agent";
 import { ProcessTerminal, stripTerminalSequences, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { homedir } from "node:os";
 import { fastModeActivatedAt, fastModeAnimationPhase, fastModeIsActive } from "./fast-mode-indicator.js";
 import {
 	antigravityAUsageSnapshot,
@@ -643,30 +642,15 @@ function cachedCodexUsageMeter(usedPercent: number): string {
 	return `${transcriptTone("warning", "▰".repeat(filled))}${transcriptTone("dim", "▱".repeat(cells - filled))} ${transcriptTone("text", `${Math.round(usedPercent)}%`)}`;
 }
 
-/** Both provider meters begin in the same terminal column. */
-function usageMeterRow(label: string, meter: string): string {
-	return `  ${label.padEnd(8)} ${meter}`;
-}
-
-const SIDEBAR_FIELD_COLUMN = 12;
-
-/** Keep short metadata labels in one fixed column so the value starts on the
- * same cell on every row (Project, Branch, Session and the Changes summary). */
-function sidebarFieldRow(label: string, value: string): string {
-	return `${label.padEnd(SIDEBAR_FIELD_COLUMN)}${value}`;
-}
-
-/** Gentle shortens paths below HOME even when the rail has room for the real
- * value. Restore the absolute path when it fits; keep Gentle's compact form
- * for deeper projects so the repository name is not needlessly clipped. */
-function fullProjectPathWhenItFits(template: string, path: string): string {
-	if (!path.startsWith("~/")) return path;
-	const expanded = `${homedir()}${path.slice(1)}`;
+/** Keep metadata labels at the left and use the complete card width to align
+ * their values against the right padding throughout the Status card. */
+function sidebarFieldRow(template: string, label: string, value: string): string {
 	const left = template.indexOf("│");
 	const right = template.lastIndexOf("│");
-	if (left < 0 || right <= left) return path;
+	if (left < 0 || right <= left) return `${label} ${value}`;
 	const usableWidth = Math.max(0, displayWidth(template.slice(left + 1, right)) - 2);
-	return displayWidth(sidebarFieldRow("Project", expanded)) <= usableWidth ? expanded : path;
+	const gap = Math.max(1, usableWidth - displayWidth(label) - displayWidth(value));
+	return `${label}${" ".repeat(gap)}${value}`;
 }
 
 /** Gentle renders Project as a heading with its path on the next row. The
@@ -677,16 +661,15 @@ function withInlineProjectFields(lines: string[]): string[] {
 	if (project < 0 || project + 1 >= lines.length) return lines;
 	const path = gentleCardBody(lines[project + 1]!);
 	if (!path) return lines;
-	const shownPath = fullProjectPathWhenItFits(lines[project]!, path);
 
 	const compact = [...lines];
-	compact[project] = gentleCardRow(lines[project]!, sidebarFieldRow("Project", shownPath));
+	compact[project] = gentleCardRow(lines[project]!, sidebarFieldRow(lines[project]!, "Project", path));
 	compact.splice(project + 1, 1);
 	for (let index = project + 1; index < compact.length; index++) {
 		const body = gentleCardBody(compact[index]!);
 		if (body === "") break;
 		const field = body?.match(/^(Branch|Session)\s+(.+)$/);
-		if (field) compact[index] = gentleCardRow(compact[index]!, sidebarFieldRow(field[1]!, field[2]!));
+		if (field) compact[index] = gentleCardRow(compact[index]!, sidebarFieldRow(compact[index]!, field[1]!, field[2]!));
 	}
 	return compact;
 }
@@ -756,21 +739,22 @@ function withSeparatedUsage(lines: string[], changes?: SidebarChangesSummary): s
 	const antigravityB = antigravityUsageMeter(antigravityBUsageSnapshot());
 	const template = currentBody[0]!;
 	const replacement = [
-		`GPT / Codex · Cost ${cost}`,
-		usageMeterRow("Semana", codexValue),
-		"OpenCode Go · 5 h / sem / mes",
-		usageMeterRow("Restante", openCodeGo),
-		"Command Code · 5 h / sem / créditos",
-		usageMeterRow("Restante", commandCode),
-		"Antigravity A · 5 h sobre semanal",
-		usageMeterRow("Restante", antigravityA),
-		"Antigravity B · 5 h sobre semanal",
-		usageMeterRow("Restante", antigravityB),
+		sidebarFieldRow(template, "GPT / Codex", `Cost ${cost}`),
+		sidebarFieldRow(template, "Semana", codexValue),
+		sidebarFieldRow(template, "OpenCode Go", "5 h / sem / mes"),
+		sidebarFieldRow(template, "Restante", openCodeGo),
+		sidebarFieldRow(template, "Command Code", "5 h / sem / créditos"),
+		sidebarFieldRow(template, "Restante", commandCode),
+		sidebarFieldRow(template, "Antigravity A", "5 h sobre semanal"),
+		sidebarFieldRow(template, "Restante", antigravityA),
+		sidebarFieldRow(template, "Antigravity B", "5 h sobre semanal"),
+		sidebarFieldRow(template, "Restante", antigravityB),
 	].map((line) => gentleCardRow(template, line));
 	const changesRows = changes ? [
 		gentleCardRow(
 			template,
 			sidebarFieldRow(
+				template,
 				"Changes",
 				`${changes.files} ${changes.files === 1 ? "file" : "files"} · ${transcriptTone("success", `+${changes.added}`)} ${transcriptTone("error", `−${changes.deleted}`)}`,
 			),
@@ -1033,11 +1017,11 @@ function hideGentleSidebarBanner(ui: unknown): boolean {
 				// If Gentleman has disposed this rail, leave its native cleanup alone.
 			}
 			const lines = originalRender.call(this, width);
-			return stretchGentleRailCards(
-				withTerminalIntegrationIcons(
-					withCompactGentleSidebar(
-						withoutGentleSidebarFallbackSummary(
-							withoutGentleSidebarRuntimeDetails(withoutGentleSidebarBanner(lines)),
+			return withTerminalIntegrationIcons(
+				withCompactGentleSidebar(
+					withoutGentleSidebarFallbackSummary(
+						withoutGentleSidebarRuntimeDetails(
+							stretchGentleRailCards(withoutGentleSidebarBanner(lines)),
 						),
 					),
 				),
