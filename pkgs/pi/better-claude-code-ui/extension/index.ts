@@ -32,6 +32,7 @@ import { WallpaperAccentSync, type WallpaperThemeUi } from "./wallpaper-sync.js"
 import { registerAntigravityUsage } from "./antigravity-usage.js";
 import { registerCommandCodeUsage } from "./commandcode-usage.js";
 import { registerOpenCodeGoUsage } from "./opencode-go-usage.js";
+import { registerCodexUsageCache } from "./codex-usage-cache.js";
 
 /**
  * gentle-pi's quiet-tools extension owns the same seven built-in tool names.
@@ -83,6 +84,7 @@ export default function (pi: ExtensionAPI) {
 	registerAntigravityUsage(pi);
 	registerCommandCodeUsage(pi);
 	registerOpenCodeGoUsage(pi);
+	registerCodexUsageCache(pi);
 
 	// Layer 2: chrome
 	registerSpinner(pi);

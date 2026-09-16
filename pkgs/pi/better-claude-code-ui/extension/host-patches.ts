@@ -47,6 +47,7 @@ import {
 } from "./antigravity-usage.js";
 import { openCodeGoUsageSnapshot, type OpenCodeGoUsageSnapshot } from "./opencode-go-usage.js";
 import { commandCodeUsageSnapshot, type CommandCodeUsageSnapshot } from "./commandcode-usage.js";
+import { codexUsageSnapshot, observeCodexUsage } from "./codex-usage-cache.js";
 import { installFallbackPanelBehavior } from "./fallback-panel.js";
 
 // CSI + OSC (BEL or ST terminated) + charset selects. OSC matters: the host
@@ -628,6 +629,19 @@ function commandCodeUsageMeter(usage: CommandCodeUsageSnapshot): string {
 			: "esperando la primera lectura";
 }
 
+function codexUsagePercent(text: string | undefined): number | undefined {
+	if (!text) return undefined;
+	const percentages = [...text.replace(TERMINAL_CONTROL_RE, "").matchAll(/(\d+(?:\.\d+)?)%/g)];
+	const value = Number.parseFloat(percentages.at(-1)?.[1] ?? "");
+	return Number.isFinite(value) && value >= 0 && value <= 100 ? value : undefined;
+}
+
+function cachedCodexUsageMeter(usedPercent: number): string {
+	const cells = 8;
+	const filled = Math.max(0, Math.min(cells, Math.round((usedPercent / 100) * cells)));
+	return `${transcriptTone("warning", "▰".repeat(filled))}${transcriptTone("dim", "▱".repeat(cells - filled))} ${transcriptTone("text", `${Math.round(usedPercent)}%`)}`;
+}
+
 /** Both provider meters begin in the same terminal column. */
 function usageMeterRow(label: string, meter: string): string {
 	return `  ${label.padEnd(8)} ${meter}`;
@@ -716,7 +730,11 @@ function withSeparatedUsage(lines: string[], changes?: SidebarChangesSummary): s
 	const text = currentBody.map((line) => gentleCardBody(line) ?? "");
 	const cost = text.find((line) => /^Cost\b/i.test(line))?.replace(/^Cost\s*/i, "") ?? "—";
 	const codexMeter = text.find((line) => /\b(?:codex|week|5h|7d)\b/i.test(line));
-	const codexValue = codexMeter?.replace(/^codex\s+week\s*/i, "") ?? "cuota tras la primera respuesta";
+	const observedCodexPercent = codexUsagePercent(codexMeter);
+	if (observedCodexPercent !== undefined) observeCodexUsage(observedCodexPercent);
+	const cachedCodex = codexUsageSnapshot();
+	const codexValue = codexMeter?.replace(/^codex\s+week\s*/i, "")
+		?? (cachedCodex.status === "ready" ? cachedCodexUsageMeter(cachedCodex.usedPercent) : "—");
 	const openCodeGo = openCodeGoUsageMeter(openCodeGoUsageSnapshot());
 	const commandCode = commandCodeUsageMeter(commandCodeUsageSnapshot());
 	const antigravityA = antigravityUsageMeter(antigravityAUsageSnapshot());
@@ -733,12 +751,24 @@ function withSeparatedUsage(lines: string[], changes?: SidebarChangesSummary): s
 		usageMeterRow("Restante", antigravityA),
 		"Antigravity B · 5 h sobre semanal",
 		usageMeterRow("Restante", antigravityB),
-		...(changes ? [usageMeterRow(
-			"Changes",
-			`${changes.files} ${changes.files === 1 ? "file" : "files"} · ${transcriptTone("success", `+${changes.added}`)} ${transcriptTone("error", `−${changes.deleted}`)}`,
-		)] : []),
 	].map((line) => gentleCardRow(template, line));
-	return [...lines.slice(0, bodyStart), ...replacement, ...lines.slice(bodyEnd)];
+	const changesRows = changes ? [
+		gentleCardRow(
+			template,
+			sidebarFieldRow(
+				"Changes",
+				`${changes.files} ${changes.files === 1 ? "file" : "files"} · ${transcriptTone("success", `+${changes.added}`)} ${transcriptTone("error", `−${changes.deleted}`)}`,
+			),
+		),
+		gentleCardRow(template, ""),
+	] : [];
+	return [
+		...lines.slice(0, usageTitle),
+		...changesRows,
+		lines[usageTitle]!,
+		...replacement,
+		...lines.slice(bodyEnd),
+	];
 }
 
 /** Apply both rail compactions atomically: never remove Changes unless a
@@ -748,6 +778,25 @@ function withCompactGentleSidebar(lines: string[]): string[] {
 	const detached = detachGentleChangesCard(project);
 	const merged = withSeparatedUsage(detached.lines, detached.summary);
 	return detached.summary && merged === detached.lines ? project : merged;
+}
+
+/** Gentle reserves one padding column on each side of every rail section.
+ * Consume those two columns inside framed cards so their backgrounds and
+ * borders span the complete content track up to the native scrollbar. */
+function stretchGentleRailCards(lines: string[]): string[] {
+	return lines.map((line) => {
+		if (!line.startsWith(" ") || !line.endsWith(" ")) return line;
+		const plain = line.replace(TERMINAL_CONTROL_RE, "");
+		if (!/^ [╭│╰].*[╮│╯] $/.test(plain)) return line;
+
+		const card = line.slice(1, -1);
+		const plainCard = card.replace(TERMINAL_CONTROL_RE, "");
+		const right = Math.max(plainCard.lastIndexOf("╮"), plainCard.lastIndexOf("│"), plainCard.lastIndexOf("╯"));
+		if (right <= 0) return line;
+		const rawRight = rawOffsetForPlainOffset(card, right);
+		const fill = plainCard.startsWith("│") ? "  " : "──";
+		return `${card.slice(0, rawRight)}${fill}${card.slice(rawRight)}`;
+	});
 }
 
 type LayoutNodeLike = {
@@ -969,10 +1018,12 @@ function hideGentleSidebarBanner(ui: unknown): boolean {
 				// If Gentleman has disposed this rail, leave its native cleanup alone.
 			}
 			const lines = originalRender.call(this, width);
-			return withTerminalIntegrationIcons(
-				withCompactGentleSidebar(
-					withoutGentleSidebarFallbackSummary(
-						withoutGentleSidebarRuntimeDetails(withoutGentleSidebarBanner(lines)),
+			return stretchGentleRailCards(
+				withTerminalIntegrationIcons(
+					withCompactGentleSidebar(
+						withoutGentleSidebarFallbackSummary(
+							withoutGentleSidebarRuntimeDetails(withoutGentleSidebarBanner(lines)),
+						),
 					),
 				),
 			);
