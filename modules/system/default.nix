@@ -29,6 +29,38 @@ let
   packetTracerPackages = lib.optionals
     (builtins.elem config.networking.hostName [ "loon-laptop" "korosoft" ])
     [ (pkgs.callPackage ../../pkgs/cisco-packet-tracer { }) ];
+
+  # Runtimes y outputs de desarrollo requeridos por Tauri/WebKitGTK. Los
+  # outputs dev aportan los headers y archivos .pc que consulta pkg-config.
+  tauriPackages = with pkgs; [
+    webkitgtk_4_1
+    gtk3
+    libsoup_3
+    glib
+    cairo
+    pango
+    gdk-pixbuf
+    atk
+    librsvg
+    dbus
+    wayland
+    libxkbcommon
+    libayatana-appindicator
+    glib-networking
+    gsettings-desktop-schemas
+    libglvnd
+    mesa
+    libx11
+    libxcursor
+    libxi
+    libxrandr
+    libxext
+    libxfixes
+    libxcomposite
+    libxdamage
+    libxrender
+  ];
+  tauriDevelopmentPackages = map lib.getDev (lib.closePropagation tauriPackages);
 in
 {
   imports = [
@@ -97,7 +129,7 @@ in
 
   # ---- Variables de entorno de build y sesión ----
   environment.sessionVariables = {
-    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig";
+    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig:/run/current-system/sw/lib/pkgconfig:/run/current-system/sw/share/pkgconfig";
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
     BROWSER = "zen-browser";
     NPM_CONFIG_PREFIX = "/home/loonbac/.npm-global";
@@ -133,6 +165,10 @@ in
   environment.extraInit = ''
     export PATH="$PATH:$HOME/.npm-global/bin"
   '';
+
+  # Publica los metadatos de desarrollo de los paquetes Tauri en la ruta del
+  # sistema; sus .pc conservan las rutas exactas del store para headers/libs.
+  environment.pathsToLink = [ "/lib/pkgconfig" "/share/pkgconfig" ];
 
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
@@ -248,5 +284,5 @@ in
     inxi               # resumen completo de hardware y sistema
     lshw               # listado detallado de hardware
     iw                 # estado y configuración de interfaces WiFi
-  ] ++ packetTracerPackages;
+  ] ++ tauriPackages ++ tauriDevelopmentPackages ++ packetTracerPackages;
 }
