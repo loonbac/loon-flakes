@@ -20,7 +20,6 @@
     ./gentle-ai
     ./steam
     ./steamidra
-    ./citron-nextendo
     ./veadotube-mini
   ];
 }

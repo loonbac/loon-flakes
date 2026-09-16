@@ -3,6 +3,12 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # Citron Nextendo: builds Linux only after upstream publishes a successful
+    # release, then exposes immutable AppImages and a reusable NixOS module.
+    citron-nextendo = {
+      url = "github:loonbac/citron-nextendo";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
@@ -41,7 +47,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote }:
+  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -113,14 +119,9 @@
       };
       steamidraModule = ./modules/programs/steamidra;
 
-      citronNextendoPackage = pkgs.callPackage ./pkgs/citron-nextendo { };
-      citronNextendoOverlay = final: _prev: {
-        citron-nextendo = final.callPackage ./pkgs/citron-nextendo { };
-        citron-nextendo-v3 = final.callPackage ./pkgs/citron-nextendo {
-          x86_64Variant = "v3";
-        };
-      };
-      citronNextendoModule = ./modules/programs/citron-nextendo;
+      citronNextendoPackage = citron-nextendo.packages.${system}.default;
+      citronNextendoOverlay = citron-nextendo.overlays.default;
+      citronNextendoModule = citron-nextendo.nixosModules.default;
 
       veadotubeMiniPackage = pkgsUnfree.callPackage ./pkgs/veadotube-mini { };
       veadotubeMiniOverlay = final: _prev: {
@@ -143,7 +144,7 @@
           zen-browser = zen-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
-          inherit millennium space-theme-fix nix-tools-steam accela;
+          inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
         };
         modules = [
           ./hosts/${hostName}
@@ -192,9 +193,7 @@
         steamidra = steamidraPackage;
         # Fork de Citron Neo con juego online mediante Nextendo Network.
         citron-nextendo = citronNextendoPackage;
-        citron-nextendo-v3 = pkgs.callPackage ./pkgs/citron-nextendo {
-          x86_64Variant = "v3";
-        };
+        citron-nextendo-v3 = citron-nextendo.packages.${system}.citron-nextendo-v3;
         veadotube-mini = veadotubeMiniPackage;
         obs-pwvideo = obsPwvideoPackage;
       };
@@ -223,6 +222,7 @@
       nixosConfigurations = {
         "loon-laptop" = mkHost "loon-laptop" [ ];
         "nixos-pc" = mkHost "nixos-pc" [
+          citron-nextendo.nixosModules.default
           nix-flatpak.nixosModules.nix-flatpak
           lanzaboote.nixosModules.lanzaboote
         ];

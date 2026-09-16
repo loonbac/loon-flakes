@@ -21,6 +21,26 @@
         "type": "github"
       }
     },
+    "citron-nextendo": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789590044,
+        "narHash": "sha256-YziPB3Zjlxx2EHMvup/ITnEIyY/UT9eVFwK2MtB0R4E=",
+        "owner": "loonbac",
+        "repo": "citron-nextendo",
+        "rev": "900f6d7a65e7eb7b820932249fd9646475d20f1e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "loonbac",
+        "repo": "citron-nextendo",
+        "type": "github"
+      }
+    },
     "code-insiders-flake": {
       "inputs": {
         "nixpkgs": [
@@ -291,6 +311,7 @@
     "root": {
       "inputs": {
         "antigravity-nix": "antigravity-nix",
+        "citron-nextendo": "citron-nextendo",
         "code-insiders-flake": "code-insiders-flake",
         "lanzaboote": "lanzaboote",
         "millennium": "millennium",

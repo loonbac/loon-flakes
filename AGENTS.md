@@ -187,15 +187,20 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ### Actualizar Citron Nextendo
 
-- **Paquete**: `pkgs/citron-nextendo/default.nix`; los datos cambiantes viven
-  en `pkgs/citron-nextendo/sources.json`.
-- **Módulo público**: `modules/programs/citron-nextendo/default.nix`, exportado
-  como `nixosModules.citron-nextendo`.
+- **Fuente externa**: el input `citron-nextendo` de `flake.nix` consume el fork
+  público `github:loonbac/citron-nextendo`; este repo no compila ni refleja
+  artefactos de Citron.
+- **Paquete/módulo**: provienen de los outputs `packages`, `overlays` y
+  `nixosModules` del fork. `loon-flakes` conserva aliases públicos por
+  compatibilidad.
 - **Activación exclusiva**: `hosts/nixos-pc/gaming.nix`, con la variante
   `x86_64_v3` para el Ryzen 7 5700X. No habilitarlo en los demás hosts.
 - **Actualización automática**:
-  `.github/workflows/update-citron-nextendo.yml` consulta la release oficial,
-  verifica hashes, crea un mirror inmutable y actualiza `sources.json`.
+  `loonbac/citron-nextendo/.github/workflows/release-linux-after-upstream.yml`
+  sincroniza el fork, espera una release Linux oficial exitosa, compila las
+  tres arquitecturas, publica una release inmutable y actualiza sus hashes.
+- Para traer una release nueva a NixOS se usa el flujo normal `rebuild update`,
+  que actualiza el input en `flake.lock`; un rebuild normal no hace downgrade.
 - No compilar Citron localmente para validar este módulo. Probar solo la
   evaluación o el paquete AppImage ya publicado; el build C++ puede consumir
   decenas de GiB de RAM.
@@ -261,8 +266,9 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **El rebuild puede tardar** (compila niri, loon-launch, quickshell) — usar
   timeouts generosos (600000 ms).
 - **Citron Nextendo**: upstream reemplaza y borra la release mutable
-  `nightly-linux`. Nix debe apuntar al mirror inmutable por commit creado por
-  GitHub Actions; no fijar permanentemente el URL mutable de upstream.
+  `nightly-linux`. El fork externo solo compila después de que upstream publica
+  esa release y apunta Nix a su propia release inmutable por commit; no fijar
+  permanentemente el URL mutable de upstream.
 - **Equibop + Tailscale → "DTLS Connecting"**: el voice chat se cuelga si
   WebRTC se bindea a la interfaz de la VPN. El fix vive en
   `modules/programs/equibop/default.nix` y **parchea el `app.asar`** (inyecta

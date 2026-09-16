@@ -22,7 +22,6 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── pi/                             # assets locales de Pi (skills + UI custom)
 │   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
 │   ├── gentle-stack-update/            # actualiza Pi + extensiones + Gentle AI + Engram
-│   ├── citron-nextendo/                # AppImage fijado del fork Citron Nextendo
 │   └── cisco-packet-tracer/           # paquete con .deb propietario por hash
 ├── hosts/
 │   ├── loon-laptop/
@@ -46,7 +45,6 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     │   ├── ghostty/                   # terminal (config gestionada)
     │   ├── waybar/                    # barra de estado (config + estilo)
     │   ├── equibop/                   # Discord con fix de WebRTC (Tailscale)
-    │   ├── citron-nextendo/           # módulo opcional del emulador
     │   └── gentle-ai/                 # stack Gentle-AI/Pi/Engram + bootstrap
     ├── wayland/                       # compositores Wayland y greeter
     │   ├── niri/                      # compositor niri (config.kdl gestionado)
@@ -463,31 +461,29 @@ el login, sus directorios privados son `~/.config/equibop` y
 
 ### Citron Nextendo
 
-El paquete `citron-nextendo` fija por hash la nightly oficial del fork Citron
-Neo de Nextendo Network. Se distribuye para `x86_64-linux` y `aarch64-linux`,
-instala su entrada de escritorio y las reglas udev para mandos Nintendo. El PC
-usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7 5700X;
-el módulo reutilizable usa por defecto la build x86_64 genérica. En este
-repositorio está habilitado solamente desde `hosts/nixos-pc/gaming.nix`.
+El input `citron-nextendo` consume el fork público
+[`loonbac/citron-nextendo`](https://github.com/loonbac/citron-nextendo). Ese
+repositorio se mantiene sincronizado con Nextendo Network, pero solo intenta
+compilar cuando upstream ya publicó una release Linux exitosa. Sus builds para
+`x86_64-linux`, `x86_64-v3` y `aarch64-linux` se publican con tags inmutables y
+el mismo repo expone el paquete, overlay y módulo NixOS. Así `loon-flakes` ya no
+aloja el sistema de build ni los artefactos de Citron.
 
-El workflow `.github/workflows/update-citron-nextendo.yml` consulta cada seis
-horas la release oficial `nightly-linux`. Cuando cambia, verifica los SHA-256
-publicados por GitHub, refleja los tres AppImages sin modificarlos en una
-release inmutable `citron-nextendo-<commit>` y actualiza automáticamente
-`pkgs/citron-nextendo/sources.json`. Así ningún host compila Citron y una
-nightly antigua continúa disponible aunque upstream reemplace su release.
+El PC usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7
+5700X. Una actualización entra mediante `rebuild update`, que avanza el input
+en `flake.lock`; un rebuild normal conserva la revisión instalada.
 
 Otro flake NixOS puede reutilizar el módulo directamente:
 
 ```nix
 {
-  inputs.loon-flakes.url = "github:loonbac/loon-flakes";
+  inputs.citron-nextendo.url = "github:loonbac/citron-nextendo";
 
-  outputs = { nixpkgs, loon-flakes, ... }: {
+  outputs = { nixpkgs, citron-nextendo, ... }: {
     nixosConfigurations.mi-pc = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        loon-flakes.nixosModules.citron-nextendo
+        citron-nextendo.nixosModules.default
         { programs.citron-nextendo.enable = true; }
       ];
     };
@@ -498,14 +494,14 @@ Otro flake NixOS puede reutilizar el módulo directamente:
 También se puede construir o ejecutar sin importar el módulo:
 
 ```bash
-nix build github:loonbac/loon-flakes#citron-nextendo
-nix run github:loonbac/loon-flakes#citron-nextendo
+nix build github:loonbac/citron-nextendo
+nix run github:loonbac/citron-nextendo
 ```
 
 En una CPU compatible con x86-64-v3 se puede usar la build optimizada:
 
 ```bash
-nix run github:loonbac/loon-flakes#citron-nextendo-v3
+nix run github:loonbac/citron-nextendo#citron-nextendo-v3
 ```
 
 ---
@@ -761,6 +757,7 @@ borde inferior y deja el resto del lienzo transparente.
 | Input                 | Qué aporta                                        |
 |-----------------------|---------------------------------------------------|
 | `nixpkgs`             | `nixos-26.05`                                     |
+| `citron-nextendo`     | AppImages estables por commit + módulo NixOS      |
 | `zen-browser`         | Zen Browser (no está en nixpkgs)                  |
 | `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
 
