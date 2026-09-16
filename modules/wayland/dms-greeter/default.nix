@@ -64,18 +64,34 @@ in
     enable = true;
     # Compositor del greeter: debe estar instalado vía NixOS (no home-manager).
     compositor.name = "niri";
-    # Sincroniza el tema de DankMaterialShell del usuario con el greeter.
-    configHome = "/home/loonbac";
   };
 
-  # Settings versionados del greeter: el greeter lee /var/lib/dms-greeter/settings.json
-  # (blockWrites = true, solo lectura). Se instala declarativamente y se enlaza
-  # al cache dir que crea el paquete dms-shell.
-  environment.etc."dms-greeter/settings.json".source = ./settings.json;
+  # Una actualización nunca debe parar greetd mientras niri ocupa el seat. Si
+  # eso sucede, el greeter nuevo toma DRM pero el niri anterior sigue vivo en
+  # el user manager; los siguientes logins encuentran niri.service ya activo y
+  # vuelven inmediatamente al greeter. Los cambios del greeter entran al boot.
+  systemd.services.greetd = {
+    restartIfChanged = false;
+    stopIfChanged = false;
+    unitConfig.RefuseManualStop = true;
+  };
 
-  systemd.tmpfiles.rules = [
-    "L+ /var/lib/dms-greeter/settings.json - - - - /etc/dms-greeter/settings.json"
-  ];
+  # El preStart de dms-greeter necesita modificar/chown settings.json. Antes
+  # era un symlink a /etc (store de solo lectura), lo que generaba errores en
+  # cada arranque. Mantener una copia real también permite una migración limpia
+  # desde las generaciones antiguas que ya crearon ese symlink.
+  system.activationScripts.dmsGreeterSettings = {
+    deps = [ "users" "groups" ];
+    text = ''
+      ${pkgs.coreutils}/bin/install -d -m 0755 -o dms-greeter -g dms-greeter \
+        /var/lib/dms-greeter
+      if [ -L /var/lib/dms-greeter/settings.json ]; then
+        ${pkgs.coreutils}/bin/unlink /var/lib/dms-greeter/settings.json
+      fi
+      ${pkgs.coreutils}/bin/install -m 0644 -o dms-greeter -g dms-greeter \
+        ${./settings.json} /var/lib/dms-greeter/settings.json
+    '';
+  };
 
   # --- Foto de perfil en el login (AccountsService) ---
   # El greeter consulta org.freedesktop.Accounts (IconFile del usuario) por D-Bus.
@@ -128,8 +144,11 @@ EOF
   systemd.services.publish-greeter-wallpaper = {
     description = "Publica el wallpaper del backdrop en el greeter";
     wantedBy = [ "multi-user.target" ];
-    requiredBy = [ "greetd.service" ];
+    # Solo ordena el arranque. No usar requiredBy/Requires: detener este
+    # oneshot durante un switch propaga la parada a greetd y expulsa la sesión.
     before = [ "greetd.service" ];
+    restartIfChanged = false;
+    stopIfChanged = false;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -152,6 +171,13 @@ EOF
       chmod 644 /var/lib/dms-greeter/greeter_wallpaper_override.jpg
       matugen image "$wallpaper" --config ${greeterMatugenConfig} \
         --source-color-index 0 --quiet
+      # El preStart upstream renombra este archivo a colors.json. Dejar ambas
+      # rutas evita el warning de archivo inexistente y mantiene el arranque
+      # idempotente.
+      cp /var/lib/dms-greeter/colors.json /var/lib/dms-greeter/dms-colors.json
+      chown dms-greeter:dms-greeter \
+        /var/lib/dms-greeter/colors.json \
+        /var/lib/dms-greeter/dms-colors.json
     '';
   };
 }

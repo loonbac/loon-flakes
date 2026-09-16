@@ -5,7 +5,7 @@
 # Uso:
 #   rebuild            # aplica los cambios (nixos-rebuild switch)
 #   rebuild dry        # prueba sin aplicar
-#   rebuild update     # actualiza nixpkgs y aplica
+#   rebuild update     # actualiza y prepara el próximo arranque sin cerrar la sesión
 { pkgs, lib }:
 
 let
@@ -40,7 +40,15 @@ let
         ;;
       update)
         nix flake update
-        sudo nixos-rebuild switch --flake ".#$HOST"
+        # Una actualización de inputs puede cambiar componentes fundamentales
+        # (greetd, PAM, systemd, drivers...). Aplicarlos con `switch` mientras
+        # hay una sesión gráfica activa puede quitarle el seat/DRM a niri y
+        # dejar un compositor viejo vivo, provocando un bucle de login.
+        # `boot` instala y firma la generación sin tocar la sesión actual.
+        sudo nixos-rebuild boot --flake ".#$HOST"
+        echo
+        echo "Actualización preparada de forma segura."
+        echo "La sesión actual no fue reiniciada; reinicia cuando quieras aplicarla."
         ;;
       switch)
         sudo nixos-rebuild switch --flake ".#$HOST"

@@ -272,8 +272,6 @@ in
     fuzzel             # picker del historial de portapapeles (Super+Shift+V)
     # Tema de cursor por defecto: Win11OSX (Xcursor nativo, compatible Linux).
     (pkgs.callPackage ../../pkgs/win11osx-cursor { })
-    # Tema de cursor Vision (blanco/negro) — alternativa.
-    (pkgs.callPackage ../../pkgs/vision-cursor { }).white
 
     # ---- Utilidades de diagnóstico de hardware/drivers ----
     # Para verificar que los drivers (GPU/VA-API, WiFi, etc.) funcionan.
