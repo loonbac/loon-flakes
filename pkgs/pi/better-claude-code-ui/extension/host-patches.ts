@@ -125,10 +125,12 @@ const OSC133_ZONE_RE = /\x1b\]133;[ABC]\x07/g;
 const USER_MESSAGE_BACKGROUND_RE = /\x1b\[(?:4[0-7]|10[0-7]|48(?:[;:][0-9:;]*)?|49)m/g;
 
 const DELETE_HOLD_MS = 900;
+const DELETE_RETURN_MS = 420;
 const DELETE_INITIAL_REPEAT_GRACE_MS = 700;
 const DELETE_REPEAT_GRACE_MS = 350;
 const DELETE_UNDERLINE_ON = "\x1b[4m\x1b[58:2::244:72:92m";
 const DELETE_UNDERLINE_OFF = "\x1b[24m\x1b[59m";
+const DELETE_RED = "\x1b[38;2;244;72;92m";
 
 interface ResumeSessionInfo {
 	path: string;
@@ -145,9 +147,11 @@ interface ResumeSessionNode {
 
 interface DeleteHoldState {
 	path: string;
-	startedAt: number;
 	lastEventAt: number;
+	lastTickAt: number;
 	events: number;
+	progress: number;
+	held: boolean;
 	timer: ReturnType<typeof setInterval>;
 }
 
@@ -217,8 +221,27 @@ function replaceVisibleCells(
 
 function underlineVisibleCells(line: string, startCell: number, endCell: number): string {
 	if (endCell <= startCell) return line;
-	const opened = replaceVisibleCells(line, startCell, startCell, DELETE_UNDERLINE_ON);
-	return replaceVisibleCells(opened, endCell, endCell, DELETE_UNDERLINE_OFF);
+	const tokenRe = new RegExp(`(${ANSI_RE.source})`, "g");
+	let column = 0;
+	let result = "";
+	for (const token of line.split(tokenRe)) {
+		if (!token) continue;
+		if (token.startsWith("\x1b")) {
+			result += token;
+			continue;
+		}
+		for (const char of token) {
+			const nextColumn = column + visibleWidth(char);
+			const inside = column < endCell && nextColumn > startCell;
+			// Paint glyphs individually. Spaces stay untouched, so this reads as
+			// underlined text instead of a continuous horizontal progress bar.
+			result += inside && /\S/u.test(char)
+				? `${DELETE_UNDERLINE_ON}${char}${DELETE_UNDERLINE_OFF}`
+				: char;
+			column = nextColumn;
+		}
+	}
+	return result;
 }
 
 function clearDeleteHold(list: PatchedSessionList, requestRender: () => void): void {
@@ -226,6 +249,14 @@ function clearDeleteHold(list: PatchedSessionList, requestRender: () => void): v
 	if (!state) return;
 	clearInterval(state.timer);
 	delete list[SESSION_DELETE_HOLD];
+	requestRender();
+}
+
+function releaseDeleteHold(list: PatchedSessionList, requestRender: () => void): void {
+	const state = list[SESSION_DELETE_HOLD];
+	if (!state || !state.held) return;
+	state.held = false;
+	state.lastTickAt = Date.now();
 	requestRender();
 }
 
@@ -287,7 +318,7 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 				hint,
 				start,
 				end,
-				`${DELETE_UNDERLINE_ON}Supr${DELETE_UNDERLINE_OFF} mantener`,
+				`${DELETE_RED}Supr\x1b[39m mantener`,
 			);
 			return lines;
 		};
@@ -312,8 +343,7 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 			if (typeof line !== "string") return lines;
 			const columns = selectedMessageColumns(list, line);
 			if (!columns) return lines;
-			const progress = Math.min(1, (Date.now() - state.startedAt) / DELETE_HOLD_MS);
-			const painted = Math.max(1, Math.ceil((columns[1] - columns[0]) * progress));
+			const painted = Math.max(1, Math.ceil((columns[1] - columns[0]) * state.progress));
 			lines[row] = underlineVisibleCells(line, columns[0], columns[0] + painted);
 			return lines;
 		};
@@ -335,13 +365,13 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 				return;
 			}
 			if (!matchesKey(data, "delete")) {
-				clearDeleteHold(list, requestRender);
+				releaseDeleteHold(list, requestRender);
 				clearDeleteLatch(list);
 				originalListInput(data);
 				return;
 			}
 			if (isKeyRelease(data)) {
-				clearDeleteHold(list, requestRender);
+				releaseDeleteHold(list, requestRender);
 				clearDeleteLatch(list);
 				return;
 			}
@@ -362,15 +392,19 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 			if (existing?.path === path) {
 				existing.lastEventAt = now;
 				existing.events += 1;
+				if (!existing.held) existing.lastTickAt = now;
+				existing.held = true;
 				requestRender();
 				return;
 			}
 			clearDeleteHold(list, requestRender);
 			const state = {
 				path,
-				startedAt: now,
 				lastEventAt: now,
+				lastTickAt: now,
 				events: 1,
+				progress: 0,
+				held: true,
 				timer: undefined as unknown as ReturnType<typeof setInterval>,
 			};
 			state.timer = setInterval(() => {
@@ -379,17 +413,27 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 					return;
 				}
 				const tick = Date.now();
+				const delta = Math.max(0, tick - state.lastTickAt);
+				state.lastTickAt = tick;
 				const grace = state.events > 1 ? DELETE_REPEAT_GRACE_MS : DELETE_INITIAL_REPEAT_GRACE_MS;
 				if (
-					(state.events === 1 && tick - state.lastEventAt > grace) ||
-					(state.events > 1 && !isKittyProtocolActive() && tick - state.lastEventAt > grace)
+					state.held && (
+						(state.events === 1 && tick - state.lastEventAt > grace) ||
+						(state.events > 1 && !isKittyProtocolActive() && tick - state.lastEventAt > grace)
+					)
 				) {
+					state.held = false;
+				}
+				state.progress = state.held
+					? Math.min(1, state.progress + delta / DELETE_HOLD_MS)
+					: Math.max(0, state.progress - delta / DELETE_RETURN_MS);
+				if (state.progress <= 0 && !state.held) {
 					clearDeleteHold(list, requestRender);
 					return;
 				}
 				// At least one repeat is mandatory. This keeps a lone Delete press
 				// harmless even on terminals that cannot report key releases.
-				if (tick - state.startedAt >= DELETE_HOLD_MS && state.events > 1) {
+				if (state.progress >= 1 && state.events > 1 && state.held) {
 					clearInterval(state.timer);
 					delete list[SESSION_DELETE_HOLD];
 					keepDeleteLatched(list);
