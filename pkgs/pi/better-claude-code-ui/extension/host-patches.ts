@@ -39,6 +39,7 @@
  */
 import { AssistantMessageComponent, InteractiveMode, ToolExecutionComponent, UserMessageComponent } from "@earendil-works/pi-coding-agent";
 import { ProcessTerminal, stripTerminalSequences, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { homedir } from "node:os";
 import { fastModeActivatedAt, fastModeAnimationPhase, fastModeIsActive } from "./fast-mode-indicator.js";
 import {
 	antigravityAUsageSnapshot,
@@ -655,6 +656,19 @@ function sidebarFieldRow(label: string, value: string): string {
 	return `${label.padEnd(SIDEBAR_FIELD_COLUMN)}${value}`;
 }
 
+/** Gentle shortens paths below HOME even when the rail has room for the real
+ * value. Restore the absolute path when it fits; keep Gentle's compact form
+ * for deeper projects so the repository name is not needlessly clipped. */
+function fullProjectPathWhenItFits(template: string, path: string): string {
+	if (!path.startsWith("~/")) return path;
+	const expanded = `${homedir()}${path.slice(1)}`;
+	const left = template.indexOf("│");
+	const right = template.lastIndexOf("│");
+	if (left < 0 || right <= left) return path;
+	const usableWidth = Math.max(0, displayWidth(template.slice(left + 1, right)) - 2);
+	return displayWidth(sidebarFieldRow("Project", expanded)) <= usableWidth ? expanded : path;
+}
+
 /** Gentle renders Project as a heading with its path on the next row. The
  * right rail is wide enough for the useful pair, so collapse it into the same
  * compact key/value grammar used by Branch and Session. */
@@ -663,9 +677,10 @@ function withInlineProjectFields(lines: string[]): string[] {
 	if (project < 0 || project + 1 >= lines.length) return lines;
 	const path = gentleCardBody(lines[project + 1]!);
 	if (!path) return lines;
+	const shownPath = fullProjectPathWhenItFits(lines[project]!, path);
 
 	const compact = [...lines];
-	compact[project] = gentleCardRow(lines[project]!, sidebarFieldRow("Project", path));
+	compact[project] = gentleCardRow(lines[project]!, sidebarFieldRow("Project", shownPath));
 	compact.splice(project + 1, 1);
 	for (let index = project + 1; index < compact.length; index++) {
 		const body = gentleCardBody(compact[index]!);
