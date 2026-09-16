@@ -109,6 +109,7 @@ const GENTLE_TRANSCRIPT_GUTTER_ACTIVE = Symbol.for("better-cc-ui:gentle-transcri
 const GENTLE_RAIL_GUTTER_LAYOUT = Symbol.for("better-cc-ui:gentle-rail-gutter-layout");
 const GENTLE_RAIL_LAYOUT_STABILIZER = Symbol.for("better-cc-ui:gentle-rail-layout-stabilizer");
 const SESSION_SELECTOR_LAYOUT_BASE = Symbol.for("better-cc-ui:session-selector-layout-base");
+const SESSION_SELECTOR_INPUT_BASE = Symbol.for("better-cc-ui:session-selector-input-base");
 const SESSION_LIST_INPUT_BASE = Symbol.for("better-cc-ui:session-list-input-base");
 const SESSION_LIST_RENDER_BASE = Symbol.for("better-cc-ui:session-list-render-base");
 const SESSION_HEADER_RENDER_BASE = Symbol.for("better-cc-ui:session-header-render-base");
@@ -184,6 +185,10 @@ interface PatchedSessionSelector {
 	sessionList?: PatchedSessionList;
 	header?: PatchedSessionHeader;
 	requestRender?: () => void;
+	mode?: "list" | "rename";
+	wantsKeyRelease?: boolean;
+	handleInput?: (data: string) => void;
+	[SESSION_SELECTOR_INPUT_BASE]?: (data: string) => void;
 }
 
 /** Keep every SGR/OSC token, but replace a range measured in visible cells. */
@@ -289,6 +294,21 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 	if (!list || !header) return;
 	const requestRender = () => selector.requestRender?.();
 
+	// TUI drops release events unless the focused component opts in.  The
+	// selector (rather than its nested list) owns focus, so this flag is what
+	// turns Delete into a real physical press/release gesture under Kitty.
+	selector.wantsKeyRelease = true;
+	if (!selector[SESSION_SELECTOR_INPUT_BASE] && typeof selector.handleInput === "function") {
+		const originalSelectorInput = selector.handleInput.bind(selector);
+		selector[SESSION_SELECTOR_INPUT_BASE] = originalSelectorInput;
+		selector.handleInput = (data: string): void => {
+			// Rename's Input never requested release events. Keep its previous
+			// semantics now that the outer selector receives them.
+			if (selector.mode === "rename" && isKeyRelease(data)) return;
+			originalSelectorInput(data);
+		};
+	}
+
 	if (!header[SESSION_HEADER_RENDER_BASE]) {
 		const originalHeaderRender = header.render.bind(header);
 		header[SESSION_HEADER_RENDER_BASE] = originalHeaderRender;
@@ -339,6 +359,16 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 		const originalListInput = list.handleInput.bind(list);
 		list[SESSION_LIST_INPUT_BASE] = originalListInput;
 		list.handleInput = (data: string): void => {
+			// Handle releases before keybindings. A Delete release stops filling
+			// immediately; unrelated releases are swallowed because the native
+			// SessionList did not opt in to receive release events.
+			if (isKeyRelease(data)) {
+				if (matchesKey(data, "delete")) {
+					releaseDeleteHold(list, requestRender);
+					clearDeleteLatch(list);
+				}
+				return;
+			}
 			const keybindings = getKeybindings();
 			// Retire Pi's Ctrl+D / Ctrl+Backspace confirmation flow. Deletion in
 			// /resume is intentionally available only through the hold gesture.
@@ -354,11 +384,6 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 				releaseDeleteHold(list, requestRender);
 				clearDeleteLatch(list);
 				originalListInput(data);
-				return;
-			}
-			if (isKeyRelease(data)) {
-				releaseDeleteHold(list, requestRender);
-				clearDeleteLatch(list);
 				return;
 			}
 			if (list[SESSION_DELETE_LATCH]) {
@@ -402,12 +427,7 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 				const delta = Math.max(0, tick - state.lastTickAt);
 				state.lastTickAt = tick;
 				const grace = state.events > 1 ? DELETE_REPEAT_GRACE_MS : DELETE_INITIAL_REPEAT_GRACE_MS;
-				if (
-					state.held && (
-						(state.events === 1 && tick - state.lastEventAt > grace) ||
-						(state.events > 1 && !isKittyProtocolActive() && tick - state.lastEventAt > grace)
-					)
-				) {
+				if (state.held && !isKittyProtocolActive() && tick - state.lastEventAt > grace) {
 					state.held = false;
 				}
 				state.progress = state.held
@@ -417,9 +437,10 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 					clearDeleteHold(list, requestRender);
 					return;
 				}
-				// At least one repeat is mandatory. This keeps a lone Delete press
-				// harmless even on terminals that cannot report key releases.
-				if (state.progress >= 1 && state.events > 1 && state.held) {
+				// Kitty's real release event proves the key stayed down for the whole
+				// duration; legacy terminals still need an auto-repeat as evidence.
+				const holdIsProven = isKittyProtocolActive() || state.events > 1;
+				if (state.progress >= 1 && holdIsProven && state.held) {
 					clearInterval(state.timer);
 					delete list[SESSION_DELETE_HOLD];
 					keepDeleteLatched(list);
