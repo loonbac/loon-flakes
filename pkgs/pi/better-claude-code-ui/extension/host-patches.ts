@@ -633,13 +633,77 @@ function usageMeterRow(label: string, meter: string): string {
 	return `  ${label.padEnd(8)} ${meter}`;
 }
 
+const SIDEBAR_FIELD_COLUMN = 12;
+
+/** Keep short metadata labels in one fixed column so the value starts on the
+ * same cell on every row (Project, Branch, Session and the Changes summary). */
+function sidebarFieldRow(label: string, value: string): string {
+	return `${label.padEnd(SIDEBAR_FIELD_COLUMN)}${value}`;
+}
+
+/** Gentle renders Project as a heading with its path on the next row. The
+ * right rail is wide enough for the useful pair, so collapse it into the same
+ * compact key/value grammar used by Branch and Session. */
+function withInlineProjectFields(lines: string[]): string[] {
+	const project = lines.findIndex((line) => gentleCardBody(line) === "Project");
+	if (project < 0 || project + 1 >= lines.length) return lines;
+	const path = gentleCardBody(lines[project + 1]!);
+	if (!path) return lines;
+
+	const compact = [...lines];
+	compact[project] = gentleCardRow(lines[project]!, sidebarFieldRow("Project", path));
+	compact.splice(project + 1, 1);
+	for (let index = project + 1; index < compact.length; index++) {
+		const body = gentleCardBody(compact[index]!);
+		if (body === "") break;
+		const field = body?.match(/^(Branch|Session)\s+(.+)$/);
+		if (field) compact[index] = gentleCardRow(compact[index]!, sidebarFieldRow(field[1]!, field[2]!));
+	}
+	return compact;
+}
+
+interface SidebarChangesSummary {
+	files: number;
+	added: number;
+	deleted: number;
+}
+
+/** Pull the standalone Changes card out of the rail. Its summary is folded
+ * into Usage below; /gentle:changes and its shortcut remain fully available. */
+function detachGentleChangesCard(lines: string[]): { lines: string[]; summary?: SidebarChangesSummary } {
+	const start = lines.findIndex((line) => {
+		const plain = line.replace(TERMINAL_CONTROL_RE, "");
+		return plain.includes("╭") && /\bChanges\b/.test(plain);
+	});
+	if (start < 0) return { lines };
+
+	let end = start;
+	while (end < lines.length && !lines[end]!.replace(TERMINAL_CONTROL_RE, "").includes("╰")) end++;
+	if (end >= lines.length) return { lines };
+
+	let summary: SidebarChangesSummary | undefined;
+	for (const line of lines.slice(start + 1, end)) {
+		const body = gentleCardBody(line);
+		const match = body?.match(/^(\d+)\s+files?\s*·\s*\+(\d+)\s+[−-](\d+)$/i);
+		if (!match) continue;
+		summary = { files: Number(match[1]), added: Number(match[2]), deleted: Number(match[3]) };
+		break;
+	}
+	if (!summary) return { lines };
+
+	// Consume the separator before this card. If another rail section follows,
+	// its own separator remains and keeps Status visually distinct from it.
+	const removeFrom = start > 0 && isOnlyWhitespace(lines[start - 1]!) ? start - 1 : start;
+	return { lines: [...lines.slice(0, removeFrom), ...lines.slice(end + 1)], summary };
+}
+
 /**
  * Gentle's existing Usage group describes the active Codex provider but does
  * not name it as GPT. Keep its live Codex meter, then add Antigravity A's
  * separate five-hour pool. This is a render-only patch: Gentle still owns its
  * card, cache, accent and Codex usage collection.
  */
-function withSeparatedUsage(lines: string[]): string[] {
+function withSeparatedUsage(lines: string[], changes?: SidebarChangesSummary): string[] {
 	const usageTitle = lines.findIndex((line) => gentleCardBody(line) === "Usage");
 	if (usageTitle < 0) return lines;
 
@@ -669,8 +733,21 @@ function withSeparatedUsage(lines: string[]): string[] {
 		usageMeterRow("Restante", antigravityA),
 		"Antigravity B · 5 h sobre semanal",
 		usageMeterRow("Restante", antigravityB),
+		...(changes ? [usageMeterRow(
+			"Changes",
+			`${changes.files} ${changes.files === 1 ? "file" : "files"} · ${transcriptTone("success", `+${changes.added}`)} ${transcriptTone("error", `−${changes.deleted}`)}`,
+		)] : []),
 	].map((line) => gentleCardRow(template, line));
 	return [...lines.slice(0, bodyStart), ...replacement, ...lines.slice(bodyEnd)];
+}
+
+/** Apply both rail compactions atomically: never remove Changes unless a
+ * usable Usage group exists to receive the summary. */
+function withCompactGentleSidebar(lines: string[]): string[] {
+	const project = withInlineProjectFields(lines);
+	const detached = detachGentleChangesCard(project);
+	const merged = withSeparatedUsage(detached.lines, detached.summary);
+	return detached.summary && merged === detached.lines ? project : merged;
 }
 
 type LayoutNodeLike = {
@@ -893,7 +970,7 @@ function hideGentleSidebarBanner(ui: unknown): boolean {
 			}
 			const lines = originalRender.call(this, width);
 			return withTerminalIntegrationIcons(
-				withSeparatedUsage(
+				withCompactGentleSidebar(
 					withoutGentleSidebarFallbackSummary(
 						withoutGentleSidebarRuntimeDetails(withoutGentleSidebarBanner(lines)),
 					),
