@@ -83,6 +83,11 @@ const ROUTE_LABELS: Record<string, string> = {
 const IMPORTED_FALLBACKS = JSON.parse(
 	readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fallback-defaults.json"), "utf8"),
 ) as GentleFallbackConfig;
+const DECLARATIVE_PROFILE_NAMES = new Set(
+	IMPORTED_FALLBACKS.fallbacks
+		.map((layer) => layer.profile)
+		.filter((profile): profile is string => isValidProfileName(profile)),
+);
 
 function cloneConfig(config: GentleFallbackConfig): GentleFallbackConfig {
 	return JSON.parse(JSON.stringify(config)) as GentleFallbackConfig;
@@ -306,9 +311,10 @@ function layerIdForProfile(profile: string, used: Set<string>): string {
  *
  * Existing named profiles are authoritative on reads, which makes changes from
  * /gentle:profiles immediately visible to the fallback runtime. Legacy layers
- * are migrated once by assigning them a stable profile key. A deleted Gentle
- * profile removes its already-linked fallback instead of silently recreating
- * it. The reserved bootstrap profile `current` remains the primary route and is
+ * are migrated once by assigning them a stable profile key. The declarative
+ * fallback list can be rewritten by the Nix bootstrap at any time, so a linked
+ * layer whose profile is missing restores that profile instead of disappearing.
+ * The reserved bootstrap profile `current` remains the primary route and is
  * never imported as a fallback.
  */
 function reconcileFromGentleProfiles(config: GentleFallbackConfig): GentleFallbackConfig {
@@ -332,7 +338,11 @@ function reconcileFromGentleProfiles(config: GentleFallbackConfig): GentleFallba
 			});
 			continue;
 		}
-		if (wasLinked) continue;
+		// Nix owns the packaged B/C/D layers and may rewrite them before Pi
+		// starts, so restore only those declared profiles. A missing custom
+		// profile means it was deleted or renamed in /gentle:profiles; dropping
+		// its linked layer makes that operation propagate back to fallbacks.
+		if (wasLinked && !DECLARATIVE_PROFILE_NAMES.has(profile)) continue;
 		gentle.profiles[profile] = gentleProfileFromFallback(layer.model_profiles);
 		gentleChanged = true;
 		fallbacks.push({ ...layer, profile });
@@ -353,18 +363,16 @@ function reconcileFromGentleProfiles(config: GentleFallbackConfig): GentleFallba
 	return { version: 1, fallbacks };
 }
 
-function persistFallbacksIntoGentleProfiles(config: GentleFallbackConfig): GentleFallbackConfig {
+function persistFallbacksIntoGentleProfiles(
+	config: GentleFallbackConfig,
+	linkedBefore: Set<string>,
+): GentleFallbackConfig {
 	const read = readGentleProfiles();
 	if (read.status === "invalid") {
 		throw new Error(`Invalid Gentle profiles file: ${gentleProfilesPath()}`);
 	}
 	const gentle = read.status === "valid" ? read.file : bootstrapGentleProfiles();
 	const assigned = new Set<string>();
-	const linkedBefore = new Set(
-		config.fallbacks
-			.map((layer) => layer.profile)
-			.filter((profile): profile is string => isValidProfileName(profile)),
-	);
 	const fallbacks = config.fallbacks.map((layer) => {
 		const profile = assignProfileName(layer, assigned);
 		gentle.profiles[profile] = gentleProfileFromFallback(
@@ -380,6 +388,20 @@ function persistFallbacksIntoGentleProfiles(config: GentleFallbackConfig): Gentl
 	}
 	atomicWriteJson(gentleProfilesPath(), gentle);
 	return { version: 1, fallbacks };
+}
+
+function storedLinkedProfiles(): Set<string> {
+	try {
+		const stored = normalizedConfig(JSON.parse(readFileSync(fallbackConfigPath(), "utf8")));
+		if (!stored) return new Set();
+		return new Set(
+			stored.fallbacks
+				.map((layer) => layer.profile)
+				.filter((profile): profile is string => isValidProfileName(profile)),
+		);
+	} catch {
+		return new Set();
+	}
 }
 
 export function readFallbackConfig(): GentleFallbackConfig {
@@ -403,7 +425,7 @@ export function writeFallbackConfig(config: GentleFallbackConfig): GentleFallbac
 	const normalized = normalizedConfig(config);
 	if (!normalized) throw new Error("Invalid Gentle fallback configuration");
 	const path = fallbackConfigPath();
-	const synchronized = persistFallbacksIntoGentleProfiles(normalized);
+	const synchronized = persistFallbacksIntoGentleProfiles(normalized, storedLinkedProfiles());
 	atomicWriteJson(path, synchronized);
 	return cloneConfig(synchronized);
 }
