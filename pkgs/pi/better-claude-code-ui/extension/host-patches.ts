@@ -46,11 +46,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
 	getKeybindings,
+	Image,
 	isKeyRelease,
 	isKittyProtocolActive,
 	matchesKey,
 	ProcessTerminal,
 	stripTerminalSequences,
+	TuiAltScreen,
+	TuiMainScreen,
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
@@ -115,6 +118,10 @@ const SESSION_LIST_RENDER_BASE = Symbol.for("better-cc-ui:session-list-render-ba
 const SESSION_HEADER_RENDER_BASE = Symbol.for("better-cc-ui:session-header-render-base");
 const SESSION_DELETE_HOLD = Symbol.for("better-cc-ui:session-delete-hold");
 const SESSION_DELETE_LATCH = Symbol.for("better-cc-ui:session-delete-latch");
+const IMAGE_RENDER_BASE = Symbol.for("better-cc-ui:image-render-base");
+const IMAGE_LAYOUT_APPLIED = Symbol.for("better-cc-ui:image-layout-applied");
+const OVERLAY_COMPOSITE_BASE = Symbol.for("better-cc-ui:overlay-composite-base");
+const CUSTOM_OVERLAY_IMAGE_GUARD = Symbol.for("better-cc-ui:custom-overlay-image-guard");
 // A session-local redraw bridge shared with wallpaper-sync.ts.  A symbol avoids
 // a dependency on Gentle and leaves no API surface in that package.
 const WALLPAPER_REDRAW = Symbol.for("better-cc-ui:wallpaper-redraw");
@@ -131,6 +138,9 @@ const DELETE_INITIAL_REPEAT_GRACE_MS = 700;
 const DELETE_REPEAT_GRACE_MS = 350;
 const DELETE_RED = "\x1b[38;2;244;72;92m";
 const DELETE_RED_BACKGROUND = "\x1b[48;2;132;31;48m";
+const TRANSCRIPT_IMAGE_MAX_HEIGHT = 20;
+const KITTY_GRAPHICS_RE = /\x1b_G[\s\S]*?\x1b\\/gu;
+const ITERM_IMAGE_RE = /\x1b\]1337;File=[^\x07]*\x07/gu;
 
 interface ResumeSessionInfo {
 	path: string;
@@ -189,6 +199,104 @@ interface PatchedSessionSelector {
 	wantsKeyRelease?: boolean;
 	handleInput?: (data: string) => void;
 	[SESSION_SELECTOR_INPUT_BASE]?: (data: string) => void;
+}
+
+interface PatchedImageComponent {
+	options?: {
+		maxWidthCells?: number;
+		maxHeightCells?: number;
+	};
+	render: (width: number) => string[];
+	cachedLines?: string[];
+	cachedWidth?: number;
+	[IMAGE_RENDER_BASE]?: (width: number) => string[];
+	[IMAGE_LAYOUT_APPLIED]?: boolean;
+}
+
+interface PatchedOverlayTui {
+	hasOverlayEntries?: boolean;
+	overlayStack?: unknown[];
+	isOverlayVisible?: (entry: unknown) => boolean;
+	compositeOverlays: (lines: string[], termWidth: number, termHeight: number) => string[];
+	[OVERLAY_COMPOSITE_BASE]?: (lines: string[], termWidth: number, termHeight: number) => string[];
+}
+
+function terminalImageColumns(line: string): number | undefined {
+	const kittyControls = /\x1b_G([^;]*);/u.exec(line)?.[1];
+	const kittyColumns = kittyControls === undefined
+		? undefined
+		: /(?:^|,)c=(\d+)(?:,|$)/u.exec(kittyControls)?.[1];
+	if (kittyColumns !== undefined) return Number.parseInt(kittyColumns, 10);
+
+	const itermColumns = /\x1b\]1337;File=[^:\x07]*\bwidth=(\d+)[^:\x07]*:/u.exec(line)?.[1];
+	return itermColumns === undefined ? undefined : Number.parseInt(itermColumns, 10);
+}
+
+function withoutTerminalImagePayload(line: string): string {
+	return line.replace(KITTY_GRAPHICS_RE, "").replace(ITERM_IMAGE_RE, "");
+}
+
+function customOverlayImageGuard(): number {
+	return (globalThis as unknown as Record<symbol, number>)[CUSTOM_OVERLAY_IMAGE_GUARD] ?? 0;
+}
+
+function changeCustomOverlayImageGuard(delta: 1 | -1): void {
+	const state = globalThis as unknown as Record<symbol, number>;
+	state[CUSTOM_OVERLAY_IMAGE_GUARD] = Math.max(0, (state[CUSTOM_OVERLAY_IMAGE_GUARD] ?? 0) + delta);
+}
+
+/** Keep transcript images inside the visual rhythm of their card. Square
+ * screenshots otherwise consume most of a fullscreen terminal because cell
+ * pixels are roughly twice as tall as they are wide. */
+function installTranscriptImageLayout(): void {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const imageProto = Image.prototype as any as PatchedImageComponent;
+	if (!imageProto[IMAGE_RENDER_BASE] && typeof imageProto.render === "function") {
+		const originalRender = imageProto.render;
+		imageProto[IMAGE_RENDER_BASE] = originalRender;
+		imageProto.render = function ccUiCenteredTranscriptImage(width: number): string[] {
+			if (!this[IMAGE_LAYOUT_APPLIED]) {
+				this.options ??= {};
+				this.options.maxHeightCells ??= TRANSCRIPT_IMAGE_MAX_HEIGHT;
+				this.cachedLines = undefined;
+				this.cachedWidth = undefined;
+				this[IMAGE_LAYOUT_APPLIED] = true;
+			}
+			const lines = originalRender.call(this, width);
+			if (!Array.isArray(lines)) return lines;
+			return lines.map((line) => {
+				const columns = terminalImageColumns(line);
+				if (columns === undefined || columns <= 0 || columns >= width) return line;
+				return `${" ".repeat(Math.floor((width - columns) / 2))}${line}`;
+			});
+		};
+	}
+}
+
+/** Kitty/iTerm images are terminal graphics, not character cells. Pi's stock
+ * compositor preserves an image-bearing base row verbatim, which lets the
+ * graphic punch through every overlay. Remove only the graphics commands from
+ * the base frame while a visible modal exists; the alt-screen renderer then
+ * deletes its placements and restores them automatically after the modal. */
+function installOverlayImageOcclusion(): void {
+	for (const tuiClass of [TuiAltScreen, TuiMainScreen]) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const tuiProto = tuiClass.prototype as any as PatchedOverlayTui;
+		if (tuiProto[OVERLAY_COMPOSITE_BASE] || typeof tuiProto.compositeOverlays !== "function") continue;
+		const originalComposite = tuiProto.compositeOverlays;
+		tuiProto[OVERLAY_COMPOSITE_BASE] = originalComposite;
+		tuiProto.compositeOverlays = function ccUiOccludeTranscriptImages(
+			lines: string[],
+			termWidth: number,
+			termHeight: number,
+		): string[] {
+			const hasVisibleOverlay = customOverlayImageGuard() > 0 || (Array.isArray(this.overlayStack)
+				? this.overlayStack.some((entry) => this.isOverlayVisible?.(entry) ?? true)
+				: this.hasOverlayEntries === true);
+			const baseLines = hasVisibleOverlay ? lines.map(withoutTerminalImagePayload) : lines;
+			return originalComposite.call(this, baseLines, termWidth, termHeight);
+		};
+	}
 }
 
 /** Keep every SGR/OSC token, but replace a range measured in visible cells. */
@@ -521,6 +629,7 @@ const QUOTA_SPRITES_UPLOADED = Symbol.for("better-cc-ui:quota-sprites-uploaded-v
 const QUOTA_TERMINAL_WRITE_BASE = Symbol.for("better-cc-ui:quota-terminal-write-base");
 const KITTY_IMAGE_PLACEHOLDER = "\u{10eeee}\u0305\u0305";
 const KITTY_DELETE_ALL_IMAGES = "\x1b_Ga=d,d=A,q=2\x1b\\";
+const KITTY_DELETE_ALL_PLACEMENTS = "\x1b_Ga=d,d=a,q=2\x1b\\";
 let quotaSpritesReady = false;
 
 function kittyPlaceholder(imageId: number, placementId: number): string {
@@ -539,6 +648,12 @@ function quotaSpriteUploadCommands(): string {
 	return QUOTA_SPRITES.map(([imageId, placementId, png]) => upload(imageId, placementId, png)).join("");
 }
 
+function quotaSpritePlacementCommands(): string {
+	return QUOTA_SPRITES
+		.map(([imageId, placementId]) => `\x1b_Ga=p,q=2,U=1,i=${imageId},p=${placementId},c=1,r=1\x1b\\`)
+		.join("");
+}
+
 /** pi-tui intentionally deletes every Kitty image before a fullscreen redraw.
  * These inline sprites are not normal transcript attachments, so re-upload
  * them in that same synchronized frame, after deletion and before row paint. */
@@ -549,16 +664,19 @@ function installQuotaSpritePersistence(): void {
 	const originalWrite = terminalProto[QUOTA_TERMINAL_WRITE_BASE] ?? terminalProto.write;
 	terminalProto[QUOTA_TERMINAL_WRITE_BASE] = originalWrite;
 	terminalProto.write = function ccUiKeepQuotaSprites(data: string): unknown {
-		if (
-			quotaSpritesReady &&
-			typeof data === "string" &&
-			data.includes(KITTY_DELETE_ALL_IMAGES) &&
-			data.includes("\x1b[2J")
-		) {
-			data = data.replace(
-				KITTY_DELETE_ALL_IMAGES,
-				KITTY_DELETE_ALL_IMAGES + quotaSpriteUploadCommands(),
-			);
+		if (quotaSpritesReady && typeof data === "string") {
+			if (data.includes(KITTY_DELETE_ALL_IMAGES) && data.includes("\x1b[2J")) {
+				data = data.replace(
+					KITTY_DELETE_ALL_IMAGES,
+					KITTY_DELETE_ALL_IMAGES + quotaSpriteUploadCommands(),
+				);
+			}
+			if (data.includes(KITTY_DELETE_ALL_PLACEMENTS)) {
+				data = data.replace(
+					KITTY_DELETE_ALL_PLACEMENTS,
+					KITTY_DELETE_ALL_PLACEMENTS + quotaSpritePlacementCommands(),
+				);
+			}
 		}
 		return originalWrite.call(this, data);
 	};
@@ -1694,6 +1812,8 @@ function compactUserMessageWidth(lines: string[], availableWidth: number): numbe
 const TOOL_OUTPUT_STATUS_RE = /^Tool output: (?:expanded|collapsed)$/;
 
 export function installHostPatches(): void {
+	installTranscriptImageLayout();
+	installOverlayImageOcclusion();
 	installQuotaSpritePersistence();
 	prepareQuotaMeterSprites();
 	// /resume: replace the easy-to-trigger Ctrl+D confirmation with a
@@ -1932,7 +2052,22 @@ export function installHostPatches(): void {
 										);
 									}
 									: factory;
-								return originalCustom(decoratedFactory, ...patchGentleOverlayOptions(factory, args));
+								const customArgs = patchGentleOverlayOptions(factory, args);
+								const options = customArgs[0] as { overlay?: unknown } | undefined;
+								if (options?.overlay !== true) return originalCustom(decoratedFactory, ...customArgs);
+
+								changeCustomOverlayImageGuard(1);
+								this.ui?.requestRender?.();
+								try {
+									return Promise.resolve(originalCustom(decoratedFactory, ...customArgs)).finally(() => {
+										changeCustomOverlayImageGuard(-1);
+										this.ui?.requestRender?.();
+									});
+								} catch (error) {
+									changeCustomOverlayImageGuard(-1);
+									this.ui?.requestRender?.();
+									throw error;
+								}
 							},
 							enumerable: true,
 						},
