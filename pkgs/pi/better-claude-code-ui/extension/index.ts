@@ -66,16 +66,23 @@ function gentlePiQuietToolsAreActive(): boolean {
 		existsSync(join(homedir(), ".pi", "agent", "npm", "node_modules", "gentle-pi", "extensions", "quiet-tools.ts"));
 }
 
-function piStatuslineIsActive(): boolean {
+function shouldRegisterStandaloneStatusLine(): boolean {
 	if (process.env.BETTER_CC_STATUS_LINE === "0") return false;
 	try {
 		const settingsPath = join(homedir(), ".pi", "agent", "settings.json");
 		const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as { packages?: unknown };
-		return Array.isArray(settings.packages) && settings.packages.some(
-			(source) => typeof source === "string" && /pi-statusline/u.test(source),
-		);
+		if (!Array.isArray(settings.packages)) return true;
+		// Both packages own ctx.ui.setFooter(). Registering ours after Gentle's
+		// session_start handler disposes its footer, whose dispose callback also
+		// uninstalls the complete fullscreen sidebar. Keep decorating Gentle's
+		// footer through host-patches.ts, but never replace it here.
+		return !settings.packages.some((source) => typeof source === "string" && (
+			/pi-statusline/u.test(source)
+			|| source.includes("gentle-pi")
+			|| /^(?:npm:)?gentle-pi(?:@|$)/u.test(source)
+		));
 	} catch {
-		return false;
+		return true;
 	}
 }
 
@@ -94,7 +101,7 @@ export default function (pi: ExtensionAPI) {
 	registerSpinner(pi);
 	registerTurnFooter(pi);
 	registerBanner(pi);
-	if (!piStatuslineIsActive()) registerStatusLine(pi);
+	if (shouldRegisterStandaloneStatusLine()) registerStatusLine(pi);
 	registerPromptPointer(pi);
 
 	// Layer 3: tool rendering
