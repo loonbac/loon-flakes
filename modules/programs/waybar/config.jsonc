@@ -154,6 +154,7 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-off": "󰂲",
+    "format-no-controller": "",
     "format-connected": "󰂱 {num_connections}",
     "tooltip-format": "Dispositivos conectados: {num_connections}"
   },
