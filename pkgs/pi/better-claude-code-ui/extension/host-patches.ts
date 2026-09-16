@@ -37,8 +37,23 @@
  * Both wrappers call the original method and are Symbol-flag guarded
  * (idempotent across reloads and across multiple extension instances).
  */
-import { AssistantMessageComponent, InteractiveMode, ToolExecutionComponent, UserMessageComponent } from "@earendil-works/pi-coding-agent";
-import { ProcessTerminal, stripTerminalSequences, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+	AssistantMessageComponent,
+	InteractiveMode,
+	SessionSelectorComponent,
+	ToolExecutionComponent,
+	UserMessageComponent,
+} from "@earendil-works/pi-coding-agent";
+import {
+	getKeybindings,
+	isKeyRelease,
+	isKittyProtocolActive,
+	matchesKey,
+	ProcessTerminal,
+	stripTerminalSequences,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import { fastModeActivatedAt, fastModeAnimationPhase, fastModeIsActive } from "./fast-mode-indicator.js";
 import {
 	antigravityAUsageSnapshot,
@@ -93,6 +108,12 @@ const GENTLE_TRANSCRIPT_CONTENT_WIDTH_BASE = Symbol.for("better-cc-ui:gentle-tra
 const GENTLE_TRANSCRIPT_GUTTER_ACTIVE = Symbol.for("better-cc-ui:gentle-transcript-gutter-active");
 const GENTLE_RAIL_GUTTER_LAYOUT = Symbol.for("better-cc-ui:gentle-rail-gutter-layout");
 const GENTLE_RAIL_LAYOUT_STABILIZER = Symbol.for("better-cc-ui:gentle-rail-layout-stabilizer");
+const SESSION_SELECTOR_LAYOUT_BASE = Symbol.for("better-cc-ui:session-selector-layout-base");
+const SESSION_LIST_INPUT_BASE = Symbol.for("better-cc-ui:session-list-input-base");
+const SESSION_LIST_RENDER_BASE = Symbol.for("better-cc-ui:session-list-render-base");
+const SESSION_HEADER_RENDER_BASE = Symbol.for("better-cc-ui:session-header-render-base");
+const SESSION_DELETE_HOLD = Symbol.for("better-cc-ui:session-delete-hold");
+const SESSION_DELETE_LATCH = Symbol.for("better-cc-ui:session-delete-latch");
 // A session-local redraw bridge shared with wallpaper-sync.ts.  A symbol avoids
 // a dependency on Gentle and leaves no API surface in that package.
 const WALLPAPER_REDRAW = Symbol.for("better-cc-ui:wallpaper-redraw");
@@ -102,6 +123,287 @@ const OSC133_ZONE_END = "\x1b]133;B\x07";
 const OSC133_ZONE_FINAL = "\x1b]133;C\x07";
 const OSC133_ZONE_RE = /\x1b\]133;[ABC]\x07/g;
 const USER_MESSAGE_BACKGROUND_RE = /\x1b\[(?:4[0-7]|10[0-7]|48(?:[;:][0-9:;]*)?|49)m/g;
+
+const DELETE_HOLD_MS = 900;
+const DELETE_INITIAL_REPEAT_GRACE_MS = 700;
+const DELETE_REPEAT_GRACE_MS = 350;
+const DELETE_UNDERLINE_ON = "\x1b[4m\x1b[58:2::244:72:92m";
+const DELETE_UNDERLINE_OFF = "\x1b[24m\x1b[59m";
+
+interface ResumeSessionInfo {
+	path: string;
+	name?: string;
+	firstMessage?: string;
+}
+
+interface ResumeSessionNode {
+	session: ResumeSessionInfo;
+	depth: number;
+	isLast: boolean;
+	ancestorContinues: boolean[];
+}
+
+interface DeleteHoldState {
+	path: string;
+	startedAt: number;
+	lastEventAt: number;
+	events: number;
+	timer: ReturnType<typeof setInterval>;
+}
+
+interface DeleteLatchState {
+	timer: ReturnType<typeof setTimeout>;
+}
+
+interface PatchedSessionList {
+	filteredSessions: ResumeSessionNode[];
+	selectedIndex: number;
+	maxVisible: number;
+	onDeleteSession?: (sessionPath: string) => Promise<void>;
+	onError?: (message: string) => void;
+	getSelectedSessionPath: () => string | undefined;
+	isCurrentSessionPath?: (path: string) => boolean;
+	buildTreePrefix?: (node: ResumeSessionNode) => string;
+	handleInput: (data: string) => void;
+	render: (width: number) => string[];
+	[SESSION_LIST_INPUT_BASE]?: (data: string) => void;
+	[SESSION_LIST_RENDER_BASE]?: (width: number) => string[];
+	[SESSION_DELETE_HOLD]?: DeleteHoldState;
+	[SESSION_DELETE_LATCH]?: DeleteLatchState;
+}
+
+interface PatchedSessionHeader {
+	render: (width: number) => string[];
+	[SESSION_HEADER_RENDER_BASE]?: (width: number) => string[];
+}
+
+interface PatchedSessionSelector {
+	sessionList?: PatchedSessionList;
+	header?: PatchedSessionHeader;
+	requestRender?: () => void;
+}
+
+/** Keep every SGR/OSC token, but replace a range measured in visible cells. */
+function replaceVisibleCells(
+	line: string,
+	startCell: number,
+	endCell: number,
+	replacement: string,
+): string {
+	const tokenRe = new RegExp(`(${ANSI_RE.source})`, "g");
+	const tokens = line.split(tokenRe);
+	let column = 0;
+	let inserted = false;
+	let result = "";
+	for (const token of tokens) {
+		if (!token) continue;
+		if (token.startsWith("\x1b")) {
+			result += token;
+			continue;
+		}
+		for (const char of token) {
+			if (!inserted && column >= startCell) {
+				result += replacement;
+				inserted = true;
+			}
+			const nextColumn = column + visibleWidth(char);
+			if (nextColumn <= startCell || column >= endCell) result += char;
+			column = nextColumn;
+		}
+	}
+	if (!inserted) result += replacement;
+	return result;
+}
+
+function underlineVisibleCells(line: string, startCell: number, endCell: number): string {
+	if (endCell <= startCell) return line;
+	const opened = replaceVisibleCells(line, startCell, startCell, DELETE_UNDERLINE_ON);
+	return replaceVisibleCells(opened, endCell, endCell, DELETE_UNDERLINE_OFF);
+}
+
+function clearDeleteHold(list: PatchedSessionList, requestRender: () => void): void {
+	const state = list[SESSION_DELETE_HOLD];
+	if (!state) return;
+	clearInterval(state.timer);
+	delete list[SESSION_DELETE_HOLD];
+	requestRender();
+}
+
+function clearDeleteLatch(list: PatchedSessionList): void {
+	const latch = list[SESSION_DELETE_LATCH];
+	if (!latch) return;
+	clearTimeout(latch.timer);
+	delete list[SESSION_DELETE_LATCH];
+}
+
+function keepDeleteLatched(list: PatchedSessionList): void {
+	clearDeleteLatch(list);
+	const latch = {
+		timer: undefined as unknown as ReturnType<typeof setTimeout>,
+	};
+	// Legacy terminals have no release event. Repeated Delete events keep this
+	// timer armed; after the physical key is released, a fresh hold is allowed.
+	latch.timer = setTimeout(() => {
+		if (list[SESSION_DELETE_LATCH] === latch) delete list[SESSION_DELETE_LATCH];
+	}, 500);
+	list[SESSION_DELETE_LATCH] = latch;
+}
+
+function selectedMessageColumns(list: PatchedSessionList, line: string): [number, number] | undefined {
+	const node = list.filteredSessions[list.selectedIndex];
+	if (!node) return undefined;
+	const plain = stripTerminalSequences(line);
+	const prefix = list.buildTreePrefix?.(node) ?? "";
+	const start = 2 + visibleWidth(prefix);
+	// Pi right-aligns count/age metadata after a multi-space gap. That remains
+	// a stable boundary even when the message itself contains ordinary spaces.
+	const tail = plain.slice(start);
+	let gap = -1;
+	for (const match of tail.matchAll(/\s{2,}(?=\S)/gu)) gap = match.index;
+	const message = (gap >= 0 ? tail.slice(0, gap) : tail).trimEnd();
+	const width = visibleWidth(message);
+	return width > 0 ? [start, start + width] : undefined;
+}
+
+function decorateResumeSelector(selector: PatchedSessionSelector): void {
+	const list = selector.sessionList;
+	const header = selector.header;
+	if (!list || !header) return;
+	const requestRender = () => selector.requestRender?.();
+
+	if (!header[SESSION_HEADER_RENDER_BASE]) {
+		const originalHeaderRender = header.render.bind(header);
+		header[SESSION_HEADER_RENDER_BASE] = originalHeaderRender;
+		header.render = (width: number): string[] => {
+			const lines = originalHeaderRender(width);
+			const hint = lines[2];
+			if (typeof hint !== "string") return lines;
+			const plain = stripTerminalSequences(hint);
+			const match = /ctrl\+d delete/u.exec(plain);
+			if (!match || match.index === undefined) return lines;
+			const start = visibleWidth(plain.slice(0, match.index));
+			const end = start + visibleWidth(match[0]);
+			lines[2] = replaceVisibleCells(
+				hint,
+				start,
+				end,
+				`${DELETE_UNDERLINE_ON}Supr${DELETE_UNDERLINE_OFF} mantener`,
+			);
+			return lines;
+		};
+	}
+
+	if (!list[SESSION_LIST_RENDER_BASE]) {
+		const originalListRender = list.render.bind(list);
+		list[SESSION_LIST_RENDER_BASE] = originalListRender;
+		list.render = (width: number): string[] => {
+			const lines = originalListRender(width);
+			const state = list[SESSION_DELETE_HOLD];
+			if (!state || list.getSelectedSessionPath() !== state.path) return lines;
+			const startIndex = Math.max(
+				0,
+				Math.min(
+					list.selectedIndex - Math.floor(list.maxVisible / 2),
+					list.filteredSessions.length - list.maxVisible,
+				),
+			);
+			const row = 2 + list.selectedIndex - startIndex;
+			const line = lines[row];
+			if (typeof line !== "string") return lines;
+			const columns = selectedMessageColumns(list, line);
+			if (!columns) return lines;
+			const progress = Math.min(1, (Date.now() - state.startedAt) / DELETE_HOLD_MS);
+			const painted = Math.max(1, Math.ceil((columns[1] - columns[0]) * progress));
+			lines[row] = underlineVisibleCells(line, columns[0], columns[0] + painted);
+			return lines;
+		};
+	}
+
+	if (!list[SESSION_LIST_INPUT_BASE]) {
+		const originalListInput = list.handleInput.bind(list);
+		list[SESSION_LIST_INPUT_BASE] = originalListInput;
+		list.handleInput = (data: string): void => {
+			const keybindings = getKeybindings();
+			// Retire Pi's Ctrl+D / Ctrl+Backspace confirmation flow. Deletion in
+			// /resume is intentionally available only through the hold gesture.
+			if (
+				keybindings.matches(data, "app.session.delete") ||
+				keybindings.matches(data, "app.session.deleteNoninvasive")
+			) {
+				clearDeleteHold(list, requestRender);
+				clearDeleteLatch(list);
+				return;
+			}
+			if (!matchesKey(data, "delete")) {
+				clearDeleteHold(list, requestRender);
+				clearDeleteLatch(list);
+				originalListInput(data);
+				return;
+			}
+			if (isKeyRelease(data)) {
+				clearDeleteHold(list, requestRender);
+				clearDeleteLatch(list);
+				return;
+			}
+			if (list[SESSION_DELETE_LATCH]) {
+				keepDeleteLatched(list);
+				return;
+			}
+
+			const path = list.getSelectedSessionPath();
+			if (!path) return;
+			if (list.isCurrentSessionPath?.(path)) {
+				clearDeleteHold(list, requestRender);
+				list.onError?.("No se puede borrar la sesión activa");
+				return;
+			}
+			const now = Date.now();
+			const existing = list[SESSION_DELETE_HOLD];
+			if (existing?.path === path) {
+				existing.lastEventAt = now;
+				existing.events += 1;
+				requestRender();
+				return;
+			}
+			clearDeleteHold(list, requestRender);
+			const state = {
+				path,
+				startedAt: now,
+				lastEventAt: now,
+				events: 1,
+				timer: undefined as unknown as ReturnType<typeof setInterval>,
+			};
+			state.timer = setInterval(() => {
+				if (list[SESSION_DELETE_HOLD] !== state) {
+					clearInterval(state.timer);
+					return;
+				}
+				const tick = Date.now();
+				const grace = state.events > 1 ? DELETE_REPEAT_GRACE_MS : DELETE_INITIAL_REPEAT_GRACE_MS;
+				if (
+					(state.events === 1 && tick - state.lastEventAt > grace) ||
+					(state.events > 1 && !isKittyProtocolActive() && tick - state.lastEventAt > grace)
+				) {
+					clearDeleteHold(list, requestRender);
+					return;
+				}
+				// At least one repeat is mandatory. This keeps a lone Delete press
+				// harmless even on terminals that cannot report key releases.
+				if (tick - state.startedAt >= DELETE_HOLD_MS && state.events > 1) {
+					clearInterval(state.timer);
+					delete list[SESSION_DELETE_HOLD];
+					keepDeleteLatched(list);
+					requestRender();
+					void list.onDeleteSession?.(state.path);
+					return;
+				}
+				requestRender();
+			}, 32);
+			list[SESSION_DELETE_HOLD] = state;
+			requestRender();
+		};
+	}
+}
 
 interface TranscriptTheme {
 	fg?: (role: string, text: string) => string;
@@ -1343,6 +1645,21 @@ const TOOL_OUTPUT_STATUS_RE = /^Tool output: (?:expanded|collapsed)$/;
 export function installHostPatches(): void {
 	installQuotaSpritePersistence();
 	prepareQuotaMeterSprites();
+	// /resume: replace the easy-to-trigger Ctrl+D confirmation with a
+	// deliberate hold-Delete gesture and a red underline progress animation.
+	// buildBaseLayout is called from SessionSelectorComponent's constructor,
+	// after its private list/header fields exist and before the first render.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const sessionSelectorProto = SessionSelectorComponent.prototype as any;
+	if (typeof sessionSelectorProto.buildBaseLayout === "function") {
+		const originalBuildBaseLayout = sessionSelectorProto[SESSION_SELECTOR_LAYOUT_BASE]
+			?? sessionSelectorProto.buildBaseLayout;
+		sessionSelectorProto[SESSION_SELECTOR_LAYOUT_BASE] = originalBuildBaseLayout;
+		sessionSelectorProto.buildBaseLayout = function ccUiResumeDeleteHold(...args: unknown[]): unknown {
+			decorateResumeSelector(this as PatchedSessionSelector);
+			return originalBuildBaseLayout.apply(this, args);
+		};
+	}
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const amProto = AssistantMessageComponent.prototype as any;
 	if (!amProto[BLANK_RENDER_FLAG] && typeof amProto.render === "function") {
