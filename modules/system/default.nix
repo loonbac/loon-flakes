@@ -154,6 +154,7 @@ in
     jq                 # requisito de codex-advisor
     ripgrep            # requisito de codex-advisor (`rg`)
     go
+    gnumake            # comando `make`
     gcc
     cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
     rustc
