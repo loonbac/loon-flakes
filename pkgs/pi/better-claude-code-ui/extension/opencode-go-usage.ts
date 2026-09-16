@@ -165,13 +165,24 @@ function activeModelKey(ctx: ExtensionContext): string | undefined {
 		: undefined;
 }
 
+function retireSession(): void {
+	refreshGeneration += 1;
+	inFlight = undefined;
+	inFlightContext = undefined;
+	observedModel = undefined;
+	snapshot = { status: "idle" };
+}
+
 export function registerOpenCodeGoUsage(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		retireSession();
 		observedModel = activeModelKey(ctx);
 		// One initial read for a signed-in Go subscription, not a polling loop.
 		refreshUsage(ctx);
 	});
+
+	pi.on("session_shutdown", () => retireSession());
 
 	pi.on("session_info_changed", (_event, ctx) => {
 		if (!ctx.hasUI) return;

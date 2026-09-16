@@ -153,8 +153,10 @@ function usableBucket(group: QuotaGroup): QuotaBucket | undefined {
 }
 
 function findQuotaBuckets(data: unknown): { fiveHour: QuotaBucket; weekly: QuotaBucket | undefined } | undefined {
-	if (!isRecord(data) || !Array.isArray((data as QuotaSummary).groups)) return undefined;
-	const groups = (data as QuotaSummary).groups.filter(isRecord) as QuotaGroup[];
+	if (!isRecord(data)) return undefined;
+	const rawGroups = (data as QuotaSummary).groups;
+	if (!Array.isArray(rawGroups)) return undefined;
+	const groups = rawGroups.filter(isRecord) as QuotaGroup[];
 	// Account A's Gemini pool is the first shared five-hour quota shown by
 	// /antigravity.usage. Prefer it explicitly; retain a safe generic fallback
 	// in case Google renames that section.
@@ -277,15 +279,28 @@ function activeAccount(ctx: ExtensionContext): AccountState | undefined {
 	return accounts.find((account) => ctx.model?.provider === account.provider);
 }
 
+function retireSession(): void {
+	for (const account of accounts) {
+		account.refreshGeneration += 1;
+		account.inFlight = undefined;
+		account.inFlightContext = undefined;
+		account.observedModel = undefined;
+		account.snapshot = { status: "idle" };
+	}
+}
+
 export function registerAntigravityUsage(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		retireSession();
 		for (const account of accounts) {
 			account.observedModel = modelKeyForAccount(ctx, account);
 			// One startup read per signed-in account; there is no interval/poll.
 			refreshAccountUsage(ctx, account);
 		}
 	});
+
+	pi.on("session_shutdown", () => retireSession());
 
 	// Switching account is an explicit event, so it merits a one-off refresh
 	// before the selected account produces its first answer.

@@ -274,7 +274,11 @@ PAGE = """<!doctype html>
         if (!wanted.has(id)) removeMember(id, item);
       }
 
-      speakers.forEach((member, slot) => {
+      // En la vista de llamada hay tres huecos. Desplazar el primer hueco
+      // centra también una conversación de una o dos personas.
+      const slotOffset = (3 - speakers.length) / 2;
+      speakers.forEach((member, index) => {
+        const slot = index + slotOffset;
         const key = memberKey(member);
         let item = visible.get(key);
         if (!item) item = createMember(member, key, slot);
@@ -308,6 +312,30 @@ PAGE = """<!doctype html>
 </body>
 </html>
 """
+
+# Vista para una fuente de navegador pequeña de OBS (424×270). Dos avatares
+# grandes llenan el lienzo sin dejar una franja vacía dominante; una sola voz
+# se mantiene centrada.
+CALL_PAGE = (
+    PAGE.replace("--avatar-size: 182px;", "--avatar-size: 180px;")
+    .replace("--gap: 18px;", "--gap: 20px;")
+    .replace("--edge: 18px;", "--edge: 22px;")
+    .replace("--bottom: 26px;", "--bottom: 45px;")
+    .replace("translateY(230px)", "translateY(190px)")
+    .replace("width: 190px;", "width: 145px;")
+    .replace("height: 82px;", "height: 64px;")
+    .replace("margin-bottom: 12px;", "margin-bottom: 8px;")
+    .replace("width: 58px;", "width: 46px;")
+    .replace("height: 58px;", "height: 46px;")
+    .replace("width: 62px;", "width: 50px;")
+    .replace("height: 62px;", "height: 50px;")
+    .replace("left: 66px;", "left: 48px;")
+    .replace("top: 17px;", "top: 11px;")
+    .replace("font: 700 17px/1.1", "font: 700 14px/1.1")
+    .replace("font: 500 12px/1.2", "font: 500 10px/1.2")
+    .replace("slice(0, 3)", "slice(0, 2)")
+    .replace("(3 - speakers.length) / 2", "(2 - speakers.length) / 2")
+)
 
 
 GAMING_PAGE = """<!doctype html>
@@ -568,6 +596,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/":
             page = PAGE.replace("__OVERLAY_VERSION__", OVERLAY_VERSION)
+            self.send_content(page.encode("utf-8"), "text/html; charset=utf-8")
+        elif path in {"/llamada", "/call"}:
+            page = CALL_PAGE.replace("__OVERLAY_VERSION__", OVERLAY_VERSION)
             self.send_content(page.encode("utf-8"), "text/html; charset=utf-8")
         elif path in {"/jugando", "/gaming"}:
             page = GAMING_PAGE.replace("__OVERLAY_VERSION__", OVERLAY_VERSION)

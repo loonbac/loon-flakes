@@ -1,5 +1,7 @@
 { writeShellApplication
 , nodejs
+, gentlePiPackageSubpath ? "npm/node_modules/gentle-pi"
+, useGentleAiDevRuntime ? false
 }:
 
 writeShellApplication {
@@ -8,12 +10,16 @@ writeShellApplication {
 
   text = ''
     agent_dir="''${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-    package_root="$agent_dir/npm/node_modules/gentle-pi"
+    package_root="$agent_dir/${gentlePiPackageSubpath}"
     resolver="$package_root/runtime/gentle-ai-binary.mjs"
+
+    ${if useGentleAiDevRuntime then ''
+      export GENTLE_PI_GENTLE_AI_DEV_BINARY="''${GENTLE_AI_DEV_INSTALL_ROOT:-$HOME/.local/share/loon-gentle-ai-dev}/gentle-ai"
+    '' else ""}
 
     if [ ! -f "$resolver" ]; then
       echo "gentle-ai: gentle-pi is not installed in $agent_dir" >&2
-      echo "Run: pi install npm:gentle-pi" >&2
+      echo "Run gentle-ai-bootstrap to reconcile the declared gentle-pi source." >&2
       exit 1
     fi
 

@@ -3,6 +3,7 @@
 
 let
   twitchGladosTts = pkgs.callPackage ../../pkgs/obs-twitch-glados-tts { };
+  tiktokLive = pkgs.callPackage ../../pkgs/obs-tiktok-live { };
   obsAitumVertical = pkgs.callPackage ../../pkgs/obs-aitum-vertical { };
   obsAudioMonitor = pkgs.callPackage ../../pkgs/obs-audio-monitor { };
   obsNiriWindowCapture = pkgs.callPackage ../../pkgs/obs-niri-window-capture { };
@@ -10,13 +11,14 @@ let
   # OBS no ofrece una ruta declarativa global para scripts: los guarda dentro
   # de cada colección de escenas. Este wrapper registra el script de forma
   # idempotente antes de que OBS lea la colección y después arranca OBS normal.
-  obsWithTwitchGladosTts = pkgs.symlinkJoin {
-    name = "obs-studio-with-twitch-glados-tts";
+  obsWithStreamingScripts = pkgs.symlinkJoin {
+    name = "obs-studio-with-streaming-scripts";
     paths = [ pkgs.obs-studio ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       wrapProgram "$out/bin/obs" \
-        --run '${twitchGladosTts}/bin/obs-twitch-glados-autoload'
+        --run '${twitchGladosTts}/bin/obs-twitch-glados-autoload' \
+        --run '${tiktokLive}/bin/obs-tiktok-live-autoload'
     '';
     inherit (pkgs.obs-studio) meta passthru;
   };
@@ -40,7 +42,7 @@ in
 {
   programs.veadotube-mini.enable = true;
   programs.obs-pwvideo.enable = true;
-  programs.obs-studio.package = obsWithTwitchGladosTts;
+  programs.obs-studio.package = obsWithStreamingScripts;
   programs.obs-studio.plugins = [
     obsAitumVertical
     pkgs.obs-studio-plugins.obs-aitum-multistream
@@ -53,4 +55,6 @@ in
   # Ruta estable que OBS conserva en la colección aunque cambie la generación.
   environment.etc."obs-scripts/twitch-glados-tts.py".source =
     "${twitchGladosTts}/share/obs-scripts/twitch-glados-tts.py";
+  environment.etc."obs-scripts/tiktok-live.py".source =
+    "${tiktokLive}/share/obs-scripts/tiktok-live.py";
 }

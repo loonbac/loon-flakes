@@ -1,4 +1,5 @@
-{ writeShellApplication
+{ lib
+, writeShellApplication
 , writeText
 , coreutils
 , bash
@@ -9,28 +10,43 @@
 , pipewire
 , piLauncher
 , gentleAiLauncher
+, gentleAiRuntimeUpdater
 , engramLauncher
 , betterClaudeCodeUi
 , gptFastModeShared
+, gentlePiSource ? "npm:gentle-pi"
+, gentlePiPackageSubpath ? "npm/node_modules/gentle-pi"
+, engramPiSource ? "@HOME@/.local/share/loon-engram/plugin"
+, useGentleAiDevRuntime ? false
+, gentleAiRuntimeSource ? null
+, engramSourceMode ? "release"
+, engramSourceRef ? null
 }:
 
 let
   # Nix owns the desired package set, while Pi owns the mutable versions.
   # Unversioned npm specs make `pi update --extensions` the single update lane.
-  piPackages = [
+  # The Gentle core is independently selectable. Everything in
+  # localPiPackages is a loon-specific Pi layer, not part of Gentle's contract.
+  corePiPackages = [
+    { name = "gentle-pi"; source = gentlePiSource; }
+    { name = "gentle-engram"; source = engramPiSource; }
+  ];
+
+  localPiPackages = [
     "npm:pi-antigravity"
     "@HOME@/.local/share/loon-pi-packages/pi-antigravity-alt"
     "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
     "@HOME@/.local/share/loon-pi-packages/pi-gpt-fast-mode-shared"
     "npm:pi-discord-activity"
-    "npm:gentle-pi"
-    "npm:gentle-engram"
     "npm:@juicesharp/rpiv-ask-user-question"
     "npm:pi-web-access"
     "npm:pi-btw"
     "npm:pi-commandcode-provider"
     "npm:pi-mcp-adapter"
   ];
+
+  piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
 
   piPackageNames = [
     "pi-antigravity"
@@ -156,6 +172,8 @@ let
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
     inherit
+      corePiPackages
+      localPiPackages
       piPackages
       piPackageNames
       piSettings
@@ -167,6 +185,58 @@ let
       ;
     managedPiPackageNames = piPackageNames ++ retiredPiPackageNames;
   });
+
+  coreSources = writeText "gentle-core-sources.json" (builtins.toJSON {
+    schema = "loon.gentle-core-sources/v1";
+    gentleAi.source = gentleAiRuntimeSource;
+    engram = {
+      mode = engramSourceMode;
+      ref = engramSourceRef;
+    };
+    packages = builtins.listToAttrs (map (package: {
+      inherit (package) name;
+      value = package.source;
+    }) corePiPackages);
+  });
+
+  recordCoreObservation = writeText "record-gentle-core-observation.mjs" ''
+    import fs from "node:fs";
+
+    const [
+      outputPath,
+      declaredPath,
+      gentlePiRoot,
+      engramRequestPath,
+      engramResolvedPath,
+      gentleAiVersion,
+      engramVersion,
+    ] = process.argv.slice(2);
+
+    const readLine = (file) => fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : null;
+    const gentlePiPackage = JSON.parse(fs.readFileSync(`''${gentlePiRoot}/package.json`, "utf8"));
+    const observation = {
+      schema: "loon.gentle-core-observed/v1",
+      observedAt: new Date().toISOString(),
+      declared: JSON.parse(fs.readFileSync(declaredPath, "utf8")),
+      installed: {
+        gentlePi: {
+          version: gentlePiPackage.version,
+          packageRoot: gentlePiRoot,
+        },
+        gentleAi: { version: gentleAiVersion },
+        engram: {
+          version: engramVersion,
+          request: readLine(engramRequestPath),
+          resolved: readLine(engramResolvedPath),
+        },
+      },
+    };
+
+    const temporary = `''${outputPath}.tmp-''${process.pid}`;
+    fs.writeFileSync(temporary, `''${JSON.stringify(observation, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temporary, outputPath);
+    fs.chmodSync(outputPath, 0o600);
+  '';
 
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers.engram = {
@@ -343,8 +413,9 @@ let
 
   mergeSettings = writeText "merge-pi-settings.mjs" ''
     import fs from "node:fs";
+    import path from "node:path";
 
-    const [settingsPath, manifestPath] = process.argv.slice(2);
+    const [settingsPath, manifestPath, coreSourcesStatePath] = process.argv.slice(2);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const settings = fs.existsSync(settingsPath)
       ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
@@ -372,13 +443,29 @@ let
 
     const managed = new Set(manifest.managedPiPackageNames);
     const existing = Array.isArray(settings.packages) ? settings.packages : [];
+    const expandHome = (spec) => String(spec).replace(/^@HOME@/, process.env.HOME ?? "");
+    const sourceIdentity = (spec) => {
+      const value = expandHome(spec);
+      if (/^(npm:|git:|https?:|ssh:|git\+ssh:)/.test(value)) return value;
+      return path.resolve(path.dirname(settingsPath), value);
+    };
+    const previousCoreSources = fs.existsSync(coreSourcesStatePath)
+      ? Object.values(JSON.parse(fs.readFileSync(coreSourcesStatePath, "utf8")).packages ?? {})
+          .map(expandHome)
+      : [];
     const desiredPackages = manifest.piPackages
-      .map((spec) => String(spec).replace(/^@HOME@/, process.env.HOME ?? ""))
+      .map(expandHome)
       // Generated local packages are added on the second reconciliation after
       // their upstream npm package has been installed and cloned.
       .filter((spec) => !spec.startsWith("/") || fs.existsSync(spec));
+    const coreSourceIdentities = new Set(
+      [...previousCoreSources, ...manifest.corePiPackages.map(({ source }) => source)]
+        .map(sourceIdentity),
+    );
     settings.packages = existing
       .filter((spec) => !managed.has(packageName(spec)))
+      .filter((spec) => !coreSourceIdentities.has(sourceIdentity(spec)))
+      .filter((spec) => !desiredPackages.includes(spec))
       .concat(desiredPackages);
 
     const previous = fs.existsSync(settingsPath) ? fs.statSync(settingsPath) : null;
@@ -853,7 +940,17 @@ writeShellApplication {
   name = "gentle-ai-bootstrap";
   # bash supplies `sh` for the one explicitly approved npm lifecycle script.
   # gzip is required by gentle-pi's trusted `/usr/bin/tar -xzf` extractor.
-  runtimeInputs = [ coreutils bash git gzip nodejs piLauncher gentleAiLauncher engramLauncher ];
+  runtimeInputs = [
+    coreutils
+    bash
+    git
+    gzip
+    nodejs
+    piLauncher
+    gentleAiLauncher
+    gentleAiRuntimeUpdater
+    engramLauncher
+  ];
 
   text = ''
     agent_dir="''${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
@@ -863,8 +960,21 @@ writeShellApplication {
     npm_prefix="''${PI_NPM_PREFIX:-$HOME/.local/share/loon-pi/npm-prefix}"
     mutable_pi="$npm_prefix/bin/pi"
     backup_dir="$agent_dir/backups/nix-gentle-ai/$(date +%Y%m%d%H%M%S)"
+    core_sources_state="$agent_dir/nix/gentle-core-sources.json"
+    core_observed_state="$agent_dir/nix/gentle-core-observed.json"
+    engram_install_root="''${ENGRAM_INSTALL_ROOT:-$HOME/.local/share/loon-engram}"
 
     mkdir -p "$npm_node_modules" "$HOME/.gentle-ai" "$npm_prefix"
+
+    # Reconcile only the declared Gentle core before touching Pi settings.
+    # Moving Git refs refresh through gentle-stack-update; login only repairs a
+    # missing runtime or a source selection that changed in the Nix module.
+    gentle-ai-runtime-update --if-needed
+    ${lib.optionalString useGentleAiDevRuntime ''
+      export GENTLE_PI_GENTLE_AI_DEV_BINARY="''${GENTLE_AI_DEV_INSTALL_ROOT:-$HOME/.local/share/loon-gentle-ai-dev}/gentle-ai"
+      export GENTLE_PI_SKIP_GENTLE_AI_INSTALL=1
+    ''}
+    engram update --if-needed
 
     # Give Pi a stable, unhashed local-package identity for the customized UI
     # while keeping its bytes owned by the flake.
@@ -915,8 +1025,8 @@ writeShellApplication {
       fi
     fi
 
-    # Install Engram only when its mutable runtime is absent. Explicit updates
-    # are handled by `engram update` and `gentle-stack-update`.
+    # The updater above also keeps Engram's Pi plugin on the same resolved
+    # source as the binary. This probe validates the selected runtime.
     engram version >/dev/null
 
     # One-time migration from the previous Nix closure. Only store links from
@@ -925,8 +1035,6 @@ writeShellApplication {
       pi-antigravity \
       better-claude-code-ui \
       pi-discord-activity \
-      gentle-pi \
-      gentle-engram \
       @juicesharp/rpiv-ask-user-question \
       pi-web-access \
       pi-btw \
@@ -1039,8 +1147,9 @@ writeShellApplication {
     retire_binary "$HOME/.local/bin/engram"
     retire_binary "$HOME/.local/bin/gga"
 
-    # A development-binary selector points outside the Nix store and makes a
-    # clean host behave differently. Retire it like the mutable executables.
+    # The runtime choice now comes only from programs.gentle-ai.core. Retire an
+    # older hand-written registration; branch mode uses the process environment
+    # and therefore does not need to write this local configuration file.
     dev_binary_config="$HOME/.pi/gentle-ai/dev-binary.json"
     if [ -e "$dev_binary_config" ] || [ -L "$dev_binary_config" ]; then
       mkdir -p "$backup_dir/gentle-ai"
@@ -1051,7 +1160,7 @@ writeShellApplication {
     if [ ! -f "$settings_path" ]; then
       printf '%s\n' '{}' > "$settings_path"
     fi
-    node "${mergeSettings}" "$settings_path" "${manifest}"
+    node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
 
     # npm's lifecycle-script allowlist lives beside Pi's mutable extension
     # project. Create it before the first extension install and preserve any
@@ -1065,8 +1174,6 @@ writeShellApplication {
     for package_name in \
       pi-antigravity \
       pi-discord-activity \
-      gentle-pi \
-      gentle-engram \
       @juicesharp/rpiv-ask-user-question \
       pi-web-access \
       pi-btw \
@@ -1083,6 +1190,71 @@ writeShellApplication {
         "$mutable_pi" update --extensions --no-approve
       )
     fi
+
+    desired_core_source() {
+      node -e '
+        const fs = require("node:fs");
+        const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        process.stdout.write(state.packages[process.argv[2]] ?? "");
+      ' "${coreSources}" "$1"
+    }
+    previous_core_source() {
+      if [ ! -f "$core_sources_state" ]; then
+        return 0
+      fi
+      node -e '
+        const fs = require("node:fs");
+        const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        process.stdout.write(state.packages?.[process.argv[2]] ?? "");
+      ' "$core_sources_state" "$1"
+    }
+    expand_home_source() {
+      case "$1" in
+        @HOME@/*) printf '%s/%s' "$HOME" "''${1#@HOME@/}" ;;
+        *) printf '%s' "$1" ;;
+      esac
+    }
+    reconcile_core_package() {
+      package_name="$1"
+      default_source="$2"
+      package_root="$3"
+      desired_raw="$(desired_core_source "$package_name")"
+      previous_raw="$(previous_core_source "$package_name")"
+      desired_source="$(expand_home_source "$desired_raw")"
+      package_json="$package_root/package.json"
+      local_source_available=0
+      case "$desired_source" in
+        /*) [ ! -f "$package_json" ] || local_source_available=1 ;;
+      esac
+
+      # Existing stable installs predate the source record and already satisfy
+      # the default. A local source is already active once it exists and is in
+      # settings; network sources are reconciled when their declaration moves.
+      if { [ "$previous_raw" != "$desired_raw" ] || [ ! -f "$package_json" ]; } \
+        && [ "$local_source_available" -eq 0 ]; then
+        if ! { [ -z "$previous_raw" ] && [ "$desired_raw" = "$default_source" ] && [ -f "$package_json" ]; }; then
+          (
+            cd "$HOME"
+            "$mutable_pi" install "$desired_source" --no-approve
+          )
+        fi
+      fi
+
+      if [ ! -f "$package_json" ] \
+        || [ "$(node -p 'require(process.argv[1]).name' "$package_json")" != "$package_name" ]; then
+        echo "gentle-ai-bootstrap: $desired_source did not install as $package_name" >&2
+        exit 1
+      fi
+    }
+
+    gentle_pi_root="$agent_dir/${gentlePiPackageSubpath}"
+    engram_pi_root="$(expand_home_source "${engramPiSource}")"
+    reconcile_core_package gentle-pi npm:gentle-pi "$gentle_pi_root"
+    reconcile_core_package gentle-engram npm:gentle-engram "$engram_pi_root"
+    install -Dm0600 "${coreSources}" "$core_sources_state"
+    # pi install may append its source. Normalize the list without touching
+    # packages that neither the Gentle core nor the local loon layer owns.
+    node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
 
     # Generate a second, independently authenticated provider from the exact
     # installed pi-antigravity release. Only provider/API/persistence ids,
@@ -1120,9 +1292,8 @@ writeShellApplication {
 
     # The first settings pass intentionally skipped this generated path on a
     # clean machine. Add it now that its official source is available.
-    node "${mergeSettings}" "$settings_path" "${manifest}"
+    node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
 
-    gentle_pi_root="$npm_node_modules/gentle-pi"
     verify_gentle_ai_runtime() {
       node --input-type=module - "$gentle_pi_root" <<'NODE' >/dev/null 2>&1
 import { pathToFileURL } from "node:url";
@@ -1138,7 +1309,10 @@ NODE
     # Repair installations created before the npm policy existed. Future
     # gentle-pi upgrades run the same approved postinstall automatically.
     if ! verify_gentle_ai_runtime; then
-      npm rebuild gentle-pi --prefix "$npm_project" --foreground-scripts
+      (
+        cd "$gentle_pi_root"
+        npm run postinstall --foreground-scripts
+      )
     fi
     if ! verify_gentle_ai_runtime; then
       echo "gentle-ai-bootstrap: gentle-pi's verified Gentle AI runtime is unavailable" >&2
@@ -1217,6 +1391,18 @@ NODE
         gentle-ai review mode enable --scope global --cwd "$repo_dir" >/dev/null
       fi
     fi
+
+    # Nix declares the update lane, while Pi owns the mutable bytes. Record the
+    # exact versions observed after every reconciliation so a direct `pi update`
+    # is auditable without pinning or downgrading it on the next rebuild.
+    node "${recordCoreObservation}" \
+      "$core_observed_state" \
+      "${coreSources}" \
+      "$gentle_pi_root" \
+      "$engram_install_root/source-request" \
+      "$engram_install_root/source-resolved" \
+      "$(gentle-ai version)" \
+      "$(engram version)"
 
     echo "Gentle AI y Pi quedaron inicializados en su instalación mutable administrada por el usuario."
   '';

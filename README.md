@@ -247,6 +247,44 @@ reemplaza credenciales, modelos descubiertos, sesiones ni la base de datos de
 Engram. `better-claude-code-ui` es la única extensión deliberadamente fijada:
 usa la variante local versionada en este repositorio.
 
+El origen del núcleo Gentle se elige aparte en el módulo NixOS. Estas opciones
+no describen las extensiones, notificaciones, proveedores ni fallbacks propios
+de loon: solo seleccionan `gentle-pi`, el runtime de Gentle AI y la pareja
+binario/plugin de Engram.
+
+```nix
+programs.gentle-ai.core = {
+  gentlePi = {
+    # release usa npm; git usa el repositorio oficial de gentle-pi.
+    mode = "release";
+    ref = null;
+    # mode = "git"; ref = "mi-rama";
+    # mode = "release"; ref = "2.7.0";
+  };
+
+  # null usa el companion firmado/verificado que instala gentle-pi.
+  # Para probar una branch, se usa el override oficial por entorno y no se
+  # escribe ~/.pi/gentle-ai/dev-binary.json.
+  gentleAi.source = null;
+  # gentleAi.source =
+  #   "github.com/gentleman-programming/gentle-ai/v2/cmd/gentle-ai@main";
+
+  engram = {
+    # release + null sigue la última release estable; una RC concreta se fija
+    # con su tag. git permite main, otra branch o un commit.
+    mode = "release";
+    ref = null;
+    # mode = "release"; ref = "v2.0.0-rc.11";
+    # mode = "git"; ref = "main";
+  };
+};
+```
+
+Engram obtiene siempre su plugin de Pi del mismo tag/commit que el binario.
+Cambiar una fuente reconcilia únicamente ese componente y preserva los demás
+paquetes y campos de configuración de Pi. `gentle-stack-update` sí refresca de
+forma explícita las ramas móviles y después ejecuta la actualización general.
+
 ```bash
 gentle-ai-bootstrap
 gentle-ai version
@@ -257,6 +295,12 @@ gentle-ai doctor
 
 #### Actualizaciones
 
+La política general del repositorio es no fijar manualmente versiones de
+aplicaciones. NixOS declara paquetes y canales: `flake.lock` actualiza el
+sistema mediante `rebuild update`, mientras los runtimes mutables conservan sus
+propias actualizaciones. Los pins históricos de derivaciones externas son deuda
+técnica y no deben usarse como patrón para nuevas instalaciones.
+
 Pi se puede actualizar directamente porque su ejecutable real ya no está en
 `/nix/store`:
 
@@ -266,6 +310,13 @@ pi update --extensions    # gentle-pi y las demás extensiones
 engram update             # solo Engram
 gentle-stack-update       # Pi + extensiones + Gentle AI + Engram + configuración
 ```
+
+Las actualizaciones ejecutadas directamente mediante el launcher `pi` disparan
+al terminar `gentle-ai-bootstrap`. NixOS conserva el origen declarado, no
+rebaja la versión recién instalada y vuelve a aplicar únicamente su capa de
+configuración; después sincroniza los assets de Gentle AI para que coincidan
+con el nuevo companion. La versión realmente observada queda registrada en
+`~/.pi/agent/nix/gentle-core-observed.json`.
 
 Las esperas de Pi también están integradas con el escritorio: cualquier
 `select`, `confirm`, `input`, editor o UI custom que un plugin abra mientras el
@@ -432,13 +483,48 @@ de abrir OBS. Este crea la fuente `Twitch GLaDOS TTS`, visible en el mezclador
 con fader propio. Canal, comando, límite, cooldown, volumen, monitorización y
 velocidad se ajustan en **Herramientas → Scripts** y se recargan en vivo.
 
+### TikTok LIVE: chat y alertas locales para OBS
+
+`pkgs/obs-tiktok-live/` instala otro script nativo de OBS exclusivo de
+`nixos-pc`. Al abrir OBS, el wrapper lo registra automáticamente junto al TTS
+y ejecuta el servicio local. Las fuentes de navegador se crean manualmente en
+la escena que se elija: **TikTok Chat** (600×900) con
+`http://127.0.0.1:5124/chat`, y **TikTok Alerts** (1920×1080) con
+`http://127.0.0.1:5124/alerts`.
+
+En **Herramientas → Scripts → TikTok LIVE** se escribe el usuario, con o sin
+`@`. El proceso local recibe chat, regalos (incluidas rachas, agrupadas en una
+sola alerta), follows, compartidos, entradas y likes agrupados. Las fuentes
+usan únicamente `http://127.0.0.1:5124/chat` y
+`http://127.0.0.1:5124/alerts`; no hay puertos expuestos, bots ni credenciales
+en el repo. Si la cuenta no está en directo, el proceso reintenta solo.
+
+TikTok no ofrece una API pública para estos eventos. El conector libre usado
+por el script observa el Webcast que ve cualquier espectador y puede requerir
+actualización si TikTok cambia ese protocolo; para leer un directo público no
+requiere iniciar sesión. La presentación, cola de eventos y URLs de OBS sí son
+locales y nunca se publican fuera del PC; el conector hace las conexiones de
+salida necesarias hacia TikTok y su servicio de firmado Webcast.
+
+Para previsualizar el chat sin emitir, crea temporalmente una fuente de
+navegador de **634×604** con `http://127.0.0.1:5124/chat?demo=1`. Muestra
+mensajes ficticios y no se conecta a TikTok; la fuente real sigue usando
+`/chat` sin el parámetro.
+
+Hay dos vistas compactas de **320×46** para añadir manualmente a una escena de
+actividad. La de follow guarda el último usuario que siguió; la de regalo
+muestra usuario, regalo y su cantidad final (por ejemplo `Luna · Rosa ×3`).
+No se crean ni se añaden a una escena automáticamente: usa
+`http://127.0.0.1:5124/activity/follow` y
+`http://127.0.0.1:5124/activity/gift`.
+
 ### Restauración limpia del streaming en `nixos-pc`
 
 El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor, captura
 de audio PipeWire y captura de ventanas Niri), NVENC, Veadotube Mini, Pear
-Desktop con `pear_twitch`, el TTS con su modelo GLaDOS, los overlays locales y
-los parches de Equibop. No se deben copiar plugins manualmente a `~/.config` ni
-`~/.local/share`.
+Desktop con `pear_twitch`, el TTS con su modelo GLaDOS, el chat y alertas
+locales de TikTok, los overlays locales y los parches de Equibop. No se deben
+copiar plugins manualmente a `~/.config` ni `~/.local/share`.
 
 El estado personal no se publica en Git. Para recuperar la misma disposición y
 cuentas después de formatear, conservar de forma privada:
@@ -636,6 +722,21 @@ samba), `file-roller` (integración gráfica de archivos comprimidos) y `p7zip`
 (soporte para abrir y extraer 7-Zip) en `systemPackages`, y habilita
 `programs.dconf` para los settings GTK.
 
+### wine (`wine/`)
+
+La integración de Wine instala soporte WoW64 para ejecutables Windows de 32 y
+64 bits, `winetricks` y una asociación de escritorio para `.exe` y `.msi`.
+Desde el explorador se pueden abrir con doble clic; desde una terminal se usa:
+
+```bash
+wine-exe programa.exe [argumentos]
+```
+
+También se registra el formato PE con `binfmt`: un archivo con permiso de
+ejecución puede lanzarse como `./programa.exe`. No todos los programas Windows
+son compatibles con Wine; los que necesiten DLL o runtimes adicionales pueden
+prepararse con `winetricks`.
+
 ### waybar (`waybar/`)
 
 Barra de estado inferior (Waybar v0.15), config gestionada por NixOS
@@ -705,10 +806,13 @@ Esto evita que OBS y los mezcladores lo agrupen con Pear Desktop u otras
 aplicaciones Electron bajo el nombre genérico `electron`/`Chromium`.
 
 El overlay local de voz para OBS escucha únicamente en loopback. La vista
-compacta está en `http://127.0.0.1:5123/` (618×236) y la vista para la escena
-Jugando en `http://127.0.0.1:5123/jugando` (1920×1080). Esta última distribuye
-sin solapamientos a todos los hablantes en posiciones variables a lo largo del
-borde inferior y deja el resto del lienzo transparente.
+compacta está en `http://127.0.0.1:5123/` (618×236), la vista de llamada para
+una fuente de 424×270 está en `http://127.0.0.1:5123/llamada`, y la vista para
+la escena Jugando en `http://127.0.0.1:5123/jugando` (1920×1080). La vista de
+llamada conserva el mismo estado visual y muestra hasta dos avatares grandes,
+centrados sin espacio sobrante; la de Jugando distribuye sin solapamientos a todos los hablantes en
+posiciones variables a lo largo del borde inferior y deja el resto del lienzo
+transparente.
 
 ---
 

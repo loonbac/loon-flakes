@@ -75,8 +75,20 @@ const PLACEHOLDER_KEYS = new Set([
 	"COMMANDCODE_API_KEY",
 ]);
 
-const apiBase = (process.env.COMMANDCODE_API_BASE ?? "https://api.commandcode.ai/provider/v1")
-	.replace(/\/provider\/v1\/?$/, "");
+function commandCodeApiBase(value: string): string | undefined {
+	try {
+		const url = new URL(value);
+		const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+		if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) return undefined;
+		if (url.username || url.password || url.search || url.hash) return undefined;
+		url.pathname = url.pathname.replace(/\/provider\/v1\/?$/, "").replace(/\/+$/, "");
+		return url.toString().replace(/\/$/, "");
+	} catch {
+		return undefined;
+	}
+}
+
+const apiBase = commandCodeApiBase(process.env.COMMANDCODE_API_BASE ?? "https://api.commandcode.ai/provider/v1");
 
 let snapshot: CommandCodeUsageSnapshot = { status: "idle" };
 let inFlight: Promise<void> | undefined;
@@ -136,10 +148,13 @@ function remainingWindowFraction(window: WindowLimit | undefined): number | unde
 }
 
 function creditRemainingFraction(credits: CreditsResponse["credits"], summary: UsageSummaryResponse | undefined): number | undefined {
-	const monthly = nonnegativeNumber(credits?.monthlyCredits) ?? 0;
-	const purchased = nonnegativeNumber(credits?.purchasedCredits) ?? 0;
-	const free = nonnegativeNumber(credits?.freeCredits) ?? 0;
-	const remaining = monthly + purchased + free;
+	const values = [
+		nonnegativeNumber(credits?.monthlyCredits),
+		nonnegativeNumber(credits?.purchasedCredits),
+		nonnegativeNumber(credits?.freeCredits),
+	];
+	if (!values.some((value) => value !== undefined)) return undefined;
+	const remaining = values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 	const usedThisPeriod = nonnegativeNumber(summary?.totalCost);
 	if (usedThisPeriod === undefined) return undefined;
 	const pool = remaining + usedThisPeriod;
@@ -214,23 +229,24 @@ function requestHeaders(apiKey: string): HeadersInit {
 
 async function fetchUsage(apiKey: string): Promise<CommandCodeUsageSnapshot | undefined> {
 	try {
+		if (!apiBase) return undefined;
 		const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 		const headers = requestHeaders(apiKey);
-		const whoamiResponse = await fetch(`${apiBase}/alpha/whoami`, { headers, signal });
+		const whoamiResponse = await fetch(`${apiBase}/alpha/whoami`, { headers, signal, redirect: "error" });
 		if (!whoamiResponse.ok) return undefined;
 		const whoami = await whoamiResponse.json() as WhoAmIResponse;
 		const query = orgQuery(whoami.org?.id);
 
 		const [creditsResponse, subscriptionResponse] = await Promise.all([
-			fetch(`${apiBase}/alpha/billing/credits${query}`, { headers, signal }),
-			fetch(`${apiBase}/alpha/billing/subscriptions${query}`, { headers, signal }),
+			fetch(`${apiBase}/alpha/billing/credits${query}`, { headers, signal, redirect: "error" }),
+			fetch(`${apiBase}/alpha/billing/subscriptions${query}`, { headers, signal, redirect: "error" }),
 		]);
 		if (!creditsResponse.ok || !subscriptionResponse.ok) return undefined;
 		const credits = await creditsResponse.json() as CreditsResponse;
 		const subscription = await subscriptionResponse.json() as SubscriptionResponse;
 		const periodStart = subscription.data?.currentPeriodStart;
 		const usageQuery = `${query ? `${query}&` : "?"}${typeof periodStart === "string" && periodStart.length > 0 ? `since=${encodeURIComponent(periodStart)}` : ""}`;
-		const summaryResponse = await fetch(`${apiBase}/alpha/usage/summary${usageQuery}`, { headers, signal });
+		const summaryResponse = await fetch(`${apiBase}/alpha/usage/summary${usageQuery}`, { headers, signal, redirect: "error" });
 		if (!summaryResponse.ok) return undefined;
 		const summary = await summaryResponse.json() as UsageSummaryResponse;
 
@@ -295,12 +311,23 @@ function activeModelKey(ctx: ExtensionContext): string | undefined {
 		: undefined;
 }
 
+function retireSession(): void {
+	refreshGeneration += 1;
+	inFlight = undefined;
+	inFlightContext = undefined;
+	observedModel = undefined;
+	snapshot = { status: "idle" };
+}
+
 export function registerCommandCodeUsage(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		retireSession();
 		observedModel = activeModelKey(ctx);
 		refreshUsage(ctx);
 	});
+
+	pi.on("session_shutdown", () => retireSession());
 
 	pi.on("session_info_changed", (_event, ctx) => {
 		if (!ctx.hasUI) return;

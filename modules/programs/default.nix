@@ -11,6 +11,7 @@
     ./equibop
     ./nautilus
     ./yazi
+    ./wine
     ./gtk
     ./obs-studio
     ./obs-pwvideo

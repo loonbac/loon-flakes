@@ -18,7 +18,7 @@ writeShellApplication {
     fi
 
     if [ ! -x "$binary" ]; then
-      engram-update
+      engram-update --if-needed
     fi
 
     exec "$binary" "$@"

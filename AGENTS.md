@@ -84,6 +84,51 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
 
 ---
 
+## Política obligatoria de versiones: no fijar aplicaciones
+
+El objetivo del repositorio es declarar **qué instalar y cómo integrarlo**, no
+congelar manualmente la versión de aplicaciones que tienen un canal normal de
+actualización. Esta política es obligatoria para cualquier agente:
+
+- **No introducir nuevos pins manuales de aplicaciones** en módulos, launchers
+  ni configuración: quedan prohibidos specs como `paquete@1.2.3`, tags de
+  release fijos, commits usados como canal permanente, defaults con una RC
+  concreta y lógica que reinstale o rebaje una versión mutable durante un
+  rebuild o un arranque.
+- Para software disponible en `nixpkgs`, declarar el atributo sin override de
+  versión. Su actualización pertenece a `rebuild update` y a `flake.lock`.
+- Para ecosistemas con actualizador propio (Pi/npm, Engram y equivalentes), Nix
+  debe instalar un launcher estable y declarar el origen/canal sin versión; los
+  bytes actualizables viven fuera de `/nix/store`. Un rebuild o reinicio debe
+  conservar la versión instalada por el usuario y limitarse a reconciliar la
+  configuración.
+- Para Git, preferir la rama/canal móvil solicitado (`main`, rama por defecto o
+  equivalente), nunca convertir silenciosamente ese canal en un commit o tag
+  fijo. Solo el usuario puede pedir explícitamente un pin temporal.
+- Si una derivación Nix externa exige obligatoriamente `rev` y hash para ser
+  reproducible, eso es una **restricción técnica del source**, no una política
+  de versión de usuario. Antes de añadirla hay que preferir, en este orden:
+  paquete de `nixpkgs`, instalador mutable oficial, o metadatos actualizados
+  automáticamente (como `sources.json` + CI). Nunca usar un pin manual como
+  sustituto permanente de un actualizador.
+- `flake.lock`, `Cargo.lock`, `package-lock.json`, hashes de integridad y el
+  campo `version` meramente informativo de paquetes locales no cuentan como
+  pins prohibidos: son metadatos reproducibles. No se editan a mano para
+  retener una aplicación en una versión antigua.
+- Los pins históricos que ya existen son deuda técnica, **no precedentes**.
+  Cuando se toque uno, evaluar migrarlo a `nixpkgs`, a un runtime mutable o a
+  una actualización automatizada. No crear otro sin autorización explícita del
+  usuario y sin documentar por qué ninguna alternativa móvil es viable.
+- Antes de cerrar un cambio de instalación, comprobar que actualizar por el
+  mecanismo normal, reiniciar y ejecutar un rebuild no provoquen un downgrade.
+
+En particular, la declaración por defecto de Gentle/Pi usa fuentes sin versión:
+`npm:gentle-pi`, extensiones npm sin sufijo de versión y Engram
+`release:latest`. Las opciones `ref` existen para pruebas solicitadas; un agente
+no debe rellenarlas con una versión fija por iniciativa propia.
+
+---
+
 ## Tareas comunes
 
 ### Instalar un paquete (ej. "instala vlc")

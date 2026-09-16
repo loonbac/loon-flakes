@@ -62,6 +62,7 @@
       # verified, version-matched Gentle AI runtime.
       piLauncher = pkgs.callPackage ./pkgs/pi-launcher { };
       gentleAiLauncher = pkgs.callPackage ./pkgs/gentle-ai-launcher { };
+      gentleAiRuntimeUpdater = pkgs.callPackage ./pkgs/gentle-ai-runtime-updater { };
       engramUpdater = pkgs.callPackage ./pkgs/engram-updater { };
       engramLauncher = pkgs.callPackage ./pkgs/engram-launcher {
         inherit engramUpdater;
@@ -69,10 +70,17 @@
       betterClaudeCodeUi = pkgs.callPackage ./pkgs/pi/better-claude-code-ui { };
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
-        inherit piLauncher gentleAiLauncher engramLauncher betterClaudeCodeUi gptFastModeShared;
+        inherit
+          piLauncher
+          gentleAiLauncher
+          gentleAiRuntimeUpdater
+          engramLauncher
+          betterClaudeCodeUi
+          gptFastModeShared
+          ;
       };
       gentleStackUpdate = pkgs.callPackage ./pkgs/gentle-stack-update {
-        inherit piLauncher gentleAiLauncher engramLauncher;
+        inherit piLauncher gentleAiLauncher gentleAiRuntimeUpdater engramLauncher;
         gentleAiBootstrap = gentleAiBootstrap;
       };
 
@@ -162,8 +170,6 @@
         mpvpaper-wallpaper = pkgs.callPackage ./pkgs/mpvpaper-wallpaper {
           accent-wallpaper = pkgs.callPackage ./pkgs/accent-wallpaper { };
         };
-        # Tema de cursor Vision (blanco/negro) — paquetes propios del flake.
-        vision-cursor = (pkgs.callPackage ./pkgs/vision-cursor { }).white;
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
@@ -177,6 +183,7 @@
         # Control de brillo con suelo mínimo del 10% remapeado a 0%
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
         gentle-ai = gentleAiLauncher;
+        gentle-ai-runtime-update = gentleAiRuntimeUpdater;
         engram = engramLauncher;
         engram-update = engramUpdater;
         gga = pkgs.callPackage ./pkgs/gga { };

@@ -1,0 +1,9 @@
+{
+  "name": "obs-tiktok-live",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "tiktok-live-connector": "2.4.4"
+  }
+}
