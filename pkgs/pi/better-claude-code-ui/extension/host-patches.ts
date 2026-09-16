@@ -128,9 +128,8 @@ const DELETE_HOLD_MS = 900;
 const DELETE_RETURN_MS = 420;
 const DELETE_INITIAL_REPEAT_GRACE_MS = 700;
 const DELETE_REPEAT_GRACE_MS = 350;
-const DELETE_UNDERLINE_ON = "\x1b[4m\x1b[58:2::244:72:92m";
-const DELETE_UNDERLINE_OFF = "\x1b[24m\x1b[59m";
 const DELETE_RED = "\x1b[38;2;244;72;92m";
+const DELETE_RED_BACKGROUND = "\x1b[48;2;132;31;48m";
 
 interface ResumeSessionInfo {
 	path: string;
@@ -219,29 +218,33 @@ function replaceVisibleCells(
 	return result;
 }
 
-function underlineVisibleCells(line: string, startCell: number, endCell: number): string {
-	if (endCell <= startCell) return line;
+function backgroundAtVisibleCell(line: string, targetCell: number): string {
 	const tokenRe = new RegExp(`(${ANSI_RE.source})`, "g");
 	let column = 0;
-	let result = "";
+	let background = "\x1b[49m";
 	for (const token of line.split(tokenRe)) {
 		if (!token) continue;
 		if (token.startsWith("\x1b")) {
-			result += token;
+			if (column <= targetCell) {
+				const sgr = /^\x1b\[([0-9:;]*)m$/u.exec(token)?.[1] ?? "";
+				if (/(?:^|[;:])(?:0|49)(?:[;:]|$)/u.test(sgr)) background = "\x1b[49m";
+				if (/(?:^|[;:])(?:4[0-8]|10[0-7])(?:[;:]|$)/u.test(sgr)) background = token;
+			}
 			continue;
 		}
 		for (const char of token) {
-			const nextColumn = column + visibleWidth(char);
-			const inside = column < endCell && nextColumn > startCell;
-			// Paint glyphs individually. Spaces stay untouched, so this reads as
-			// underlined text instead of a continuous horizontal progress bar.
-			result += inside && /\S/u.test(char)
-				? `${DELETE_UNDERLINE_ON}${char}${DELETE_UNDERLINE_OFF}`
-				: char;
-			column = nextColumn;
+			if (column >= targetCell) return background;
+			column += visibleWidth(char);
 		}
 	}
-	return result;
+	return background;
+}
+
+function paintVisibleBackground(line: string, startCell: number, endCell: number): string {
+	if (endCell <= startCell) return line;
+	const restoreBackground = backgroundAtVisibleCell(line, startCell);
+	const opened = replaceVisibleCells(line, startCell, startCell, DELETE_RED_BACKGROUND);
+	return replaceVisibleCells(opened, endCell, endCell, restoreBackground);
 }
 
 function clearDeleteHold(list: PatchedSessionList, requestRender: () => void): void {
@@ -278,22 +281,6 @@ function keepDeleteLatched(list: PatchedSessionList): void {
 		if (list[SESSION_DELETE_LATCH] === latch) delete list[SESSION_DELETE_LATCH];
 	}, 500);
 	list[SESSION_DELETE_LATCH] = latch;
-}
-
-function selectedMessageColumns(list: PatchedSessionList, line: string): [number, number] | undefined {
-	const node = list.filteredSessions[list.selectedIndex];
-	if (!node) return undefined;
-	const plain = stripTerminalSequences(line);
-	const prefix = list.buildTreePrefix?.(node) ?? "";
-	const start = 2 + visibleWidth(prefix);
-	// Pi right-aligns count/age metadata after a multi-space gap. That remains
-	// a stable boundary even when the message itself contains ordinary spaces.
-	const tail = plain.slice(start);
-	let gap = -1;
-	for (const match of tail.matchAll(/\s{2,}(?=\S)/gu)) gap = match.index;
-	const message = (gap >= 0 ? tail.slice(0, gap) : tail).trimEnd();
-	const width = visibleWidth(message);
-	return width > 0 ? [start, start + width] : undefined;
 }
 
 function decorateResumeSelector(selector: PatchedSessionSelector): void {
@@ -341,10 +328,9 @@ function decorateResumeSelector(selector: PatchedSessionSelector): void {
 			const row = 2 + list.selectedIndex - startIndex;
 			const line = lines[row];
 			if (typeof line !== "string") return lines;
-			const columns = selectedMessageColumns(list, line);
-			if (!columns) return lines;
-			const painted = Math.max(1, Math.ceil((columns[1] - columns[0]) * state.progress));
-			lines[row] = underlineVisibleCells(line, columns[0], columns[0] + painted);
+			const rowWidth = visibleWidth(line);
+			const painted = Math.max(1, Math.ceil(rowWidth * state.progress));
+			lines[row] = paintVisibleBackground(line, 0, painted);
 			return lines;
 		};
 	}
@@ -1690,7 +1676,7 @@ export function installHostPatches(): void {
 	installQuotaSpritePersistence();
 	prepareQuotaMeterSprites();
 	// /resume: replace the easy-to-trigger Ctrl+D confirmation with a
-	// deliberate hold-Delete gesture and a red underline progress animation.
+	// deliberate hold-Delete gesture that fills the blue selection red.
 	// buildBaseLayout is called from SessionSelectorComponent's constructor,
 	// after its private list/header fields exist and before the first render.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
