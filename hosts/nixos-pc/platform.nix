@@ -31,6 +31,16 @@ in
   hardware.enableRedistributableFirmware = true;
   hardware.graphics.enable = true;
 
+  # Swap comprimida en RAM: evita que picos transitorios de Electron, OBS o
+  # evaluaciones de Nix degraden la sesión. El límite es lógico y zram solo
+  # consume memoria física conforme se usa, aplicando compresión zstd.
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50;
+    priority = 100;
+  };
+
   # Los monitores externos no exponen /sys/class/backlight. DDC/CI viaja por
   # los buses I2C de la NVIDIA; este backend controla el monitor principal
   # GM3CC236 conectado a DP-2 y alimenta el indicador de Waybar.
