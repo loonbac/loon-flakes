@@ -10,6 +10,7 @@
     ./swaync
     ./equibop
     ./nautilus
+    ./yazi
     ./gtk
     ./obs-studio
     ./obs-pwvideo
