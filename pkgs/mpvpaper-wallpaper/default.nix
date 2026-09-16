@@ -130,6 +130,19 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     done
   }
 
+  prepare_accent() {
+    local video=$1
+    # Publicar la paleta antes de crear la superficie que hará el fade. En
+    # selecciones repetidas accent-wallpaper responde desde su caché.
+    if "${accent-wallpaper}/bin/accent-wallpaper" from "$video" >/dev/null 2>&1; then
+      # Dar un frame al monitor CSS de Waybar sin reiniciar la barra.
+      ${pkgs.coreutils}/bin/sleep 0.05
+      return 0
+    fi
+    echo "mpvpaper-wallpaper: no se pudo preparar la paleta; se conserva la anterior" >&2
+    return 1
+  }
+
   transition_wallpaper() {
     local video=$1
     local next_ipc="$IPC.next.$$"
@@ -210,11 +223,21 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
         echo "No existe el video: $NAME" >&2
         exit 1
       fi
+      OLD_VIDEO=""
+      if [ -f "$STATE" ]; then
+        OLD_NAME="$(cat "$STATE")"
+        [ -f "$DIR/$OLD_NAME" ] && OLD_VIDEO="$DIR/$OLD_NAME"
+      fi
       ensure_state_dir
-      echo "$NAME" > "$STATE"
-      transition_wallpaper "$VIDEO"
-      # Extrae el color de acento del video nuevo (desacoplado, async).
-      setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
+      prepare_accent "$VIDEO" || true
+      if transition_wallpaper "$VIDEO"; then
+        echo "$NAME" > "$STATE"
+      else
+        # Si el video nuevo no carga, conservar tanto el state como los colores
+        # del wallpaper que sigue visible.
+        [ -z "$OLD_VIDEO" ] || prepare_accent "$OLD_VIDEO" || true
+        exit 1
+      fi
       ;;
     *)
       # Sin argumentos: usa el seteado, o el único/primero si no hay state.
@@ -236,11 +259,10 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
         VIDEO="$DIR/$(echo "$VIDEOS" | head -1)"
       fi
 
+      prepare_accent "$VIDEO" || true
       stop_wallpaper
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó.
       start_wallpaper "$VIDEO" "$IPC" none
-      # Extrae el color de acento del video nuevo (desacoplado, async).
-      setsid "${accent-wallpaper}/bin/accent-wallpaper" from "$VIDEO" >/dev/null 2>&1 &
       ;;
   esac
 ''

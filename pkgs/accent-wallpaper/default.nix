@@ -26,6 +26,14 @@ import os
 import subprocess
 import colorsys
 
+def atomic_write(path, content):
+    tmp_path = f"{path}.tmp.{os.getpid()}"
+    with open(tmp_path, 'w') as f:
+        f.write(content)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
+
 def hex_to_rgb(h):
     h = h.lstrip('#')
     return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
@@ -147,14 +155,9 @@ def main():
     for p in [accent_txt_path, niri_kdl_path, gtk_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path, hypr_colors_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
         
-    with open(accent_txt_path, 'w') as f:
-        f.write(accent_hex + '\n')
-        
-    with open(niri_kdl_path, 'w') as f:
-        f.write(f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
-        
-    with open(gtk_css_path, 'w') as f:
-        f.write(f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
+    atomic_write(accent_txt_path, accent_hex + '\n')
+    atomic_write(niri_kdl_path, f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
+    atomic_write(gtk_css_path, f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
         
     waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
 @define-color background {bg_hex};
@@ -186,14 +189,8 @@ def main():
 @define-color color14 {highlight_hex};
 @define-color color15 {fg_hex};
 """
-    with open(waybar_colors_path, 'w') as f:
-        f.write(waybar_colors_content)
-        
-    with open(waybar_accent_path, 'w') as f:
-        f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
-        
-    with open(swaync_accent_path, 'w') as f:
-        f.write(f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+    atomic_write(waybar_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+    atomic_write(swaync_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
         
     hypr_colors_content = f"""# Paleta dinámica generada desde el wallpaper
 $accent = rgb({accent_hex.lstrip('#')})
@@ -208,8 +205,11 @@ $muted = rgb({muted_hex.lstrip('#')})
 $warning = rgb({warn_hex.lstrip('#')})
 $critical = rgb({crit_hex.lstrip('#')})
 """
-    with open(hypr_colors_path, 'w') as f:
-        f.write(hypr_colors_content)
+    atomic_write(hypr_colors_path, hypr_colors_content)
+
+    # Waybar observa este import. Publicarlo al final hace que la actualización
+    # visual ocurra cuando el resto de consumidores ya tiene la misma paleta.
+    atomic_write(waybar_colors_path, waybar_colors_content)
         
     print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
 
@@ -228,6 +228,47 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   MAGICK="${pkgs.imagemagick}/bin/magick"
   PYTHON="${pkgs.python3}/bin/python3"
   SWAYNC_CLIENT="${pkgs.swaynotificationcenter}/bin/swaync-client"
+  CACHE_ROOT="$HOME/.cache/accent-wallpaper"
+  RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(${pkgs.coreutils}/bin/id -u)}/accent-wallpaper"
+
+  atomic_copy() {
+    local source=$1
+    local target=$2
+    local temporary="$target.tmp.$$"
+    ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname "$target")"
+    ${pkgs.coreutils}/bin/cp "$source" "$temporary"
+    ${pkgs.coreutils}/bin/chmod 0644 "$temporary"
+    ${pkgs.coreutils}/bin/mv -f "$temporary" "$target"
+  }
+
+  apply_cached_palette() {
+    local cache=$1
+    atomic_copy "$cache/accent.txt" "$HOME/.config/mpvpaper/accent.txt"
+    atomic_copy "$cache/niri-accent.kdl" "$HOME/.config/niri/accent.kdl"
+    atomic_copy "$cache/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+    atomic_copy "$cache/waybar-accent.css" "$HOME/.config/waybar/accent.css"
+    atomic_copy "$cache/swaync-accent.css" "$HOME/.config/swaync/accent.css"
+    atomic_copy "$cache/hypr-colors.conf" "$HOME/.config/hypr/colors.conf"
+    # Publicar el import observado por Waybar al final.
+    atomic_copy "$cache/waybar-colors.css" "$HOME/.config/waybar/colors.css"
+  }
+
+  cache_current_palette() {
+    local cache=$1
+    local temporary
+    ${pkgs.coreutils}/bin/mkdir -p "$CACHE_ROOT"
+    temporary="$(${pkgs.coreutils}/bin/mktemp -d "$CACHE_ROOT/.palette.XXXXXX")"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/mpvpaper/accent.txt" "$temporary/accent.txt"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/niri/accent.kdl" "$temporary/niri-accent.kdl"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/gtk-4.0/gtk.css" "$temporary/gtk.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/colors.css" "$temporary/waybar-colors.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/accent.css" "$temporary/waybar-accent.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/swaync/accent.css" "$temporary/swaync-accent.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/hypr/colors.conf" "$temporary/hypr-colors.conf"
+    : > "$temporary/complete"
+    ${pkgs.coreutils}/bin/mv -T "$temporary" "$cache" 2>/dev/null || \
+      ${pkgs.coreutils}/bin/rm -rf "$temporary"
+  }
 
   pick_target() {
     # 1. State de video (mpvpaper)
@@ -272,6 +313,27 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
       ;;
   esac
 
+  # Serializa escritores y reutiliza la paleta mientras el archivo fuente no
+  # cambie. La clave usa ruta, tamaño y mtime; no lee videos grandes completos.
+  ${pkgs.coreutils}/bin/mkdir -p "$RUNTIME_DIR" "$CACHE_ROOT"
+  ${pkgs.coreutils}/bin/chmod 0700 "$RUNTIME_DIR" "$CACHE_ROOT"
+  exec 9>"$RUNTIME_DIR/change.lock"
+  ${pkgs.util-linux}/bin/flock 9
+  CACHE_KEY="$({
+    ${pkgs.coreutils}/bin/printf '%s\n' 'palette-v2'
+    # %y incluye nanosegundos, evitando reutilizar una paleta obsoleta si un
+    # archivo se reemplaza muy rápido por otro del mismo tamaño.
+    ${pkgs.coreutils}/bin/stat --printf='%n\n%s\n%y\n' "$TARGET"
+  } | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)"
+  PALETTE_CACHE="$CACHE_ROOT/$CACHE_KEY"
+
+  if [ -f "$PALETTE_CACHE/complete" ]; then
+    apply_cached_palette "$PALETTE_CACHE"
+    "$SWAYNC_CLIENT" -R 2>/dev/null || true
+    echo "Paleta cacheada aplicada: $TARGET"
+    exit 0
+  fi
+
   ACCENT_TMP="$(mktemp -d)"
   trap 'rm -rf "$ACCENT_TMP"' EXIT
   FRAME="$ACCENT_TMP/frame.png"
@@ -289,6 +351,7 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
 
   # Extraer la paleta y escribir los archivos de configuración
   "$PYTHON" "${paletteExtractor}" "$FRAME" "$MAGICK"
+  cache_current_palette "$PALETTE_CACHE"
 
   # ---- Propagación en vivo ----
   # Waybar observa style.css y sus imports porque la configuración activa
