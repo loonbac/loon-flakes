@@ -4,7 +4,6 @@ let
   cfg = config.programs.gentle-ai;
   core = cfg.core;
   useGentleAiDevRuntime = core.gentleAi.source != null;
-  engramPiSource = "@HOME@/.local/share/loon-engram/plugin";
   gentlePiSource =
     if core.gentlePi.mode == "release" then
       "npm:gentle-pi" + lib.optionalString (core.gentlePi.ref != null) "@${core.gentlePi.ref}"
@@ -39,7 +38,6 @@ let
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
     inherit
       engramLauncher
-      engramPiSource
       gentleAiLauncher
       gentleAiRuntimeUpdater
       gentlePiPackageSubpath
@@ -109,7 +107,8 @@ in
           default = "release";
           description = ''
             Select a checksummed GitHub release or build Engram from a Git ref.
-            The Pi plugin is always taken from the same resolved source.
+            This selects only the Engram binary; Pi manages the unversioned
+            npm:gentle-engram plugin through its own extension channel.
           '';
         };
 

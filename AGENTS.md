@@ -102,6 +102,10 @@ actualización. Esta política es obligatoria para cualquier agente:
   bytes actualizables viven fuera de `/nix/store`. Un rebuild o reinicio debe
   conservar la versión instalada por el usuario y limitarse a reconciliar la
   configuración.
+- Si falta un paquete mutable, instalar únicamente ese paquete desde su spec
+  sin versión. Durante un rebuild queda prohibido usar actualizadores masivos
+  como `pi update --extensions`: podrían alterar otros paquetes que ya estaban
+  instalados. Los updates generales solo se ejecutan por petición del usuario.
 - Para Git, preferir la rama/canal móvil solicitado (`main`, rama por defecto o
   equivalente), nunca convertir silenciosamente ese canal en un commit o tag
   fijo. Solo el usuario puede pedir explícitamente un pin temporal.

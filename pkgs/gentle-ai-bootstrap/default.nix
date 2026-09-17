@@ -16,7 +16,6 @@
 , gptFastModeShared
 , gentlePiSource ? "npm:gentle-pi"
 , gentlePiPackageSubpath ? "npm/node_modules/gentle-pi"
-, engramPiSource ? "@HOME@/.local/share/loon-engram/plugin"
 , useGentleAiDevRuntime ? false
 , gentleAiRuntimeSource ? null
 , engramSourceMode ? "release"
@@ -30,7 +29,7 @@ let
   # localPiPackages is a loon-specific Pi layer, not part of Gentle's contract.
   corePiPackages = [
     { name = "gentle-pi"; source = gentlePiSource; }
-    { name = "gentle-engram"; source = engramPiSource; }
+    { name = "gentle-engram"; source = "npm:gentle-engram"; }
   ];
 
   localPiPackages = [
@@ -1025,8 +1024,8 @@ writeShellApplication {
       fi
     fi
 
-    # The updater above also keeps Engram's Pi plugin on the same resolved
-    # source as the binary. This probe validates the selected runtime.
+    # The binary and Pi plugin use independent update channels. This probe
+    # validates only the selected Engram binary runtime.
     engram version >/dev/null
 
     # One-time migration from the previous Nix closure. Only store links from
@@ -1168,28 +1167,26 @@ writeShellApplication {
     npm_project="$agent_dir/npm"
     node "${mergeNpmPolicy}" "$npm_project/package.json"
 
-    # The settings now contain unversioned npm sources. Install any missing
-    # package set in one transaction; later upgrades remain explicit.
-    missing_packages=0
-    for package_name in \
-      pi-antigravity \
-      pi-discord-activity \
-      @juicesharp/rpiv-ask-user-question \
-      pi-web-access \
-      pi-btw \
-      pi-commandcode-provider \
-      pi-mcp-adapter; do
+    # Install only absent packages from their unversioned sources. Do not use
+    # `pi update --extensions` here: a rebuild declares presence and must not
+    # advance, replace or downgrade extensions that the user already manages.
+    install_missing_package() {
+      package_name="$1"
+      package_source="$2"
       if [ ! -e "$npm_node_modules/$package_name" ]; then
-        missing_packages=1
-        break
+        (
+          cd "$HOME"
+          "$mutable_pi" install "$package_source" --no-approve
+        )
       fi
-    done
-    if [ "$missing_packages" -eq 1 ]; then
-      (
-        cd "$HOME"
-        "$mutable_pi" update --extensions --no-approve
-      )
-    fi
+    }
+    install_missing_package pi-antigravity npm:pi-antigravity
+    install_missing_package pi-discord-activity npm:pi-discord-activity
+    install_missing_package @juicesharp/rpiv-ask-user-question npm:@juicesharp/rpiv-ask-user-question
+    install_missing_package pi-web-access npm:pi-web-access
+    install_missing_package pi-btw npm:pi-btw
+    install_missing_package pi-commandcode-provider npm:pi-commandcode-provider
+    install_missing_package pi-mcp-adapter npm:pi-mcp-adapter
 
     desired_core_source() {
       node -e '
@@ -1248,7 +1245,7 @@ writeShellApplication {
     }
 
     gentle_pi_root="$agent_dir/${gentlePiPackageSubpath}"
-    engram_pi_root="$(expand_home_source "${engramPiSource}")"
+    engram_pi_root="$npm_node_modules/gentle-engram"
     reconcile_core_package gentle-pi npm:gentle-pi "$gentle_pi_root"
     reconcile_core_package gentle-engram npm:gentle-engram "$engram_pi_root"
     install -Dm0600 "${coreSources}" "$core_sources_state"
@@ -1325,8 +1322,8 @@ NODE
     node "${patchGentleEffectiveRoute}" "$gentle_pi_root"
     node "${verifyGentleEffectiveRoute}" "$gentle_pi_root"
 
-    # This local UI fork is the deliberate declarative exception to mutable
-    # extension updates. Its package path stays immutable and versioned here.
+    # This local UI is repository-owned code, not a retained external release.
+    # Keep Pi pointed at its stable local identity across Nix generations.
     better_ui="$npm_node_modules/better-claude-code-ui"
     if [ ! -L "$better_ui" ] || [ "$(readlink -f "$better_ui" || true)" != "${betterClaudeCodeUi}" ]; then
       if [ -e "$better_ui" ] || [ -L "$better_ui" ]; then

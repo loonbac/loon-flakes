@@ -244,13 +244,13 @@ los conserva bajo `~/.pi/agent/backups/`.
 El bootstrap mantiene declarativos el tema, el proveedor/modelo principal,
 las rutas de modelos para subagentes y el proveedor local `ollama-vast`. No
 reemplaza credenciales, modelos descubiertos, sesiones ni la base de datos de
-Engram. `better-claude-code-ui` es la única extensión deliberadamente fijada:
-usa la variante local versionada en este repositorio.
+Engram. `better-claude-code-ui` es una extensión propia cuyo código vive en
+este repositorio; no selecciona ni retiene una release externa.
 
 El origen del núcleo Gentle se elige aparte en el módulo NixOS. Estas opciones
 no describen las extensiones, notificaciones, proveedores ni fallbacks propios
-de loon: solo seleccionan `gentle-pi`, el runtime de Gentle AI y la pareja
-binario/plugin de Engram.
+de loon: solo seleccionan `gentle-pi`, el runtime de Gentle AI y el binario de
+Engram.
 
 ```nix
 programs.gentle-ai.core = {
@@ -280,10 +280,13 @@ programs.gentle-ai.core = {
 };
 ```
 
-Engram obtiene siempre su plugin de Pi del mismo tag/commit que el binario.
-Cambiar una fuente reconcilia únicamente ese componente y preserva los demás
-paquetes y campos de configuración de Pi. `gentle-stack-update` sí refresca de
-forma explícita las ramas móviles y después ejecuta la actualización general.
+El plugin de Engram para Pi se declara como `npm:gentle-engram`, sin versión:
+Pi lo instala en su directorio mutable y `pi update --extensions` puede
+actualizarlo como cualquier otra extensión. El binario de Engram mantiene su
+canal independiente (`release:latest` por defecto). Un rebuild reconcilia que
+ambos existan, pero no reemplaza ni rebaja sus versiones instaladas.
+`gentle-stack-update` refresca de forma explícita los canales móviles y después
+reconcilia la configuración.
 
 ```bash
 gentle-ai-bootstrap

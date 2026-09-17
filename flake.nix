@@ -39,10 +39,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Gestión declarativa de aplicaciones Flatpak (juegos de nixos-pc).
-    nix-flatpak.url = "github:gmodena/nix-flatpak/v0.7.0";
+    nix-flatpak.url = "github:gmodena/nix-flatpak";
     # Secure Boot para nixos-pc. Lanzaboote firma el cargador, kernel e initrd.
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v1.1.0";
+      url = "github:nix-community/lanzaboote";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

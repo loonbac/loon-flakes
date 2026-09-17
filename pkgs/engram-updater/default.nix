@@ -9,7 +9,6 @@
 , go
 , gzip
 , jq
-, nodejs
 , util-linux
 , sourceMode ? "release"
 , sourceRef ? null
@@ -17,7 +16,7 @@
 
 writeShellApplication {
   name = "engram-update";
-  runtimeInputs = [ coreutils curl gawk git gnugrep gnutar go gzip jq nodejs util-linux ];
+  runtimeInputs = [ coreutils curl gawk git gnugrep gnutar go gzip jq util-linux ];
 
   text = ''
     source_mode=${lib.escapeShellArg sourceMode}
@@ -25,7 +24,6 @@ writeShellApplication {
     install_root="''${ENGRAM_INSTALL_ROOT:-$HOME/.local/share/loon-engram}"
     releases_root="$install_root/releases"
     current_link="$install_root/current"
-    plugin_root="$install_root/plugin"
     request_record="$install_root/source-request"
     resolved_record="$install_root/source-resolved"
     check_only=0
@@ -70,7 +68,7 @@ writeShellApplication {
     # A fixed release or Git ref only needs network access when the declaration
     # changes. Moving refs are refreshed explicitly through `engram update`.
     if [ "$if_needed" -eq 1 ] && [ "$current_request" = "$request" ] \
-      && [ -x "$current_link" ] && [ -f "$plugin_root/package.json" ]; then
+      && [ -x "$current_link" ]; then
       exit 0
     fi
 
@@ -117,7 +115,7 @@ writeShellApplication {
 
     if [ "$check_only" -eq 1 ]; then
       if [ "$current_request" = "$request" ] && [ "$current_resolved" = "$resolved" ] \
-        && [ -x "$current_link" ] && [ -f "$plugin_root/package.json" ]; then
+        && [ -x "$current_link" ]; then
         echo "Engram is already reconciled ($resolved)."
       else
         echo "Engram update available: ''${current_resolved:-not installed} -> $resolved"
@@ -126,8 +124,7 @@ writeShellApplication {
     fi
 
     if [ "$force" -eq 0 ] && [ "$current_request" = "$request" ] \
-      && [ "$current_resolved" = "$resolved" ] && [ -x "$current_link" ] \
-      && [ -f "$plugin_root/package.json" ]; then
+      && [ "$current_resolved" = "$resolved" ] && [ -x "$current_link" ]; then
       echo "Engram is already up to date ($resolved)."
       exit 0
     fi
@@ -167,11 +164,6 @@ writeShellApplication {
         exit 1
       fi
 
-      mkdir -p "$stage/repo"
-      git -C "$stage/repo" init --quiet
-      git -C "$stage/repo" remote add origin "$repo_url"
-      git -C "$stage/repo" fetch --quiet --depth 1 origin "$tag"
-      git -C "$stage/repo" checkout --quiet --detach FETCH_HEAD
     else
       mkdir -p "$stage/release"
       (
@@ -186,31 +178,11 @@ writeShellApplication {
       fi
     fi
 
-    if [ ! -f "$stage/repo/plugin/pi/package.json" ]; then
-      echo "engram-update: selected source has no Pi plugin" >&2
-      exit 1
-    fi
-    mkdir -p "$stage/plugin"
-    cp -a "$stage/repo/plugin/pi/." "$stage/plugin/"
-    (
-      cd "$stage/plugin"
-      npm install --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error
-    )
-    if [ "$(node -p 'require(process.argv[1]).name' "$stage/plugin/package.json")" != gentle-engram ]; then
-      echo "engram-update: selected Pi plugin does not identify as gentle-engram" >&2
-      exit 1
-    fi
-
     release_dir="$releases_root/$version"
     if [ -e "$release_dir" ] || [ -L "$release_dir" ]; then
       mv "$release_dir" "$releases_root/$version.replaced.$(date +%Y%m%d%H%M%S)"
     fi
     mv "$stage/release" "$release_dir"
-
-    if [ -e "$plugin_root" ] || [ -L "$plugin_root" ]; then
-      mv "$plugin_root" "$install_root/plugin.replaced.$(date +%Y%m%d%H%M%S)"
-    fi
-    mv "$stage/plugin" "$plugin_root"
 
     ln -s "releases/$version/engram" "$stage/current"
     mv --force --no-target-directory "$stage/current" "$current_link"
@@ -219,6 +191,6 @@ writeShellApplication {
     mv --force "$stage/source-request" "$request_record"
     mv --force "$stage/source-resolved" "$resolved_record"
 
-    echo "Engram updated to $resolved; Pi plugin reconciled from the same source."
+    echo "Engram updated to $resolved."
   '';
 }
