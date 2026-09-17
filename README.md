@@ -555,6 +555,19 @@ un tag inmutable. No contiene ni compila el código fuente de Citron; solo expon
 el paquete, overlay y módulo NixOS para `x86_64-linux`, `x86_64-v3` y
 `aarch64-linux`.
 
+Citron Nextendo no está actualmente en nixpkgs. La instalación soportada se
+hace directamente desde el flake:
+
+```bash
+nix profile install github:loonbac/citron-nextendo-nix#citron-nextendo
+```
+
+En una CPU compatible con x86-64-v3 se instala la variante optimizada:
+
+```bash
+nix profile install github:loonbac/citron-nextendo-nix#citron-nextendo-v3
+```
+
 El PC usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7
 5700X. Una actualización entra mediante `rebuild update`, que avanza el input
 en `flake.lock`; un rebuild normal conserva la revisión instalada.
