@@ -3,10 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    # Citron Nextendo: builds Linux only after upstream publishes a successful
-    # release, then exposes immutable AppImages and a reusable NixOS module.
+    # Citron Nextendo: empaqueta los AppImages Linux oficiales en URLs
+    # inmutables y expone un módulo NixOS reutilizable; no recompila Citron.
     citron-nextendo = {
-      url = "github:loonbac/citron-nextendo";
+      url = "github:loonbac/citron-nextendo-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).

@@ -232,18 +232,18 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ### Actualizar Citron Nextendo
 
-- **Fuente externa**: el input `citron-nextendo` de `flake.nix` consume el fork
-  público `github:loonbac/citron-nextendo`; este repo no compila ni refleja
-  artefactos de Citron.
+- **Fuente externa**: el input `citron-nextendo` de `flake.nix` consume el flake
+  público independiente `github:loonbac/citron-nextendo-nix`; este repo no
+  compila ni refleja artefactos de Citron.
 - **Paquete/módulo**: provienen de los outputs `packages`, `overlays` y
-  `nixosModules` del fork. `loon-flakes` conserva aliases públicos por
+  `nixosModules` del flake externo. `loon-flakes` conserva aliases públicos por
   compatibilidad.
 - **Activación exclusiva**: `hosts/nixos-pc/gaming.nix`, con la variante
   `x86_64_v3` para el Ryzen 7 5700X. No habilitarlo en los demás hosts.
 - **Actualización automática**:
-  `loonbac/citron-nextendo/.github/workflows/release-linux-after-upstream.yml`
-  sincroniza el fork, espera una release Linux oficial exitosa, compila las
-  tres arquitecturas, publica una release inmutable y actualiza sus hashes.
+  `loonbac/citron-nextendo-nix/.github/workflows/update.yml` espera una release
+  Linux oficial exitosa, verifica los SHA-256 de sus tres AppImages, los copia
+  byte por byte a una release inmutable y actualiza sus hashes Nix.
 - Para traer una release nueva a NixOS se usa el flujo normal `rebuild update`,
   que actualiza el input en `flake.lock`; un rebuild normal no hace downgrade.
 - No compilar Citron localmente para validar este módulo. Probar solo la
@@ -311,8 +311,8 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **El rebuild puede tardar** (compila niri, loon-launch, quickshell) — usar
   timeouts generosos (600000 ms).
 - **Citron Nextendo**: upstream reemplaza y borra la release mutable
-  `nightly-linux`. El fork externo solo compila después de que upstream publica
-  esa release y apunta Nix a su propia release inmutable por commit; no fijar
+  `nightly-linux`. El flake externo conserva sus AppImages oficiales byte por
+  byte en una release inmutable por commit; no recompilar Citron ni fijar
   permanentemente el URL mutable de upstream.
 - **Equibop + Tailscale → "DTLS Connecting"**: el voice chat se cuelga si
   WebRTC se bindea a la interfaz de la VPN. El fix vive en

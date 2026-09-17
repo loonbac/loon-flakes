@@ -547,13 +547,13 @@ el login, sus directorios privados son `~/.config/equibop` y
 
 ### Citron Nextendo
 
-El input `citron-nextendo` consume el fork público
-[`loonbac/citron-nextendo`](https://github.com/loonbac/citron-nextendo). Ese
-repositorio se mantiene sincronizado con Nextendo Network, pero solo intenta
-compilar cuando upstream ya publicó una release Linux exitosa. Sus builds para
-`x86_64-linux`, `x86_64-v3` y `aarch64-linux` se publican con tags inmutables y
-el mismo repo expone el paquete, overlay y módulo NixOS. Así `loon-flakes` ya no
-aloja el sistema de build ni los artefactos de Citron.
+El input `citron-nextendo` consume el flake público independiente
+[`loonbac/citron-nextendo-nix`](https://github.com/loonbac/citron-nextendo-nix).
+Cuando Nextendo Network publica una release Linux exitosa, ese repositorio
+verifica los SHA-256 y conserva sus tres AppImages oficiales byte por byte bajo
+un tag inmutable. No contiene ni compila el código fuente de Citron; solo expone
+el paquete, overlay y módulo NixOS para `x86_64-linux`, `x86_64-v3` y
+`aarch64-linux`.
 
 El PC usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7
 5700X. Una actualización entra mediante `rebuild update`, que avanza el input
@@ -563,7 +563,7 @@ Otro flake NixOS puede reutilizar el módulo directamente:
 
 ```nix
 {
-  inputs.citron-nextendo.url = "github:loonbac/citron-nextendo";
+  inputs.citron-nextendo.url = "github:loonbac/citron-nextendo-nix";
 
   outputs = { nixpkgs, citron-nextendo, ... }: {
     nixosConfigurations.mi-pc = nixpkgs.lib.nixosSystem {
@@ -580,14 +580,14 @@ Otro flake NixOS puede reutilizar el módulo directamente:
 También se puede construir o ejecutar sin importar el módulo:
 
 ```bash
-nix build github:loonbac/citron-nextendo
-nix run github:loonbac/citron-nextendo
+nix build github:loonbac/citron-nextendo-nix
+nix run github:loonbac/citron-nextendo-nix
 ```
 
 En una CPU compatible con x86-64-v3 se puede usar la build optimizada:
 
 ```bash
-nix run github:loonbac/citron-nextendo#citron-nextendo-v3
+nix run github:loonbac/citron-nextendo-nix#citron-nextendo-v3
 ```
 
 ---

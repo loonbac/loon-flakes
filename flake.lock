@@ -28,16 +28,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1789592153,
-        "narHash": "sha256-F8nizKkjXdhRlx4OXE4cUqL9b8I3GtpInKMYqnhVR4o=",
+        "lastModified": 1789604929,
+        "narHash": "sha256-AbV+rMKu+wOcHEwOmcFD8y48M7z6MZzpAklYc7TTPUY=",
         "owner": "loonbac",
-        "repo": "citron-nextendo",
-        "rev": "ba02c4520f2d55471d8e01b7c4d82dc9a0b73940",
+        "repo": "citron-nextendo-nix",
+        "rev": "933ab8b7456fe5269b7b3eb3ec71faf63de4ecbb",
         "type": "github"
       },
       "original": {
         "owner": "loonbac",
-        "repo": "citron-nextendo",
+        "repo": "citron-nextendo-nix",
         "type": "github"
       }
     },
