@@ -271,10 +271,10 @@ programs.gentle-ai.core = {
 
   engram = {
     # release + null sigue la última release estable; una RC concreta se fija
-    # con su tag. git permite main, otra branch o un commit.
+    # cambiando únicamente ref. git permite main, otra branch o un commit.
     mode = "release";
-    ref = null;
-    # mode = "release"; ref = "v2.0.0-rc.11";
+    ref = "v2.0.0-rc.12";
+    # mode = "release"; ref = null;
     # mode = "git"; ref = "main";
   };
 };
@@ -283,7 +283,7 @@ programs.gentle-ai.core = {
 El plugin de Engram para Pi se declara como `npm:gentle-engram`, sin versión:
 Pi lo instala en su directorio mutable y `pi update --extensions` puede
 actualizarlo como cualquier otra extensión. El binario de Engram mantiene su
-canal independiente (`release:latest` por defecto). Un rebuild reconcilia que
+canal independiente (`release:v2.0.0-rc.12` por petición explícita). Un rebuild reconcilia que
 ambos existan, pero no reemplaza ni rebaja sus versiones instaladas.
 `gentle-stack-update` refresca de forma explícita los canales móviles y después
 reconcilia la configuración.

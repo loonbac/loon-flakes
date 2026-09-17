@@ -114,7 +114,7 @@ in
 
         ref = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
-          default = null;
+          default = "v2.0.0-rc.12";
           example = "v2.0.0-rc.11";
           description = ''
             Exact release tag when mode is release, or branch/tag/commit when
