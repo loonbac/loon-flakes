@@ -52,7 +52,7 @@ writeShellApplication {
 
     if [ "$source_mode" = release ] && [ -n "$source_ref" ] \
       && [[ ! "$source_ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-      echo "engram-update: release refs must be tags such as v2.0.0-rc.11" >&2
+      echo "engram-update: release refs must be tags such as v2.0.0" >&2
       exit 2
     fi
     if [ "$source_mode" = git ] && [ -z "$source_ref" ]; then

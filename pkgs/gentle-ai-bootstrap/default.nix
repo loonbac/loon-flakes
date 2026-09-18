@@ -4,6 +4,7 @@
 , coreutils
 , bash
 , git
+, fd
 , gzip
 , nodejs
 , libnotify
@@ -149,7 +150,9 @@ let
   gentlePortableConfig = {
     backgroundSubagents = {
       schema = "gentle-pi.background-subagents/v1";
-      policy = "on";
+      # Interactive Pi must not be woken by a background subagent unless the
+      # user explicitly enables that policy in the local Gentle configuration.
+      policy = "off";
     };
     banner = {
       color = "pink";
@@ -380,6 +383,13 @@ let
           : [];
         const first = questions.find(isRecord);
         prompt(first?.question, { title: "Pi tiene una pregunta" });
+      });
+      pi.events.on("rpiv:ask-user:blocked", (payload) => {
+        if (isRecord(payload) && payload.active === true) {
+          prompt("Hay una pregunta esperando en la terminal.", {
+            title: "Pi espera tu respuesta",
+          });
+        }
       });
       pi.events.on("gentle-pi:ask-user-choice:blocked", (payload) => {
         if (isRecord(payload) && payload.active === true) {
@@ -754,6 +764,96 @@ let
     ]) assert.ok(source.includes(expected), "missing effective-route patch fragment: " + expected);
   '';
 
+  # gentle-pi documents every shipped SDD phase as foreground-mandatory. Keep
+  # that contract enforced at the launch boundary even if a user explicitly
+  # enables the global background policy; ordinary explore/worker agents may
+  # still use background mode when requested.
+  patchGentleSddForeground = writeText "patch-gentle-sdd-foreground.mjs" ''
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageRoot] = process.argv.slice(2);
+    if (!packageRoot) throw new Error("missing gentle-pi package root");
+
+    const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
+    if (packageJson.name !== "gentle-pi" || typeof packageJson.version !== "string") {
+      throw new Error("gentle-pi SDD foreground patch: incompatible package.json");
+    }
+
+    const relativePath = "extensions/gentle-agents.ts";
+    const target = path.join(packageRoot, relativePath);
+    let text = fs.readFileSync(target, "utf8");
+    const marker = "LOON_SDD_FOREGROUND_PATCH_V1";
+    if (text.includes(marker)) process.exit(0);
+
+    function replaceOnce(from, to) {
+      const count = text.split(from).length - 1;
+      if (count !== 1) {
+        throw new Error(
+          "gentle-pi SDD foreground patch: expected one occurrence in "
+          + relativePath + ", found " + count,
+        );
+      }
+      text = text.replace(from, to);
+    }
+
+    replaceOnce(
+      "function sddPhaseForAgent(name: string): SddChangeSelection[\"phase\"] | undefined {\n"
+        + "\treturn Object.hasOwn(SDD_PHASE_BY_AGENT, name) ? SDD_PHASE_BY_AGENT[name as keyof typeof SDD_PHASE_BY_AGENT] : undefined;\n"
+        + "}",
+      "function sddPhaseForAgent(name: string): SddChangeSelection[\"phase\"] | undefined {\n"
+        + "\treturn Object.hasOwn(SDD_PHASE_BY_AGENT, name) ? SDD_PHASE_BY_AGENT[name as keyof typeof SDD_PHASE_BY_AGENT] : undefined;\n"
+        + "}\n\n"
+        + "// " + marker + ": SDD phases are foreground-mandatory even when the global background policy is on.\n"
+        + "export function resolveRequestedSubagentMode(agentName: string, requested: AgentMode): AgentMode {\n"
+        + "\treturn SHIPPED_SDD_AGENT_NAME_SET.has(agentName) ? AGENT_MODE.TASK : requested;\n"
+        + "}",
+    );
+
+    const runMode = "\t\t\tconst mode = (params.mode as AgentMode | undefined) ?? agent.mode ?? resolveDefaultSubagentMode({\n"
+      + "\t\t\t\tconfiguredDefault: loadAgentsConfig(roots(ctx)).defaultMode,\n"
+      + "\t\t\t\tpolicy: resolveBackgroundSubagentsPolicy(ctx.cwd).policy,\n"
+      + "\t\t\t\tparentMode: ctx.mode,\n"
+      + "\t\t\t});";
+    replaceOnce(
+      runMode,
+      "\t\t\tconst requestedMode = (params.mode as AgentMode | undefined) ?? agent.mode ?? resolveDefaultSubagentMode({\n"
+        + "\t\t\t\tconfiguredDefault: loadAgentsConfig(roots(ctx)).defaultMode,\n"
+        + "\t\t\t\tpolicy: resolveBackgroundSubagentsPolicy(ctx.cwd).policy,\n"
+        + "\t\t\t\tparentMode: ctx.mode,\n"
+        + "\t\t\t});\n"
+        + "\t\t\tconst mode = resolveRequestedSubagentMode(agent.name, requestedMode);",
+    );
+
+    replaceOnce(
+      "\t\t\tconst mode = (params.mode as AgentMode | undefined) ?? (previous.mode as AgentMode);",
+      "\t\t\tconst requestedMode = (params.mode as AgentMode | undefined) ?? (previous.mode as AgentMode);\n"
+        + "\t\t\tconst mode = resolveRequestedSubagentMode(agent.name, requestedMode);",
+    );
+
+    fs.writeFileSync(target, text);
+  '';
+
+  verifyGentleSddForeground = writeText "verify-gentle-sdd-foreground.mjs" ''
+    import assert from "node:assert/strict";
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [packageRoot] = process.argv.slice(2);
+    const source = fs.readFileSync(path.join(packageRoot, "extensions", "gentle-agents.ts"), "utf8");
+    for (const expected of [
+      "LOON_SDD_FOREGROUND_PATCH_V1",
+      "export function resolveRequestedSubagentMode",
+      "SHIPPED_SDD_AGENT_NAME_SET.has(agentName) ? AGENT_MODE.TASK : requested",
+      "const mode = resolveRequestedSubagentMode(agent.name, requestedMode)",
+    ]) assert.ok(source.includes(expected), "missing SDD foreground patch fragment: " + expected);
+    assert.equal(
+      source.split("const mode = resolveRequestedSubagentMode(agent.name, requestedMode)").length - 1,
+      2,
+      "run and continue must both enforce the SDD foreground mode",
+    );
+  '';
+
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
     import crypto from "node:crypto";
     import fs from "node:fs";
@@ -943,6 +1043,7 @@ writeShellApplication {
     coreutils
     bash
     git
+    fd
     gzip
     nodejs
     piLauncher
@@ -1005,6 +1106,19 @@ writeShellApplication {
       npm install --global --prefix "$npm_prefix" \
         --ignore-scripts --no-audit --no-fund --loglevel=error \
         @earendil-works/pi-coding-agent@latest >/dev/null
+    fi
+
+    # Pi downloads a generic Linux `fd` into its private bin directory. That
+    # ELF cannot execute natively on NixOS, so the built-in find tool fails in
+    # every child. Point the private command at the Nix-built binary instead.
+    mkdir -p "$agent_dir/bin"
+    pi_fd="$agent_dir/bin/fd"
+    if [ ! -L "$pi_fd" ] || [ "$(readlink -f "$pi_fd" || true)" != "${fd}/bin/fd" ]; then
+      if [ -e "$pi_fd" ] || [ -L "$pi_fd" ]; then
+        mkdir -p "$backup_dir/bin"
+        mv "$pi_fd" "$backup_dir/bin/fd"
+      fi
+      ln -s "${fd}/bin/fd" "$pi_fd"
     fi
 
     # The previous migration placed Pi in the general npm prefix, whose bin
@@ -1321,6 +1435,8 @@ NODE
     # upstream update changes the relevant protocol anchors.
     node "${patchGentleEffectiveRoute}" "$gentle_pi_root"
     node "${verifyGentleEffectiveRoute}" "$gentle_pi_root"
+    node "${patchGentleSddForeground}" "$gentle_pi_root"
+    node "${verifyGentleSddForeground}" "$gentle_pi_root"
 
     # This local UI is repository-owned code, not a retained external release.
     # Keep Pi pointed at its stable local identity across Nix generations.

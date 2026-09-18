@@ -114,12 +114,12 @@ in
 
         ref = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
-          default = "v2.0.0-rc.12";
-          example = "v2.0.0-rc.11";
+          default = null;
           description = ''
             Exact release tag when mode is release, or branch/tag/commit when
             mode is git. Null means the latest stable release in release mode
-            and main in git mode.
+            and main in git mode; set a ref only for an explicitly requested
+            test or temporary pin.
           '';
         };
       };
@@ -151,7 +151,7 @@ in
           core.engram.mode != "release"
           || core.engram.ref == null
           || builtins.match "^v[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$" core.engram.ref != null;
-        message = "programs.gentle-ai.core.engram.ref must be a version tag such as v2.0.0-rc.11 in release mode.";
+        message = "programs.gentle-ai.core.engram.ref must be a version tag such as v2.0.0 in release mode.";
       }
     ];
 

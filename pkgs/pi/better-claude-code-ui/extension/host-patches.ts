@@ -67,6 +67,7 @@ import { openCodeGoUsageSnapshot, type OpenCodeGoUsageSnapshot } from "./opencod
 import { commandCodeUsageSnapshot, type CommandCodeUsageSnapshot } from "./commandcode-usage.js";
 import { codexUsageSnapshot, observeCodexUsage } from "./codex-usage-cache.js";
 import { installFallbackPanelBehavior } from "./fallback-panel.js";
+import { trimTranscriptFrameBody } from "./image-layout.js";
 
 // CSI + OSC (BEL or ST terminated) + charset selects. OSC matters: the host
 // render wraps a message's first/last row in OSC133 zone marks, which the
@@ -1714,11 +1715,7 @@ function semanticToolBody(
 
 /** Frame a transcript item without consuming space from Pi's viewport. */
 function frame(lines: string[], width: number, label: string, rainbow = false): string[] {
-	let first = 0;
-	let last = lines.length;
-	while (first < last && isOnlyWhitespace(lines[first]!)) first++;
-	while (last > first && isOnlyWhitespace(lines[last - 1]!)) last--;
-	const body = lines.slice(first, last);
+	const body = trimTranscriptFrameBody(lines, isOnlyWhitespace);
 	if (body.length === 0 || width < 16) return body;
 
 	const contentWidth = Math.max(1, width - 4);

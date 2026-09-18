@@ -22,10 +22,10 @@ export type AntigravityUsageSnapshot =
 	}
 	| { status: "unavailable" };
 
-type ProviderId = "antigravity" | "antigravity-alt";
+export type AntigravityProviderId = "antigravity" | "antigravity-alt";
 
 type AccountState = {
-	provider: ProviderId;
+	provider: AntigravityProviderId;
 	snapshot: AntigravityUsageSnapshot;
 	inFlight: Promise<void> | undefined;
 	inFlightContext: ExtensionContext | undefined;
@@ -113,7 +113,7 @@ function redraw(ctx: ExtensionContext, account: AccountState, generation: number
 	}
 }
 
-async function apiKeyFromLiveContext(ctx: ExtensionContext, provider: ProviderId): Promise<string | undefined> {
+async function apiKeyFromLiveContext(ctx: ExtensionContext, provider: AntigravityProviderId): Promise<string | undefined> {
 	try {
 		return await ctx.modelRegistry.getApiKeyForProvider(provider);
 	} catch {
@@ -267,6 +267,32 @@ function refreshAccountUsage(ctx: ExtensionContext, account: AccountState): void
 			}
 		},
 	);
+}
+
+/**
+ * Resolve one fresh account snapshot for launch-time routing decisions.
+ *
+ * This reuses a session-start request already in flight for the same context,
+ * so the fallback extension does not duplicate the quota call. It is invoked
+ * only when a persisted cooldown exists; normal launches remain network-free.
+ */
+export async function refreshAntigravityUsage(
+	ctx: ExtensionContext,
+	provider: AntigravityProviderId,
+): Promise<AntigravityUsageSnapshot> {
+	const account = accounts.find((candidate) => candidate.provider === provider);
+	if (!account) return { status: "unavailable" };
+	refreshAccountUsage(ctx, account);
+	const task = account.inFlight;
+	if (task) await task;
+	return account.snapshot;
+}
+
+/** Both the rolling and known weekly windows must have capacity. */
+export function antigravityQuotaIsAvailable(snapshot: AntigravityUsageSnapshot): boolean {
+	return snapshot.status === "ready"
+		&& snapshot.remainingFraction > 0
+		&& (snapshot.weeklyRemainingFraction === undefined || snapshot.weeklyRemainingFraction > 0);
 }
 
 function modelKeyForAccount(ctx: ExtensionContext, account: AccountState): string | undefined {

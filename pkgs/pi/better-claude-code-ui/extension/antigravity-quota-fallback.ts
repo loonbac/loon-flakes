@@ -12,6 +12,11 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
+  antigravityQuotaIsAvailable,
+  refreshAntigravityUsage,
+  type AntigravityProviderId,
+} from "./antigravity-usage.js";
+import {
   fallbackRoutesForAgent,
   type FallbackEffort,
 } from "./fallback-config.js";
@@ -302,6 +307,58 @@ function writeState(
   return state;
 }
 
+function sameCooldown(left: ProviderCooldown | undefined, right: ProviderCooldown): boolean {
+  return left?.activeUntil === right.activeUntil
+    && left.detectedAt === right.detectedAt
+    && left.sourceModel === right.sourceModel;
+}
+
+function clearRestoredProvider(
+  provider: AntigravityProvider,
+  expected: ProviderCooldown,
+  now = Date.now(),
+): CooldownState | undefined {
+  // The quota request is asynchronous. Do not erase a newer provider failure
+  // that another Pi process may have persisted while this request was in flight.
+  const current = readState(now);
+  if (!current || !sameCooldown(current.providers[provider], expected)) return current;
+  delete current.providers[provider];
+  if (Object.keys(current.providers).length === 0) {
+    clearState();
+    return undefined;
+  }
+
+  const path = statePath();
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const temporary = `${path}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(current, null, 2)}\n`, { mode: 0o600 });
+  renameSync(temporary, path);
+  chmodSync(path, 0o600);
+  return current;
+}
+
+async function reconcileCooldownsWithLiveQuota(
+  ctx: ExtensionContext,
+  state: CooldownState,
+): Promise<CooldownState | undefined> {
+  const candidates = ANTIGRAVITY_PROVIDERS.flatMap((provider) => {
+    const cooldown = state.providers[provider];
+    return cooldown ? [{ provider, cooldown }] : [];
+  });
+  const snapshots = await Promise.all(candidates.map(async ({ provider, cooldown }) => ({
+    provider,
+    cooldown,
+    snapshot: await refreshAntigravityUsage(ctx, provider as AntigravityProviderId),
+  })));
+
+  let reconciled: CooldownState | undefined = readState();
+  for (const { provider, cooldown, snapshot } of snapshots) {
+    if (!antigravityQuotaIsAvailable(snapshot)) continue;
+    reconciled = clearRestoredProvider(provider, cooldown);
+  }
+  return reconciled;
+}
+
 function clearState(): void {
   rmSync(statePath(), { force: true });
 }
@@ -470,7 +527,8 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     // The editor writes atomically, so an already-running child can adopt a
     // newly saved chain on its next request without polling or a process restart.
     fallbackChain = fallbackChainForAgent(gentleAgentName);
-    const state = readState();
+    let state = readState();
+    if (state) state = await reconcileCooldownsWithLiveQuota(ctx, state);
     showState(ctx, state);
     if (!state || !ctx.model) return;
 

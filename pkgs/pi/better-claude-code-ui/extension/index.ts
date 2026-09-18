@@ -34,6 +34,7 @@ import { registerCommandCodeUsage } from "./commandcode-usage.js";
 import { registerOpenCodeGoUsage } from "./opencode-go-usage.js";
 import { registerCodexUsageCache } from "./codex-usage-cache.js";
 import { ensureFallbackConfig } from "./fallback-config.js";
+import { registerBoundedSearch } from "./bounded-search.js";
 
 /**
  * gentle-pi's quiet-tools extension owns the same seven built-in tool names.
@@ -87,6 +88,9 @@ function shouldRegisterStandaloneStatusLine(): boolean {
 }
 
 export default function (pi: ExtensionAPI) {
+	// NixOS whole-filesystem searches fan out through /nix/store. Teach every
+	// parent/child session the bounded alternative and enforce it at tool time.
+	registerBoundedSearch(pi);
 	// Keep the custom fallback editor/runtime and gentle-pi 2.7's named profile
 	// store reconciled even when the user has not opened /gentle:models yet.
 	ensureFallbackConfig();

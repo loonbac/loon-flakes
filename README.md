@@ -270,11 +270,10 @@ programs.gentle-ai.core = {
   #   "github.com/gentleman-programming/gentle-ai/v2/cmd/gentle-ai@main";
 
   engram = {
-    # release + null sigue la última release estable; una RC concreta se fija
-    # cambiando únicamente ref. git permite main, otra branch o un commit.
+    # release + null sigue siempre la última release estable. Un ref explícito
+    # es solo para una prueba o pin temporal solicitado conscientemente.
     mode = "release";
-    ref = "v2.0.0-rc.12";
-    # mode = "release"; ref = null;
+    ref = null;
     # mode = "git"; ref = "main";
   };
 };
@@ -283,10 +282,25 @@ programs.gentle-ai.core = {
 El plugin de Engram para Pi se declara como `npm:gentle-engram`, sin versión:
 Pi lo instala en su directorio mutable y `pi update --extensions` puede
 actualizarlo como cualquier otra extensión. El binario de Engram mantiene su
-canal independiente (`release:v2.0.0-rc.12` por petición explícita). Un rebuild reconcilia que
-ambos existan, pero no reemplaza ni rebaja sus versiones instaladas.
+canal independiente (`release:latest`, la release estable actual). Un rebuild
+reconcilia que ambos existan, pero no reemplaza ni rebaja sus versiones
+instaladas.
 `gentle-stack-update` refresca de forma explícita los canales móviles y después
 reconcilia la configuración.
+
+Los subagentes quedan en modo interactivo por defecto. Para permitir o impedir
+que una ejecución en segundo plano despierte a Pi sin un mensaje nuevo, el
+estado local se consulta con:
+
+```bash
+/gentle:background-subagents status
+/gentle:background-subagents disable
+```
+
+Con la política desactivada, el modo normal es `task`: las preguntas del
+subagente pasan por la UI de Pi. El modo `background` sigue disponible cuando
+se solicita explícitamente; sus preguntas se cancelan porque no hay una UI
+interactiva que pueda responderlas.
 
 ```bash
 gentle-ai-bootstrap

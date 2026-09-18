@@ -83,6 +83,7 @@
         inherit piLauncher gentleAiLauncher gentleAiRuntimeUpdater engramLauncher;
         gentleAiBootstrap = gentleAiBootstrap;
       };
+      piSshClipboard = pkgs.callPackage ./pkgs/pi-ssh-clipboard { };
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
       # (version + sha256 + url del tarball actualizado a diario por su CI).
@@ -188,6 +189,7 @@
         engram-update = engramUpdater;
         gga = pkgs.callPackage ./pkgs/gga { };
         pi = piLauncher;
+        pi-ssh-clipboard = piSshClipboard;
         better-claude-code-ui = betterClaudeCodeUi;
         pi-gpt-fast-mode-shared = gptFastModeShared;
         gentle-ai-bootstrap = gentleAiBootstrap;
