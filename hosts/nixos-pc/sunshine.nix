@@ -1,7 +1,19 @@
 # Streaming de la pantalla actual de nixos-pc para clientes Moonlight.
-{ ... }:
+{ pkgs, ... }:
 
 {
+  # Sink exclusivo para Dolphin. module-remap-sink reproduce en el sumidero
+  # físico predeterminado sin mezclar el resto del audio de la sesión.
+  services.pipewire.extraConfig.pipewire-pulse."45-dolphin-stream" = {
+    "pulse.cmd" = [
+      {
+        cmd = "load-module";
+        args = "module-remap-sink sink_name=dolphin_stream sink_properties=device.description=Dolphin-Stream remix=no";
+        flags = [ ];
+      }
+    ];
+  };
+
   services.sunshine = {
     enable = true;
     autoStart = true;
@@ -21,6 +33,8 @@
       # En este paquete de NixOS CUDA/NVENC no resuelve libcuda.so, mientras
       # que el backend Vulkan sí codifica H.264/HEVC en la RTX 3060.
       encoder = "vulkan";
+      # Captura solo el audio enviado por el wrapper de Dolphin.
+      audio_sink = "dolphin_stream.monitor";
     };
 
     # Esta entrada no lanza Dolphin: transmite el monitor que ya está activo.
@@ -29,6 +43,14 @@
       {
         name = "Dolphin";
         image = "desktop.png";
+        # No lanza el emulador: si Dolphin no está abierto, rechaza el stream
+        # para evitar mostrar accidentalmente el resto del escritorio.
+        "prep-cmd" = [
+          {
+            "do" = "${pkgs.procps}/bin/pgrep -f '[d]olphin-emu' >/dev/null";
+            "undo" = "";
+          }
+        ];
       }
     ];
   };

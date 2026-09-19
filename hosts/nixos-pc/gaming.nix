@@ -1,6 +1,20 @@
 # Aplicaciones de juegos exclusivas del PC de escritorio.
 { citron-nextendo, pkgs, ... }:
 
+let
+  # Dolphin conserva su lanzador normal, pero su audio se dirige al sink
+  # exclusivo que Sunshine captura para la sesión de juego remoto.
+  dolphinForStreaming = pkgs.symlinkJoin {
+    name = "dolphin-emu-for-streaming";
+    paths = [ pkgs.dolphin-emu ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram "$out/bin/dolphin-emu" \
+        --set PULSE_SINK dolphin_stream
+    '';
+    inherit (pkgs.dolphin-emu) meta;
+  };
+in
 {
   programs.steamidra.enable = true;
   programs.citron-nextendo = {
@@ -43,7 +57,7 @@
   };
 
   environment.systemPackages = [
-    pkgs.dolphin-emu
+    dolphinForStreaming
     pkgs.heroic
   ];
 }
