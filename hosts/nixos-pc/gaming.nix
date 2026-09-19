@@ -43,6 +43,7 @@
   };
 
   environment.systemPackages = [
+    pkgs.dolphin-emu
     pkgs.heroic
   ];
 }
