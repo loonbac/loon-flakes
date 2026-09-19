@@ -16,6 +16,35 @@ let
       ${pkgs.coreutils}/bin/sleep 1
     done
   '';
+
+  # Sunshine 2026.516 cambia temporalmente el sink predeterminado cuando el
+  # cliente no solicita audio local, incluso si audio_sink está configurado.
+  # Conserva la última salida real elegida y revierte únicamente los sinks
+  # internos sink-sunshine-* que Sunshine intenta establecer como default.
+  sunshineAudioDefaultGuard = pkgs.writeShellScript "sunshine-audio-default-guard" ''
+    pactl=${pkgs.pulseaudio}/bin/pactl
+    preferred_sink=alsa_output.usb-MAONO_AU-AM200_MAONO_AU-AM200_20180508-00.analog-stereo
+
+    restore_default() {
+      current_sink="$($pactl get-default-sink 2>/dev/null || true)"
+      case "$current_sink" in
+        sink-sunshine-*)
+          $pactl set-default-sink "$preferred_sink" || true
+          ;;
+        ?*)
+          preferred_sink="$current_sink"
+          ;;
+      esac
+    }
+
+    while true; do
+      restore_default
+      while IFS= read -r _event; do
+        restore_default
+      done < <($pactl subscribe 2>/dev/null)
+      ${pkgs.coreutils}/bin/sleep 1
+    done
+  '';
 in
 {
   # Sink exclusivo para Dolphin. module-remap-sink reproduce en el sumidero
@@ -50,7 +79,16 @@ in
       # que el backend Vulkan sí codifica H.264/HEVC en la RTX 3060.
       encoder = "vulkan";
       # Captura solo el audio enviado por el wrapper de Dolphin.
-      audio_sink = "dolphin_stream.monitor";
+      audio_sink = "dolphin_stream";
+      # El invitado puede enviar únicamente el mando. Mouse, teclado y entrada
+      # táctil quedan rechazados por Sunshine en el host.
+      controller = "enabled";
+      # Expón un mando estándar de Xbox One, compatible con Dolphin y sin
+      # requerir el acceso privilegiado de los perfiles virtuales DualSense.
+      gamepad = "xone";
+      keyboard = "disabled";
+      mouse = "disabled";
+      native_pen_touch = "disabled";
     };
 
     # Esta entrada no lanza Dolphin: transmite el monitor que ya está activo.
@@ -75,6 +113,18 @@ in
   # El servicio de usuario se instala globalmente; esta condición evita que el
   # greeter u otra cuenta intente ocupar los mismos puertos.
   systemd.user.services.sunshine.unitConfig.ConditionUser = "loonbac";
+
+  systemd.user.services.sunshine-audio-default-guard = {
+    description = "Preserva la salida de audio local durante streams de Sunshine";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "pipewire-pulse.service" ];
+    serviceConfig = {
+      ExecStart = "${sunshineAudioDefaultGuard}";
+      Restart = "always";
+      RestartSec = "1s";
+    };
+  };
 
   users.users.loonbac.extraGroups = [ "input" ];
 }
