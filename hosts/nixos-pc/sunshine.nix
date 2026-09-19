@@ -23,10 +23,11 @@
       encoder = "vulkan";
     };
 
-    # Una aplicación sin comando transmite el escritorio que ya está activo.
+    # Esta entrada no lanza Dolphin: transmite el monitor que ya está activo.
+    # El emulador se inicia manualmente antes de que el invitado abra el stream.
     applications.apps = [
       {
-        name = "Desktop";
+        name = "Dolphin";
         image = "desktop.png";
       }
     ];
