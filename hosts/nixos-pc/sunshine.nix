@@ -1,6 +1,22 @@
 # Streaming de la pantalla actual de nixos-pc para clientes Moonlight.
 { pkgs, ... }:
 
+let
+  dolphinIsRunning = pkgs.writeShellScript "dolphin-is-running" ''
+    ${pkgs.procps}/bin/ps -eo stat=,comm= | ${pkgs.gawk}/bin/awk '
+      $1 !~ /^Z/ && $2 ~ /dolphin-emu/ { found = 1 }
+      END { exit(found ? 0 : 1) }
+    '
+  '';
+
+  # Mantiene viva la aplicación de Sunshine únicamente mientras Dolphin siga
+  # abierto. No inicia ni termina el emulador.
+  dolphinSessionMonitor = pkgs.writeShellScript "sunshine-dolphin-session" ''
+    while ${dolphinIsRunning}; do
+      ${pkgs.coreutils}/bin/sleep 1
+    done
+  '';
+in
 {
   # Sink exclusivo para Dolphin. module-remap-sink reproduce en el sumidero
   # físico predeterminado sin mezclar el resto del audio de la sesión.
@@ -43,11 +59,12 @@
       {
         name = "Dolphin";
         image = "desktop.png";
+        cmd = "${dolphinSessionMonitor}";
         # No lanza el emulador: si Dolphin no está abierto, rechaza el stream
         # para evitar mostrar accidentalmente el resto del escritorio.
         "prep-cmd" = [
           {
-            "do" = "${pkgs.procps}/bin/pgrep -f '[d]olphin-emu' >/dev/null";
+            "do" = "${dolphinIsRunning}";
             "undo" = "";
           }
         ];
