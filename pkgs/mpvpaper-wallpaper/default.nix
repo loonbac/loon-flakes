@@ -5,8 +5,8 @@
 #   mpvpaper-wallpaper            # reproduce el video seteado (o el único/primero)
 #   mpvpaper-wallpaper set NOMBRE # setea y reproduce un video específico
 #   mpvpaper-wallpaper list       # lista los videos disponibles
-#   mpvpaper-wallpaper pause      # pausa por IPC conservando el último frame
-#   mpvpaper-wallpaper resume     # reanuda el mismo proceso/video por IPC
+#   mpvpaper-wallpaper pause [MOTIVO]  # pausa por IPC conservando el último frame
+#   mpvpaper-wallpaper resume [MOTIVO] # retira ese motivo; reanuda si no quedan otros
 #   mpvpaper-wallpaper status     # muestra playing, paused o stopped
 #   mpvpaper-wallpaper stop       # detiene el fondo animado
 { pkgs, lib, accent-wallpaper }:
@@ -27,6 +27,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   IPC_DIR="$RUNTIME_DIR/mpvpaper-wallpaper"
   IPC="$IPC_DIR/mpv.sock"
   CHANGE_LOCK="$IPC_DIR/change.lock"
+  PAUSE_DIR="$IPC_DIR/paused.d"
   FADE_DURATION="0.8"
 
   ensure_state_dir() {
@@ -90,6 +91,72 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     fi
     # Ausencia/cierre del proceso es inocuo para los perfiles de energía.
     send_ipc_to "$IPC" "$payload" || true
+  }
+
+  validate_pause_reason() {
+    case "$1" in
+      ""|*[!A-Za-z0-9._-]*)
+        echo "mpvpaper-wallpaper: motivo de pausa inválido: $1" >&2
+        return 1
+        ;;
+    esac
+  }
+
+  query_paused() {
+    local response
+    [ -S "$IPC" ] || return 1
+    response="$(send_ipc_to "$IPC" '{"command":["get_property","pause"]}' || true)"
+    case "$response" in
+      *'"data":true'*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
+  has_pause_reasons() {
+    local marker
+    [ -d "$PAUSE_DIR" ] || return 1
+    for marker in "$PAUSE_DIR"/*; do
+      [ -f "$marker" ] && return 0
+    done
+    return 1
+  }
+
+  pause_for() {
+    local reason=$1
+    validate_pause_reason "$reason"
+    ensure_runtime_dir
+    mkdir -p "$PAUSE_DIR"
+
+    # Si otro componente pausó directamente una instancia iniciada con una
+    # versión anterior del script, preservar esa pausa como manual antes de
+    # adquirir nuestro motivo propio.
+    if [ "$reason" != manual ] && ! has_pause_reasons && query_paused; then
+      : > "$PAUSE_DIR/manual"
+    fi
+
+    : > "$PAUSE_DIR/$reason"
+    send_ipc '{"command":["set_property","pause",true]}' >/dev/null
+  }
+
+  resume_for() {
+    local reason=$1
+    local marker="$PAUSE_DIR/$reason"
+    validate_pause_reason "$reason"
+
+    # No tocar el estado de reproducción si este actor nunca adquirió la
+    # pausa. Así un watcher recién iniciado no deshace una pausa ajena.
+    [ -f "$marker" ] || return 0
+    rm -f "$marker"
+    if ! has_pause_reasons; then
+      send_ipc '{"command":["set_property","pause",false]}' >/dev/null
+    fi
+  }
+
+  apply_pause_reasons() {
+    local socket=$1
+    if has_pause_reasons; then
+      send_ipc_to "$socket" '{"command":["set_property","pause",true]}' >/dev/null || true
+    fi
   }
 
   wait_for_video() {
@@ -168,6 +235,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     rm -f "$IPC"
     mv "$next_ipc" "$IPC"
     send_ipc_to "$IPC" '{"command":["set_property","vf",""]}' >/dev/null || true
+    apply_pause_reasons "$IPC"
   }
 
   list_videos() {
@@ -181,11 +249,11 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       exit 0
       ;;
     pause)
-      send_ipc '{"command":["set_property","pause",true]}' >/dev/null
+      pause_for "''${2:-manual}"
       exit 0
       ;;
     resume)
-      send_ipc '{"command":["set_property","pause",false]}' >/dev/null
+      resume_for "''${2:-manual}"
       exit 0
       ;;
     status)
@@ -263,6 +331,9 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       stop_wallpaper
       # Desacoplado del shell padre: sobrevive a la sesión que lo lanzó.
       start_wallpaper "$VIDEO" "$IPC" none
+      if wait_for_video "$IPC"; then
+        apply_pause_reasons "$IPC"
+      fi
       ;;
   esac
 ''

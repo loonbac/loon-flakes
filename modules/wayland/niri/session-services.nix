@@ -6,6 +6,13 @@
 
 let
   loonLaunch = pkgs.callPackage ../../../pkgs/loon-launch { };
+  accentWallpaper = pkgs.callPackage ../../../pkgs/accent-wallpaper { };
+  mpvpaperWallpaper = pkgs.callPackage ../../../pkgs/mpvpaper-wallpaper {
+    accent-wallpaper = accentWallpaper;
+  };
+  wallpaperVisibility = pkgs.callPackage ../../../pkgs/niri-wallpaper-visibility {
+    inherit mpvpaperWallpaper;
+  };
   sessionUnit = {
     wantedBy = [ "loon-niri-session.target" ];
     after = [ "niri.service" ];
@@ -62,6 +69,15 @@ in
     description = "Launcher persistente de la sesión Niri";
     serviceConfig = resilientService // {
       ExecStart = "${loonLaunch}/bin/loon-launch";
+    };
+  };
+
+  systemd.user.services.niri-wallpaper-visibility = sessionUnit // {
+    description = "Pausa el wallpaper animado detrás de ventanas opacas";
+    serviceConfig = resilientService // {
+      ExecStart = "${wallpaperVisibility}/bin/niri-wallpaper-visibility";
+      ExecStopPost = "${mpvpaperWallpaper}/bin/mpvpaper-wallpaper resume opaque-window";
+      Restart = "always";
     };
   };
 
