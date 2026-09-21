@@ -110,20 +110,20 @@ let
     gentle-ai-verify = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-a = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
-    jd-judge-b = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    jd-judge-a = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "high"; };
     pi-btw = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
     review-readability = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
     review-reliability = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     review-resilience = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
-    review-risk = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
+    review-risk = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-archive = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
-    sdd-design = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
+    sdd-design = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "antigravity/claude-opus-4-6"; effort = "xhigh"; };
+    sdd-proposal = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-research = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-remediate = { model = "openai-codex/gpt-5.6-terra"; effort = "high"; };
     sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
@@ -140,7 +140,7 @@ let
     }) subagentModelProfiles
     // {
       review-refuter = { model = "opencode-go/deepseek-v4.1-flash"; thinking = "high"; };
-      review-validator = { model = "antigravity/claude-opus-4-6"; thinking = "xhigh"; };
+      review-validator = { model = "openai-codex/gpt-5.6-sol"; thinking = "high"; };
     };
 
   gentleFallbacks = builtins.fromJSON (

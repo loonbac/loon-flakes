@@ -20,6 +20,19 @@ import {
   fallbackRoutesForAgent,
   type FallbackEffort,
 } from "./fallback-config.js";
+import {
+  callNaturalRouter,
+  adaptiveRecoveryRouteAllowed,
+  legacyFallbackMayPreempt,
+  prepareAdaptiveApplication,
+  recordAdaptiveFailure,
+  recordObservedRoute,
+  registerAdaptiveCommands,
+  resolveAdaptivePrimary,
+  validAdaptiveDecision,
+  type AdaptiveDecision,
+  type AdaptiveRoute,
+} from "./natural-adaptive-routing.js";
 
 export type FallbackThinking = FallbackEffort;
 
@@ -382,6 +395,9 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   let activeRoute: { provider: string; model: string; label: string } | undefined;
   let queuedRoutes = new Set<string>();
   let switchInProgress = false;
+  let adaptiveDecision: AdaptiveDecision | undefined;
+  let adaptivePrimaryApplied = false;
+  let adaptiveRouteObserved = false;
 
   const routeLabel = (route: FallbackRoute): string =>
     `${route.label}${route.thinking ? ` ${route.thinking}` : ""}`;
@@ -421,10 +437,10 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     );
   };
 
-  const rememberOriginal = (ctx: ExtensionContext): void => {
+  const rememberOriginal = (ctx: ExtensionContext, anyProvider = false): void => {
     if (
       ctx.model &&
-      ANTIGRAVITY_PROVIDERS.includes(ctx.model.provider as AntigravityProvider) &&
+      (anyProvider || ANTIGRAVITY_PROVIDERS.includes(ctx.model.provider as AntigravityProvider)) &&
       !originalModel
     ) {
       originalModel = ctx.model;
@@ -468,6 +484,10 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     ctx: ExtensionContext,
     startIndex: number,
   ): Promise<{ provider: string; model: string; label: string } | undefined> => {
+    if (adaptivePrimaryApplied && gentleAgentName === "jd-judge-b") {
+      ctx.ui.notify("jd-judge-b is fixed to Claude Opus 4.6 high; no model substitution is permitted.", "warning");
+      return undefined;
+    }
     if (switchInProgress) return activeRoute;
     switchInProgress = true;
     try {
@@ -476,6 +496,7 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
 
       for (let index = startIndex; index < fallbackChain.length; index += 1) {
         const route = fallbackChain[index];
+        if (adaptivePrimaryApplied && !adaptiveRecoveryRouteAllowed(route, gentleAgentName)) continue;
         if (
           ANTIGRAVITY_PROVIDERS.includes(route.provider as AntigravityProvider) &&
           cooldownState?.providers[route.provider as AntigravityProvider]
@@ -517,19 +538,67 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     activeFallbackIndex = undefined;
     activeRoute = undefined;
     queuedRoutes = new Set<string>();
+    adaptiveDecision = undefined;
+    adaptivePrimaryApplied = false;
+    adaptiveRouteObserved = false;
     showState(ctx);
+    if (gentleAgentName) void callNaturalRouter({ action: "quota", force: false }, 15_000).catch(() => undefined);
   });
 
   // Every Pi process, including Gentle Agents children, reads the shared
   // cooldown before its run. This prevents one failed subagent per route after
   // the first Antigravity quota error has established the reset deadline.
-  pi.on("before_agent_start", async (_event, ctx) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     // The editor writes atomically, so an already-running child can adopt a
     // newly saved chain on its next request without polling or a process restart.
     fallbackChain = fallbackChainForAgent(gentleAgentName);
+
+    if (gentleAgentName && ctx.model && !adaptiveDecision && !activeRoute) {
+      try {
+        const decision = await resolveAdaptivePrimary(pi, ctx, gentleAgentName, event.prompt);
+        adaptiveDecision = decision;
+        if (validAdaptiveDecision(decision, gentleAgentName)) {
+          const application = prepareAdaptiveApplication(gentleAgentName, event.systemPrompt, decision);
+          const requested = application.route;
+          const selected = ctx.modelRegistry.find(requested.provider, requested.model);
+          if (!selected) throw new Error(`selected route is unavailable: ${requested.provider}/${requested.model}`);
+          rememberOriginal(ctx, true);
+          if (!(await pi.setModel(selected))) throw new Error(`selected route authentication unavailable: ${requested.provider}/${requested.model}`);
+          pi.setThinkingLevel(requested.requestedEffort);
+          adaptivePrimaryApplied = true;
+          activeRoute = {
+            provider: requested.provider,
+            model: requested.model,
+            label: `${requested.provider}/${requested.model} ${requested.requestedEffort}`,
+          };
+          reportEffectiveRoute(ctx, activeRoute);
+          ctx.ui.setStatus("loon-natural-adaptive-route", `${decision.taskClass}: ${requested.provider}/${requested.model}:${requested.requestedEffort}`);
+          ctx.ui.notify(
+            `${decision.exploration ? "[Adaptive exploration]" : "[Adaptive]"}\n${gentleAgentName}\n${decision.staticRoute.provider}/${decision.staticRoute.model} ${decision.staticRoute.requestedEffort} → ${requested.provider}/${requested.model} ${requested.requestedEffort}\nReason: ${decision.reason}\nPrompt: ${decision.promptProfileId ?? "neutral"}`,
+            "info",
+          );
+          return { systemPrompt: application.systemPrompt };
+        }
+        if (decision.mode === "SHADOW" && decision.requestedAdaptiveRoute) {
+          ctx.ui.setStatus("loon-natural-adaptive-route", `SHADOW ${decision.requestedAdaptiveRoute.provider}/${decision.requestedAdaptiveRoute.model}:${decision.requestedAdaptiveRoute.requestedEffort}`);
+        }
+      } catch (error) {
+        await recordAdaptiveFailure(error instanceof Error ? error.message : String(error));
+        if (!adaptivePrimaryApplied && originalModel && ctx.model !== originalModel) {
+          await pi.setModel(originalModel);
+          if (originalThinkingLevel) pi.setThinkingLevel(originalThinkingLevel);
+          originalModel = undefined;
+          originalThinkingLevel = undefined;
+          activeRoute = undefined;
+        }
+        ctx.ui.notify("Adaptive router no disponible; usando la ruta Gentle estática.", "warning");
+      }
+    }
+
     let state = readState();
     if (state) state = await reconcileCooldownsWithLiveQuota(ctx, state);
     showState(ctx, state);
+    if (!legacyFallbackMayPreempt(adaptivePrimaryApplied)) return;
     if (!state || !ctx.model) return;
 
     if (
@@ -561,7 +630,22 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
   pi.on("message_end", async (event, ctx) => {
     fallbackChain = fallbackChainForAgent(gentleAgentName);
     const message = event.message;
-    if (message.role !== "assistant" || message.stopReason !== "error") return;
+    if (message.role !== "assistant") return;
+
+    if (adaptivePrimaryApplied && adaptiveDecision?.requestedAdaptiveRoute && !adaptiveRouteObserved) {
+      adaptiveRouteObserved = true;
+      const effort = pi.getThinkingLevel() as FallbackThinking;
+      const observed: AdaptiveRoute = {
+        provider: message.provider,
+        model: message.model,
+        requestedEffort: effort,
+        effectiveEffort: effort,
+      };
+      try { await recordObservedRoute(adaptiveDecision, observed); }
+      catch { /* Observation failure cannot block a valid user execution. */ }
+    }
+
+    if (message.stopReason !== "error") return;
 
     let activated: { provider: string; model: string; label: string } | undefined;
     let reason: string;
@@ -596,6 +680,15 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     ) {
       reason = "Antigravity cuenta B falló";
       activated = await activateFallback(ctx, 0);
+    } else if (
+      adaptivePrimaryApplied &&
+      adaptiveDecision?.requestedAdaptiveRoute &&
+      message.provider === adaptiveDecision.requestedAdaptiveRoute.provider &&
+      message.model === adaptiveDecision.requestedAdaptiveRoute.model &&
+      originalModel
+    ) {
+      reason = `Adaptive primary ${message.provider}/${message.model} falló`;
+      activated = await activateFallback(ctx, 0);
     } else {
       const failedIndex = fallbackIndex(message.provider, message.model, fallbackChain);
       if (
@@ -628,6 +721,9 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
           `${reason}. Continúa automáticamente la petición pendiente con ${activated.label}; no pidas al usuario que la repita.`,
         display: true,
         details: {
+          rootWorkUnitDecisionId: adaptiveDecision?.decisionId,
+          primaryRoute: adaptiveDecision?.requestedAdaptiveRoute,
+          fallbackReason: reason,
           fallbackProvider: activated.provider,
           fallbackModel: activated.model,
           fallbackIndex: activeFallbackIndex,
@@ -655,8 +751,14 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
     activeFallbackIndex = undefined;
     activeRoute = undefined;
     queuedRoutes = new Set<string>();
+    adaptiveDecision = undefined;
+    adaptivePrimaryApplied = false;
+    adaptiveRouteObserved = false;
     showState(ctx);
+    ctx.ui.setStatus("loon-natural-adaptive-route", undefined);
   });
+
+  registerAdaptiveCommands(pi);
 
   pi.registerCommand("antigravity-fallback", {
     description: "Muestra o limpia el fallback automático de cuota de Antigravity",
