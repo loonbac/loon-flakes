@@ -70,9 +70,8 @@ export function validAdaptiveDecision(decision: AdaptiveDecision, agent: string)
   if (decision.role !== agent || !decision.decisionId || decision.kind !== "ADAPTIVE_ASSIGNMENT") return false;
   const route = decision.requestedAdaptiveRoute;
   if (!route || !route.provider || !route.model || !route.effectiveEffort || !decision.compiledPrompt) return false;
-  if (route.model === "claude-opus-4-6" && agent !== "jd-judge-b") return false;
-  if (route.provider === "commandcode" && /(?:claude|gpt|gemini)/iu.test(route.model)) return false;
-  return true;
+  if (route.model === "claude-opus-4-6") return agent === "jd-judge-b" && route.provider === "antigravity" && route.effectiveEffort === "high";
+  return NATURAL_RECOVERY_ALLOWLIST.has(`${route.provider}/${route.model}`);
 }
 
 export function legacyFallbackMayPreempt(adaptivePrimaryApplied: boolean): boolean { return !adaptivePrimaryApplied; }
@@ -146,6 +145,10 @@ export async function recordObservedRoute(decision: AdaptiveDecision, observed: 
 
 export async function recordAdaptiveFailure(reason: string): Promise<void> {
   try { await callNaturalRouter({ action: "router-failure", reason }); } catch { /* fail-open telemetry must not break Pi */ }
+}
+
+export async function recordAdaptiveInvariant(reason: string): Promise<void> {
+  try { await callNaturalRouter({ action: "fatal-invariant", reason }); } catch { /* local fail-open remains static */ }
 }
 
 export function adaptivePromptSystemPrompt(existing: string, decision: AdaptiveDecision): string {

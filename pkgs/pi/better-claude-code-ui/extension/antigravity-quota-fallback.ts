@@ -26,6 +26,7 @@ import {
   legacyFallbackMayPreempt,
   prepareAdaptiveApplication,
   recordAdaptiveFailure,
+  recordAdaptiveInvariant,
   recordObservedRoute,
   registerAdaptiveCommands,
   resolveAdaptivePrimary,
@@ -557,6 +558,10 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       try {
         const decision = await resolveAdaptivePrimary(pi, ctx, gentleAgentName, event.prompt);
         adaptiveDecision = decision;
+        if (decision.kind === "ADAPTIVE_ASSIGNMENT" && !validAdaptiveDecision(decision, gentleAgentName)) {
+          await recordAdaptiveInvariant("adaptive route violated provider/model/fixed-role allowlist");
+          throw new Error("adaptive route failed the host allowlist guard");
+        }
         if (validAdaptiveDecision(decision, gentleAgentName)) {
           const application = prepareAdaptiveApplication(gentleAgentName, event.systemPrompt, decision);
           const requested = application.route;
