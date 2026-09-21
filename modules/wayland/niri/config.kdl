@@ -80,6 +80,8 @@ binds {
     Super+D { spawn "waydroid" "show-full-ui"; }
     Super+Q { close-window; }
     Super+F { maximize-column; }
+    // Alternar la ventana enfocada entre el mosaico y el modo flotante.
+    Super+T { toggle-window-floating; }
 
     // Selector de fondos integrado en loon-launch: videos (animado) e
     // imágenes (backdrop) con miniaturas, en el launcher custom.
