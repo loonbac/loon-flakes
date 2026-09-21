@@ -120,13 +120,13 @@ let
           }
 
           async function waitForCast(before) {
-            // desktopCapturer termina cuando el portal ya entregó la fuente,
-            // pero niri puede tardar unos milisegundos más en publicar el cast
-            // por IPC. Sin esta espera se enviaba video sin crear venmic.
-            for (let attempt = 0; attempt < 20; attempt++) {
+            // El cast sólo pasa a estar visible después de responderle a
+            // getDisplayMedia. Dale tiempo al portal, pero nunca bloquees la
+            // devolución del video esperando este dato.
+            for (let attempt = 0; attempt < 50; attempt++) {
               const cast = findNewCast(before, await niriJson("casts"));
               if (cast) return cast;
-              await delay(50);
+              await delay(100);
             }
             return null;
           }
@@ -245,6 +245,7 @@ let
 
           app.whenReady().then(() => {
             session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+              console.log("Equibop niri screen share request received");
               const castsBefore = await niriJson("casts");
               const sources = await desktopCapturer.getSources({
                 types: ["window", "screen"],
@@ -254,14 +255,32 @@ let
                 return null;
               });
 
-              if (sources?.[0]) {
-                const cast = await waitForCast(castsBefore);
-                await configureQuality(request);
-                await configureAudio(request, cast);
-                if (!cast) console.error("Could not identify the niri cast for screen share audio");
+              if (!sources?.[0]) {
+                callback({});
+                return;
               }
 
-              callback(sources?.[0] ? { video: sources[0] } : {});
+              // niri no publica el cast hasta que Electron acepta la fuente.
+              // Responde primero; el wrapper del renderer crea mientras tanto
+              // el audio del sistema y espera a que aparezca el dispositivo.
+              callback({ video: sources[0] });
+
+              void (async () => {
+                const cast = await waitForCast(castsBefore);
+                await configureQuality(request);
+                if (cast?.target?.Window) {
+                  await configureAudio(request, cast);
+                } else if (cast?.target?.Output) {
+                  // El renderer ya abrió una fuente estable con todo el audio
+                  // del sistema. No la recrees después de que Discord haya
+                  // obtenido su pista.
+                  console.log("Equibop screen share system audio kept", cast.target.Output.name);
+                } else {
+                  console.error("Could not identify the niri cast; keeping system audio fallback");
+                }
+              })().catch(error => {
+                console.error("Could not finish Equibop screen share setup", error);
+              });
             });
           });
         })();
@@ -277,6 +296,30 @@ let
         fi
         perl -0pi -e \
           's/\.contentHint=String\(([[:alnum:]_\$]+)\?\.contentHint\)/.contentHint=String($1?.contentHint??"motion")/' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"
+
+        # Equibop sólo consulta una vez si venmic apareció. En PipeWire la
+        # fuente virtual se anuncia de forma asíncrona, así que esa carrera
+        # dejaba el video funcionando pero sin ninguna pista de audio. Crea un
+        # fallback de audio del sistema tras aceptar el portal y espera hasta
+        # tres segundos por el dispositivo. El handler de arriba lo limita a
+        # la aplicación elegida posteriormente si se compartió una ventana.
+        if ! grep -Fq 'async function t(){try{return(await navigator.mediaDevices.enumerateDevices()).find(({label:r})=>r==="vencord-screen-share")?.deviceId}catch{return null}}' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"; then
+          echo "Equibop screenshare audio device lookup not found" >&2
+          exit 1
+        fi
+        perl -0pi -e \
+          's/async function t\(\)\{try\{return\(await navigator\.mediaDevices\.enumerateDevices\(\)\)\.find\(\(\{label:r\}\)=>r==="vencord-screen-share"\)\?\.deviceId\}catch\{return null\}\}/async function t(){for(let e=0;e<30;e++){try{let e=(await navigator.mediaDevices.enumerateDevices()).find(({label:r})=>r==="vencord-screen-share");if(e?.deviceId)return e.deviceId}catch{}await new Promise(e=>setTimeout(e,100))}return null}/' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"
+
+        if ! grep -Fq 'let a=await e.call(this,o),r=await t(),' \
+          "$TMPDIR/equibop-asar/dist/js/renderer.js"; then
+          echo "Equibop getDisplayMedia audio hook not found" >&2
+          exit 1
+        fi
+        perl -0pi -e \
+          's/let a=await e\.call\(this,o\),r=await t\(\),/let a=await e.call(this,o);try{await VesktopNative.virtmic.startSystem([{"application.process.binary":"equibop"},{"application.name":"Equibop"},{"application.process.binary":"discord"},{"application.process.binary":"Discord"},{"application.process.binary":"vesktop"}])}catch(e){console.error("Could not start screen share system audio",e)}let r=await t(),/' \
           "$TMPDIR/equibop-asar/dist/js/renderer.js"
 
         cat ${../../../pkgs/equibop-obs-overlay/main.js} >> "$TMPDIR/equibop-asar/dist/js/main.js"
