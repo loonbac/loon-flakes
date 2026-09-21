@@ -120,6 +120,24 @@ export function hasExplicitGentleProfilePin(cwd: string): boolean {
   return existsSync(join(common, "gentle-ai", "profile-pin.json"));
 }
 
+export function routeDiffersFromConfiguredGentleDefault(agent: string, current: AdaptiveRoute): boolean {
+  const gentleDir = process.env.GENTLE_PI_CONFIG_HOME?.trim() || join(homedir(), ".pi", "gentle-ai");
+  try {
+    const value = JSON.parse(readFileSync(join(gentleDir, "profiles.json"), "utf8")) as {
+      active?: string;
+      profiles?: Record<string, Record<string, { model?: string; thinking?: FallbackEffort }>>;
+    };
+    const active = value.active;
+    const configured = active ? value.profiles?.[active]?.[agent] : undefined;
+    if (!configured?.model) return false;
+    const expected = configured.model.split("/");
+    const provider = expected.shift();
+    const model = expected.join("/");
+    return provider !== current.provider || model !== current.model
+      || (configured.thinking !== undefined && configured.thinking !== current.requestedEffort);
+  } catch { return false; }
+}
+
 export async function resolveAdaptivePrimary(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
@@ -128,10 +146,11 @@ export async function resolveAdaptivePrimary(
 ): Promise<AdaptiveDecision> {
   if (!ctx.model) throw new Error("static model is unavailable");
   const effort = pi.getThinkingLevel() as FallbackEffort;
+  const staticRoute: AdaptiveRoute = { provider: ctx.model.provider, model: ctx.model.id, requestedEffort: effort, effectiveEffort: effort };
   const response = await callNaturalRouter({
     action: "route", agent, role: agent, task: prompt, cwd: ctx.cwd,
-    staticRoute: { provider: ctx.model.provider, model: ctx.model.id, requestedEffort: effort, effectiveEffort: effort },
-    explicitUserOverride: hasExplicitGentleProfilePin(ctx.cwd),
+    staticRoute,
+    explicitUserOverride: hasExplicitGentleProfilePin(ctx.cwd) || routeDiffersFromConfiguredGentleDefault(agent, staticRoute),
     availableModels: ctx.modelRegistry.getAvailable().map((model) => ({ provider: model.provider, model: model.id })),
     allowedTools: pi.getActiveTools(),
   });

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   adaptivePromptSystemPrompt,
@@ -6,6 +9,7 @@ import {
   legacyFallbackMayPreempt,
   prepareAdaptiveApplication,
   recoveryLineage,
+  routeDiffersFromConfiguredGentleDefault,
   routeMatches,
   validAdaptiveDecision,
   type AdaptiveDecision,
@@ -53,4 +57,18 @@ test("Opus generic and closed Command Code routes are rejected", () => {
 test("compiled contract is appended without rewriting the existing system prompt", () => {
   assert.equal(adaptivePromptSystemPrompt("ORIGINAL", { ...decision, compiledPrompt: undefined }), "ORIGINAL");
   assert.match(adaptivePromptSystemPrompt("ORIGINAL", decision), /^ORIGINAL/u);
+});
+
+test("a current work-unit route that differs from configured Gentle default is user-pinned", () => {
+  const previous = process.env.GENTLE_PI_CONFIG_HOME;
+  const directory = mkdtempSync(join(tmpdir(), "gentle-profile-"));
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(join(directory, "profiles.json"), JSON.stringify({
+    active: "current", profiles: { current: { "gentle-ai-worker": { model: "openai-codex/gpt-5.6-terra", thinking: "high" } } },
+  }));
+  process.env.GENTLE_PI_CONFIG_HOME = directory;
+  assert.equal(routeDiffersFromConfiguredGentleDefault("gentle-ai-worker", decision.staticRoute), false);
+  assert.equal(routeDiffersFromConfiguredGentleDefault("gentle-ai-worker", decision.requestedAdaptiveRoute!), true);
+  if (previous === undefined) delete process.env.GENTLE_PI_CONFIG_HOME;
+  else process.env.GENTLE_PI_CONFIG_HOME = previous;
 });
