@@ -877,6 +877,29 @@ let
 
     const gentleDir = path.join(path.dirname(agentDir), "gentle-ai");
     writeJson(path.join(gentleDir, "models.json"), manifest.gentleModelProfiles);
+    // Preserve the user's current profile, but migrate the one immutable V1
+    // safety rule: Opus is fixed to jd-judge-b:high and cannot remain on any
+    // other role. Repository/worktree pins remain separate and untouched.
+    const profilesPath = path.join(gentleDir, "profiles.json");
+    if (fs.existsSync(profilesPath)) {
+      try {
+        const stored = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
+        const current = stored?.profiles?.current;
+        if (current && typeof current === "object") {
+          for (const [role, route] of Object.entries(current)) {
+            if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
+              current[role] = manifest.gentleModelProfiles[role]
+                || { model: "openai-codex/gpt-5.6-sol", thinking: "high" };
+            }
+          }
+          current["jd-judge-b"] = manifest.gentleModelProfiles["jd-judge-b"];
+          writeJson(profilesPath, stored);
+        }
+      } catch {
+        // An invalid user file remains untouched; gentle-pi will surface its
+        // own validation error instead of the bootstrap silently replacing it.
+      }
+    }
     writeJson(
       path.join(gentleDir, "background-subagents.json"),
       manifest.gentlePortableConfig.backgroundSubagents,
