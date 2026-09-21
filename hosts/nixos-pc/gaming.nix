@@ -56,6 +56,29 @@ in
     overrides."com.pokemmo.PokeMMO".Context.filesystems = [ "home" ];
   };
 
+  # Sober suele publicar el audio del juego a volumen completo. Dale un
+  # volumen inicial perceptual del 10 % en cada stream nuevo, sin impedir que
+  # el usuario lo cambie mientras juega. PipeWire representa el volumen con
+  # curva cúbica, por eso 10 % equivale a 0.1³ = 0.001.
+  services.pipewire.wireplumber.extraConfig."51-sober-volume" = {
+    "stream.rules" = [
+      {
+        matches = [
+          {
+            "media.class" = "Stream/Output/Audio";
+            "application.name" = "Sober";
+          }
+        ];
+        actions.update-props = {
+          "state.default-volume" = 0.001;
+          # No restaures el volumen de la ejecución anterior: 10 % es el
+          # punto de partida, no un limitador que persiga el control en vivo.
+          "state.restore-props" = false;
+        };
+      }
+    ];
+  };
+
   environment.systemPackages = [
     dolphinForStreaming
     pkgs.heroic

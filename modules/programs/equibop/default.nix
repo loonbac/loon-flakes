@@ -71,6 +71,7 @@ let
 
           const { execFile } = require("node:child_process");
           const { promisify } = require("node:util");
+          const { setTimeout: delay } = require("node:timers/promises");
           const { app, BrowserWindow, desktopCapturer, session } = require("electron");
           const execFileAsync = promisify(execFile);
 
@@ -90,10 +91,16 @@ let
           }
 
           function requestFrame(request) {
+            // El frame que origina getDisplayMedia puede ser un subframe de
+            // Discord sin el preload de Equibop. Ejecuta los bridges nativos
+            // en el frame principal que sí expone VesktopNative.
+            const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed());
+            const mainWindow = windows.find(window =>
+              /^https:\/\/(canary\.|ptb\.)?discord\.com\//.test(window.webContents.getURL())
+            ) || windows.find(window => window.isVisible()) || windows[0];
+            if (mainWindow) return mainWindow.webContents.mainFrame;
             if (request.frame && !request.frame.isDestroyed()) return request.frame;
-            return BrowserWindow.getAllWindows()
-              .find(window => !window.isDestroyed())
-              ?.webContents.mainFrame;
+            return null;
           }
 
           async function runInRenderer(frame, expression) {
@@ -110,6 +117,18 @@ let
             const previous = new Set(before.map(cast => cast.stream_id));
             return after.find(cast => cast.kind === "PipeWire" && !previous.has(cast.stream_id))
               || [...after].reverse().find(cast => cast.kind === "PipeWire" && cast.is_active);
+          }
+
+          async function waitForCast(before) {
+            // desktopCapturer termina cuando el portal ya entregó la fuente,
+            // pero niri puede tardar unos milisegundos más en publicar el cast
+            // por IPC. Sin esta espera se enviaba video sin crear venmic.
+            for (let attempt = 0; attempt < 20; attempt++) {
+              const cast = findNewCast(before, await niriJson("casts"));
+              if (cast) return cast;
+              await delay(50);
+            }
+            return null;
           }
 
           function appAliases(appId) {
@@ -174,10 +193,11 @@ let
                 { "application.process.binary": "Discord" },
                 { "application.process.binary": "vesktop" }
               ];
-              await runInRenderer(
+              const result = await runInRenderer(
                 frame,
                 "VesktopNative.virtmic.startSystem(" + JSON.stringify(excluded) + ")"
               );
+              console.log("Equibop screen share system audio configured", result);
               return;
             }
 
@@ -191,11 +211,36 @@ let
             const listed = await runInRenderer(frame, "VesktopNative.virtmic.list()");
             const filter = audioFilter(window, listed?.ok ? listed.targets : []);
             if (filter) {
-              await runInRenderer(
+              const result = await runInRenderer(
                 frame,
                 "VesktopNative.virtmic.start(" + JSON.stringify(filter) + ")"
               );
+              console.log("Equibop screen share window audio configured", filter, result);
             }
+          }
+
+          async function configureQuality(request) {
+            const frame = requestFrame(request);
+            const expression = `(() => {
+              const saved = JSON.parse(localStorage.getItem("EquibopState") || "{}");
+              const frameRate = Number(saved.screenshareQuality?.frameRate || 30);
+              const resolution = Number(saved.screenshareQuality?.resolution || 720);
+              const width = Math.round(resolution * 16 / 9);
+              const common = Vencord?.Webpack?.Common;
+              const connection = [...common.MediaEngineStore.getMediaEngine().connections]
+                .find(item => item.streamUserId === common.UserStore.getCurrentUser().id);
+              if (!connection?.videoStreamParameters?.[0]) {
+                return { ok: false, reason: "stream connection not ready" };
+              }
+              const params = connection.videoStreamParameters[0];
+              params.maxFrameRate = frameRate;
+              params.maxResolution ||= { width: 0, height: 0 };
+              params.maxResolution.width = width;
+              params.maxResolution.height = resolution;
+              return { ok: true, frameRate, width, height: resolution };
+            })()`;
+            const result = await runInRenderer(frame, expression);
+            console.log("Equibop screen share quality configured", result);
           }
 
           app.whenReady().then(() => {
@@ -210,9 +255,10 @@ let
               });
 
               if (sources?.[0]) {
-                const castsAfter = await niriJson("casts");
-                const cast = findNewCast(castsBefore, castsAfter);
+                const cast = await waitForCast(castsBefore);
+                await configureQuality(request);
                 await configureAudio(request, cast);
+                if (!cast) console.error("Could not identify the niri cast for screen share audio");
               }
 
               callback(sources?.[0] ? { video: sources[0] } : {});
@@ -249,7 +295,7 @@ let
         # dlopen encuentre tanto libstdc++ como GLib al arrancar Equibop.
         wrapProgram "$out/bin/equibop" \
           --set PULSE_PROP 'application.name=Equibop application.process.binary=equibop application.icon_name=equibop media.role=phone' \
-          --prefix LD_LIBRARY_PATH : '${lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.glib ]}'
+          --prefix LD_LIBRARY_PATH : '${lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.glib pkgs.pipewire pkgs.pulseaudio ]}'
 
         # loon-launch es un servicio persistente. Si ejecuta Electron de forma
         # directa, Chromium puede crear zygotes antes de que la instancia se
@@ -286,6 +332,21 @@ in
     "/share/equibop-obs-overlay"
     "/share/equibop-voice-normalizer"
   ];
+
+  # venmic expone esta fuente como el micrófono virtual de la transmisión.
+  # No restaures un volumen antiguo del mezclador: debe nacer a ganancia
+  # unitaria para que Discord reciba el audio de escritorio sin atenuación.
+  services.pipewire.wireplumber.extraConfig."52-equibop-screen-share-volume" = {
+    "stream.rules" = [
+      {
+        matches = [ { "node.name" = "vencord-screen-share"; } ];
+        actions.update-props = {
+          "state.default-volume" = 1.0;
+          "state.restore-props" = false;
+        };
+      }
+    ];
+  };
 
   # El servidor sólo escucha 127.0.0.1:5123. Equibop deja el estado saneado
   # bajo XDG_RUNTIME_DIR y OBS carga el HTML desde localhost; nada se envía a
