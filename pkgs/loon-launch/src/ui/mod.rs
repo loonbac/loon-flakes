@@ -211,7 +211,19 @@ pub fn build_ui(app: &gtk4::Application, wallpaper_mode: bool) {
                 Some(exec) => {
                     let exec = exec.to_string();
                     std::thread::spawn(move || {
-                        let _ = std::process::Command::new("sh").arg("-c").arg(&exec).spawn();
+                        // Cada app vive en un scope independiente: reiniciar el
+                        // daemon no la mata y systemd recoge todos sus procesos.
+                        // Aun así esperamos systemd-run para no dejar zombis en
+                        // el launcher (se observó con Dolphin).
+                        if let Ok(mut child) = std::process::Command::new("systemd-run")
+                            .args(["--user", "--scope", "--quiet", "--collect"])
+                            .arg("sh")
+                            .arg("-c")
+                            .arg(&exec)
+                            .spawn()
+                        {
+                            let _ = child.wait();
+                        }
                     });
                     hide_window(&window);
                 }

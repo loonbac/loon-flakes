@@ -40,8 +40,14 @@ let
     while true; do
       restore_default
       while IFS= read -r _event; do
-        restore_default
-      done < <($pactl subscribe 2>/dev/null)
+        # Consultar pactl crea y elimina un cliente PulseAudio. Si se reacciona
+        # a esos eventos, cada consulta dispara otra consulta y el guard entra
+        # en un bucle que consume CPU. El sink predeterminado forma parte del
+        # estado del servidor, así que sólo ese tipo de cambio es relevante.
+        case "$_event" in
+          *" on server #"*) restore_default ;;
+        esac
+      done < <(LC_ALL=C $pactl subscribe 2>/dev/null)
       ${pkgs.coreutils}/bin/sleep 1
     done
   '';
