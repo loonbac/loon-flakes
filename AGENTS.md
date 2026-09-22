@@ -196,7 +196,9 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 2. **`git add -A`** — OBLIGATORIO: los flakes solo ven archivos *trackeados* por
    git. Si creaste un archivo nuevo y no lo agregas, el rebuild falla con
    `Path '...' is not tracked by Git`.
-3. **Aplicar**: `sudo nixos-rebuild switch --flake .#<hostname>` (o `rebuild`).
+3. **Aplicar**: `rebuild` (preferido; sobre SSH desacopla la activación en una unidad
+   systemd, así un corte de conexión no la mata) o
+   `sudo nixos-rebuild switch --flake .#<hostname>`.
 4. **Commit + push**:
    ```bash
    git add -A
@@ -470,16 +472,18 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **TS-Bypass**: `ALL_PROXY` usa el dialer SOCKS nativo de Tailscale. No
   duplicarlo en `HTTP_PROXY`/`HTTPS_PROXY`; esos nombres seleccionan la ruta
   HTTP CONNECT y causan `derphttp ... unexpected EOF` contra `ssh -D`.
-- **`switch` en vivo vs `boot`**: nunca correr `nixos-rebuild switch` en una
-  máquina que el usuario esté usando sin avisar: la activación re-servicia
-  unidades y puede tumbar la sesión, la red y el wallpaper (incidente
-  2026-09-22). Preferir `nixos-rebuild boot` (aplica en el próximo arranque,
-  cero interrupción) o `test`, y avisar siempre antes de una activación en vivo.
-  Si un `switch` es inevitable, lanzarlo desacoplado (`setsid nohup`):
-  `nixos-rebuild` ejecuta `switch-to-configuration` vía `systemd-run --pipe`, y
-  si la conexión del cliente muere (p. ej. un timeout de SSH) el pipe se cierra y
-  **systemd interrumpe la activación a mitad**, dejando unidades detenidas sin
-  re-arrancar (así quedó NetworkManager en el incidente del 2026-09-22).
+- **`switch` en vivo vs `boot`**: un `switch` en vivo es la forma normal de
+  aplicar cambios sin reiniciar; lo que hay que evitar es que la activación
+  dependa de la conexión del cliente (`systemd-run --pipe`), porque si el
+  cliente muere (p. ej. por un timeout de SSH) systemd aborta la activación a
+  mitad y puede dejar servicios detenidos sin re-arrancar (incidente del
+  2026-09-22: NetworkManager quedó detenido). Por eso, sobre SSH se debe usar
+  `rebuild` (se desacopla solo en una unidad systemd transitoria y permite
+  seguirla con `sudo journalctl -u <unidad> -f`), o lanzar la activación
+  desacoplada a mano. Avisar siempre al usuario de que la activación re-servicia
+  unidades (la sesión, la barra o el wallpaper pueden parpadear unos segundos).
+  `rebuild update` sigue usando `boot` por el motivo documentado
+  (greetd/PAM/systemd/drivers).
 - **Primera activación de `monitor.kdl`**: cuando se habilita `include "monitor.kdl"`
   en una máquina donde el archivo aún no existe, niri puede registrar un error
   de recarga hasta que tmpfiles cree el archivo; tras el primer arranque queda
@@ -498,9 +502,10 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 ssh loonbac@192.168.0.2
 ssh loonbac@192.168.0.10
 
-# Rebuild (desde ~/.nixos, con sudo)
-cd ~/.nixos && sudo nixos-rebuild switch --flake .#$(hostname)
-rebuild              # equivalente, con dry/update extra
+# Rebuild (desde ~/.nixos)
+rebuild              # switch: por SSH se desacopla en una unidad systemd independiente
+                     #   (seguir con: sudo journalctl -u loon-rebuild-<epoch> -f)
+cd ~/.nixos && sudo nixos-rebuild switch --flake .#$(hostname)   # equivalente manual
 
 # Verificar config de niri
 niri validate --config ~/.nixos/modules/wayland/niri/config.kdl

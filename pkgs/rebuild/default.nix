@@ -3,9 +3,9 @@
 # Equivalente al "cargo build && cargo run" del proyecto.
 #
 # Uso:
-#   rebuild            # aplica los cambios (nixos-rebuild switch)
+#   rebuild            # aplica los cambios (nixos-rebuild switch; sobre SSH se aplica desacoplado)
 #   rebuild dry        # prueba sin aplicar
-#   rebuild update     # actualiza y prepara el próximo arranque sin cerrar la sesión
+#   rebuild update     # actualiza y prepara el próximo arranque con boot (conserva boot sin switch)
 { pkgs, lib }:
 
 let
@@ -51,7 +51,32 @@ let
         echo "La sesión actual no fue reiniciada; reinicia cuando quieras aplicarla."
         ;;
       switch)
-        sudo nixos-rebuild switch --flake ".#$HOST"
+        # `nixos-rebuild switch` ejecuta `switch-to-configuration` a través de
+        # `systemd-run --pipe`. Si el comando corre por SSH y la conexión cae,
+        # systemd cancela la activación a mitad de camino y puede dejar servicios
+        # críticos detenidos (como ocurrió con NetworkManager el 2026-09-22).
+        # Para evitarlo, sobre SSH desacoplamos la activación en una unidad transitoria
+        # propia de systemd y seguimos su log con journalctl. Si la sesión SSH muere,
+        # el seguimiento termina pero la unidad sigue corriendo hasta completarse.
+        if [[ -n "''${SSH_CONNECTION:-}" ]]; then
+          sudo -v
+          unit="loon-rebuild-$(date +%s)"
+          echo "Ejecutando switch desacoplado en la unidad systemd '$unit'..."
+          echo "Si la conexión SSH se interrumpe, la activación continuará sin detenerse."
+          echo "Para seguir los registros más tarde: sudo journalctl -u $unit -f"
+          echo
+          sudo systemd-run \
+            --unit="$unit" \
+            --collect \
+            --no-block \
+            --property=Type=oneshot \
+            --property=WorkingDirectory="$FLAKE_DIR" \
+            --property=Environment=PATH=/run/current-system/sw/bin:/run/wrappers/bin:/usr/bin:/bin \
+            /run/current-system/sw/bin/nixos-rebuild switch --flake ".#$HOST"
+          sudo journalctl -u "$unit" -f --no-pager || true
+        else
+          sudo nixos-rebuild switch --flake ".#$HOST"
+        fi
         ;;
       *)
         echo "Uso: rebuild [switch|dry|update]" >&2
