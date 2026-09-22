@@ -475,6 +475,11 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   unidades y puede tumbar la sesión, la red y el wallpaper (incidente
   2026-09-22). Preferir `nixos-rebuild boot` (aplica en el próximo arranque,
   cero interrupción) o `test`, y avisar siempre antes de una activación en vivo.
+  Si un `switch` es inevitable, lanzarlo desacoplado (`setsid nohup`):
+  `nixos-rebuild` ejecuta `switch-to-configuration` vía `systemd-run --pipe`, y
+  si la conexión del cliente muere (p. ej. un timeout de SSH) el pipe se cierra y
+  **systemd interrumpe la activación a mitad**, dejando unidades detenidas sin
+  re-arrancar (así quedó NetworkManager en el incidente del 2026-09-22).
 - **Primera activación de `monitor.kdl`**: cuando se habilita `include "monitor.kdl"`
   en una máquina donde el archivo aún no existe, niri puede registrar un error
   de recarga hasta que tmpfiles cree el archivo; tras el primer arranque queda
