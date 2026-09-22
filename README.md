@@ -348,8 +348,8 @@ están excluidos: completar un subagente no genera alertas; una pregunta que est
 remita a la UI principal sí. Las preguntas usan `dialog-question`, los permisos
 `dialog-warning` y solo el final de una petición principal usa
 `dialog-information`. Los menús de plugins abiertos a mano se ignoran. Ghostty
-ignora el BEL auxiliar de `rpiv-ask-user-question` para que no suene un segundo
-aviso.
+ignora el BEL auxiliar de `ask_user_question` (antiguo `rpiv-ask-user-question`,
+ahora integrado en gentle-pi) para que no suene un segundo aviso.
 
 El bootstrap genera `pi-antigravity-alt` desde la versión instalada del paquete
 oficial `pi-antigravity`, cambiando solo los identificadores necesarios para que

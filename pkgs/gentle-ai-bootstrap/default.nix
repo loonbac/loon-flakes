@@ -39,7 +39,6 @@ let
     "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
     "@HOME@/.local/share/loon-pi-packages/pi-gpt-fast-mode-shared"
     "npm:pi-discord-activity"
-    "npm:@juicesharp/rpiv-ask-user-question"
     "npm:pi-web-access"
     "npm:pi-btw"
     "npm:pi-commandcode-provider"
@@ -56,7 +55,6 @@ let
     "pi-discord-activity"
     "gentle-pi"
     "gentle-engram"
-    "@juicesharp/rpiv-ask-user-question"
     "pi-web-access"
     "pi-btw"
     "pi-commandcode-provider"
@@ -170,6 +168,9 @@ let
     "pi-subagents-j0k3r"
     "@tintinweb/pi-subagents"
     "@juicesharp/rpiv-todo"
+    # gentle-pi ≥ 3.5.1 ya incluye `ask_user_question`/`ask_user_choice`; mantener
+    # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
+    "@juicesharp/rpiv-ask-user-question"
   ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
@@ -854,168 +855,6 @@ let
     );
   '';
 
-  # gentle-pi's native review host relay performs a provider completion outside
-  # Pi's ordinary agent loop. OpenCode requires the current conversation id in
-  # x-opencode-session; pi-ai already derives that header from
-  # SimpleStreamOptions.sessionId, so preserve the real Pi session through the
-  # relay instead of synthesising a second identity or a raw header here.
-  patchGentleReviewRelaySession = writeText "patch-gentle-review-relay-session.mjs" ''
-    import fs from "node:fs";
-    import path from "node:path";
-
-    const [packageRoot] = process.argv.slice(2);
-    if (!packageRoot) throw new Error("missing gentle-pi package root");
-
-    const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
-    if (packageJson.name !== "gentle-pi" || typeof packageJson.version !== "string") {
-      throw new Error("gentle-pi review relay session patch: incompatible package.json");
-    }
-
-    const marker = "LOON_REVIEW_RELAY_SESSION_PATCH_V1";
-    const read = (relativePath) => fs.readFileSync(path.join(packageRoot, relativePath), "utf8");
-    const write = (relativePath, text) => fs.writeFileSync(path.join(packageRoot, relativePath), text);
-    const replaceOnce = (relativePath, text, from, to) => {
-      const count = text.split(from).length - 1;
-      if (count !== 1) {
-        throw new Error(
-          "gentle-pi review relay session patch: expected one occurrence in "
-          + relativePath + ", found " + count,
-        );
-      }
-      return text.replace(from, to);
-    };
-
-    const reviewerPath = "lib/inprocess-reviewer.ts";
-    let reviewer = read(reviewerPath);
-    if (!reviewer.includes(marker)) {
-      reviewer = replaceOnce(
-        reviewerPath,
-        reviewer,
-        "\treadonly timeoutMs: number;\n\treadonly signal?: AbortSignal;",
-        "\treadonly timeoutMs: number;\n"
-          + "\t/** " + marker + ": the owning Pi conversation; pi-ai maps it to provider session routing. */\n"
-          + "\treadonly sessionId?: string;\n"
-          + "\treadonly signal?: AbortSignal;",
-      );
-      reviewer = replaceOnce(
-        reviewerPath,
-        reviewer,
-        "\t\ttimeoutMs: request.timeoutMs,\n\t\t...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),",
-        "\t\ttimeoutMs: request.timeoutMs,\n"
-          + "\t\t...(request.sessionId === undefined || request.sessionId.length === 0 ? {} : { sessionId: request.sessionId }),\n"
-          + "\t\t...(auth.apiKey === undefined ? {} : { apiKey: auth.apiKey }),",
-      );
-      write(reviewerPath, reviewer);
-    }
-
-    const relayPath = "lib/review-host-relay.ts";
-    let relay = read(relayPath);
-    if (!relay.includes(marker)) {
-      relay = replaceOnce(
-        relayPath,
-        relay,
-        "\treadonly piTimeoutMs?: number;\n\treadonly signal?: AbortSignal;",
-        "\treadonly piTimeoutMs?: number;\n"
-          + "\t/** " + marker + ": owning Pi session forwarded to the provider completion. */\n"
-          + "\treadonly sessionId?: string;\n"
-          + "\treadonly signal?: AbortSignal;",
-      );
-      relay = replaceOnce(
-        relayPath,
-        relay,
-        "\t\t\t\ttimeoutMs: piTimeoutMs,\n\t\t\t\t...(preparedRequest.signal === undefined ? {} : { signal: preparedRequest.signal }),",
-        "\t\t\t\ttimeoutMs: piTimeoutMs,\n"
-          + "\t\t\t\t...(preparedRequest.sessionId === undefined ? {} : { sessionId: preparedRequest.sessionId }),\n"
-          + "\t\t\t\t...(preparedRequest.signal === undefined ? {} : { signal: preparedRequest.signal }),",
-      );
-      write(relayPath, relay);
-    }
-
-    const extensionPath = "extensions/gentle-ai.ts";
-    let extension = read(extensionPath);
-    if (!extension.includes(marker)) {
-      extension = replaceOnce(
-        extensionPath,
-        extension,
-        "\tsignal?: AbortSignal,\n\tmodelRegistry?: InProcessReviewerRegistry,\n): Promise<Record<string, unknown>> {",
-        "\tsignal?: AbortSignal,\n"
-          + "\tmodelRegistry?: InProcessReviewerRegistry,\n"
-          + "\t// " + marker + ": preserve the parent session across the side completion.\n"
-          + "\tsessionId?: string,\n"
-          + "): Promise<Record<string, unknown>> {",
-      );
-      extension = replaceOnce(
-        extensionPath,
-        extension,
-        "\t\t\t\t...(modelRegistry === undefined ? {} : { reviewerRegistry: modelRegistry }),\n\t\t\t\t...(signal === undefined ? {} : { signal }),",
-        "\t\t\t\t...(modelRegistry === undefined ? {} : { reviewerRegistry: modelRegistry }),\n"
-          + "\t\t\t\t...(sessionId === undefined || sessionId.length === 0 ? {} : { sessionId }),\n"
-          + "\t\t\t\t...(signal === undefined ? {} : { signal }),",
-      );
-      extension = replaceOnce(
-        extensionPath,
-        extension,
-        "\tmodelRegistry?: InProcessReviewerRegistry,\n): Promise<Record<string, unknown>> {\n\tconst parameters = parseReviewCaptureParameters(parametersValue);",
-        "\tmodelRegistry?: InProcessReviewerRegistry,\n"
-          + "\tsessionId?: string,\n"
-          + "): Promise<Record<string, unknown>> {\n"
-          + "\tconst parameters = parseReviewCaptureParameters(parametersValue);",
-      );
-      extension = extension.replaceAll(
-        "route, signal, modelRegistry))",
-        "route, signal, modelRegistry, sessionId))",
-      );
-      extension = replaceOnce(
-        extensionPath,
-        extension,
-        "\tmodelRegistry?: InProcessReviewerRegistry,\n): Promise<Record<string, unknown>> {\n\tconst parameters = parseReviewCaptureGroupParameters(parametersValue);",
-        "\tmodelRegistry?: InProcessReviewerRegistry,\n"
-          + "\tsessionId?: string,\n"
-          + "): Promise<Record<string, unknown>> {\n"
-          + "\tconst parameters = parseReviewCaptureGroupParameters(parametersValue);",
-      );
-      extension = replaceOnce(
-        extensionPath,
-        extension,
-        "\t\t...(modelRegistry === undefined ? {} : { reviewerRegistry: modelRegistry }),\n\t\t...(signal === undefined ? {} : { signal }),\n\t}));",
-        "\t\t...(modelRegistry === undefined ? {} : { reviewerRegistry: modelRegistry }),\n"
-          + "\t\t...(sessionId === undefined || sessionId.length === 0 ? {} : { sessionId }),\n"
-          + "\t\t...(signal === undefined ? {} : { signal }),\n"
-          + "\t}));",
-      );
-      const toolRegistryTail = "\t\t\t\tctx.modelRegistry,\n\t\t\t);";
-      const toolRegistryCount = extension.split(toolRegistryTail).length - 1;
-      if (toolRegistryCount !== 2) {
-        throw new Error(
-          "gentle-pi review relay session patch: expected two review tool registry call sites in "
-          + extensionPath + ", found " + toolRegistryCount,
-        );
-      }
-      extension = extension.replaceAll(
-        toolRegistryTail,
-        "\t\t\t\tctx.modelRegistry,\n\t\t\t\toddSessionId(ctx),\n\t\t\t);",
-      );
-      write(extensionPath, extension);
-    }
-  '';
-
-  verifyGentleReviewRelaySession = writeText "verify-gentle-review-relay-session.mjs" ''
-    import assert from "node:assert/strict";
-    import fs from "node:fs";
-    import path from "node:path";
-
-    const [packageRoot] = process.argv.slice(2);
-    const reviewer = fs.readFileSync(path.join(packageRoot, "lib", "inprocess-reviewer.ts"), "utf8");
-    const relay = fs.readFileSync(path.join(packageRoot, "lib", "review-host-relay.ts"), "utf8");
-    const extension = fs.readFileSync(path.join(packageRoot, "extensions", "gentle-ai.ts"), "utf8");
-    assert.ok(reviewer.includes("LOON_REVIEW_RELAY_SESSION_PATCH_V1"));
-    assert.ok(reviewer.includes("{ sessionId: request.sessionId }"));
-    assert.ok(relay.includes("{ sessionId: preparedRequest.sessionId }"));
-    assert.equal(extension.split("ctx.modelRegistry,\n\t\t\t\toddSessionId(ctx),").length - 1, 2);
-    assert.equal(extension.split("route, signal, modelRegistry, sessionId))").length - 1, 2);
-    assert.ok(extension.includes("{ sessionId }"));
-  '';
-
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
     import crypto from "node:crypto";
     import fs from "node:fs";
@@ -1481,7 +1320,6 @@ writeShellApplication {
     }
     install_missing_package pi-antigravity npm:pi-antigravity
     install_missing_package pi-discord-activity npm:pi-discord-activity
-    install_missing_package @juicesharp/rpiv-ask-user-question npm:@juicesharp/rpiv-ask-user-question
     install_missing_package pi-web-access npm:pi-web-access
     install_missing_package pi-btw npm:pi-btw
     install_missing_package pi-commandcode-provider npm:pi-commandcode-provider
@@ -1622,8 +1460,8 @@ NODE
     node "${verifyGentleEffectiveRoute}" "$gentle_pi_root"
     node "${patchGentleSddForeground}" "$gentle_pi_root"
     node "${verifyGentleSddForeground}" "$gentle_pi_root"
-    node "${patchGentleReviewRelaySession}" "$gentle_pi_root"
-    node "${verifyGentleReviewRelaySession}" "$gentle_pi_root"
+    # gentle-pi ≥ 3.5.1 ya reenvía el sessionId de la sesión viva al relay del
+    # reviewer (campo reviewerSessionId), por lo que el parche local quedó redundante y se retiró.
 
     # This local UI is repository-owned code, not a retained external release.
     # Keep Pi pointed at its stable local identity across Nix generations.
