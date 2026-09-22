@@ -120,7 +120,7 @@ The repository configuration MUST migrate existing SteaMidra consumption on `nix
 1. `modules/programs/default.nix` MUST import the `./steamidra` module so that all repository hosts have access to `programs.steamidra`.
 2. `hosts/nixos-pc/gaming.nix` MUST set `programs.steamidra.enable = true;` and remove direct package references and the `steamidra` parameter.
 3. `flake.nix` MUST remove `steamidra = pkgs.callPackage ./pkgs/steamidra { };` from `specialArgs` in `mkHost`.
-4. Other repository hosts (`loon-laptop` and `korosoft`) MUST remain with `programs.steamidra.enable = false` by default, producing no evaluation or package closure changes.
+4. The other repository host (`loon-laptop`) MUST remain with `programs.steamidra.enable = false` by default, producing no evaluation or package closure changes.
 
 #### Scenario: nixos-pc evaluates and builds with module enabled
 
@@ -130,9 +130,9 @@ The repository configuration MUST migrate existing SteaMidra consumption on `nix
 - AND the SteaMidra package is present in `environment.systemPackages` of `nixos-pc`
 - AND no `steamidra` attribute is required or passed in `specialArgs`.
 
-#### Scenario: loon-laptop and korosoft remain untouched
+#### Scenario: loon-laptop remains untouched
 
-- GIVEN the repository flake configurations for hosts `loon-laptop` and `korosoft`
+- GIVEN the repository flake configuration for host `loon-laptop`
 - WHEN evaluated
 - THEN `programs.steamidra.enable` evaluates to `false`
 - AND no SteaMidra package is present in their `environment.systemPackages`.
@@ -153,5 +153,5 @@ The repository configuration MUST migrate existing SteaMidra consumption on `nix
 3. **Internal Repository Host Migration**:
    - `nixos-pc` evaluates cleanly with `programs.steamidra.enable = true`.
    - `specialArgs.steamidra` is eliminated from `flake.nix`.
-   - `loon-laptop` and `korosoft` evaluate cleanly with `programs.steamidra.enable = false` without containing the package.
+   - `loon-laptop` evaluates cleanly with `programs.steamidra.enable = false` without containing the package.
    - `nix flake check --no-build` passes with zero errors.

@@ -1,6 +1,6 @@
 strict_tdd: false
 context: |
-  loon-flakes is a multi-host NixOS configuration repository (hosts: loon-laptop, nixos-pc, korosoft) powered by Nix flakes.
+  loon-flakes is a multi-host NixOS configuration repository (hosts: loon-laptop, nixos-pc) powered by Nix flakes.
   Detected markers: Nix flake, NixOS modules, custom packages under pkgs/.
   Package managers: nix.
   Primary check command: nix flake check --no-build.

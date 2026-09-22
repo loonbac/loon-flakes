@@ -235,7 +235,6 @@
           nix-flatpak.nixosModules.nix-flatpak
           lanzaboote.nixosModules.lanzaboote
         ];
-        "korosoft" = mkHost "korosoft" [ ];
       };
     };
 }

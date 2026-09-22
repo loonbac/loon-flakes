@@ -9,8 +9,7 @@ Workspace Root: /home/loonbac/.nixos
 - **Stack**: NixOS multi-host configuration (Nixpkgs 26.05) managed with Nix Flakes.
 - **Hosts**:
   - `loon-laptop`: Dell XPS laptop (Intel iHD/i915 graphics, dedicated AC/battery power management).
-  - `nixos-pc`: AMD Ryzen 7 5700X desktop with NVIDIA GPU.
-  - `korosoft`: Secondary configuration profile.
+  - `nixos-pc`: AMD Ryzen 7 5700X desktop with NVIDIA GPU (primary machine).
 - **Repository Structure**:
   - `flake.nix` & `flake.lock`: Entrypoint flake declaring inputs, outputs, packages, and NixOS configurations.
   - `pkgs/`: Custom derivation packages (`rebuild`, `loon-launch`, `steamidra`, `vision-cursor`, etc.).
