@@ -166,6 +166,16 @@ in
   # sistema; sus .pc conservan las rutas exactas del store para headers/libs.
   environment.pathsToLink = [ "/lib/pkgconfig" "/share/pkgconfig" ];
 
+  # Un proceso root (sudo nixos-rebuild, o la unidad desacoplada de `rebuild`)
+  # debe poder evaluar el flake del usuario: libgit2 rechaza un repositorio git
+  # cuyo dueño no es el usuario efectivo, y no respeta las variables
+  # GIT_CONFIG_*; esta entrada lo habilita explícitamente sin perder la
+  # semántica git (solo archivos trackeados).
+  environment.etc."gitconfig".text = ''
+    [safe]
+    	directory = /home/loonbac/.nixos
+  '';
+
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
