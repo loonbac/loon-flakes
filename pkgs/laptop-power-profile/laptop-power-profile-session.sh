@@ -38,21 +38,6 @@ wait_for_edp() {
   err "eDP-1 no estuvo disponible antes de vencer la espera"
   return 1
 }
-wait_for_wallpaper() {
-  local _ wallpaper
-  for _ in $(seq 1 30); do
-    wallpaper=$(mpvpaper-wallpaper status 2>/dev/null)
-    case "$wallpaper" in
-      playing|paused)
-        printf '%s\n' "$wallpaper"
-        return 0
-        ;;
-    esac
-    sleep 0.2
-  done
-  err "mpvpaper sigue stopped o unavailable; se omite el cambio de pausa"
-  return 1
-}
 target_mode() {
   local minimum=$1 maximum=$2
   outputs_json | jq -r --argjson minimum "$minimum" --argjson maximum "$maximum" '
@@ -98,17 +83,24 @@ apply_profile() {
   fi
   if on_ac; then
     set_display_mode 119000 121000
-    wallpaper=$(wait_for_wallpaper) || wallpaper=""
-    # Los motivos de pausa se apilan: en AC se retira solo el motivo 'power-profile'
-    # y el wallpaper reanuda únicamente si no restan otros motivos (ej. ventana opaca).
-    [ -n "$wallpaper" ] && mpvpaper-wallpaper resume power-profile >/dev/null 2>&1 || true
+    # En AC se retira primero el motivo de pausa heredado ('power-profile') para
+    # que un video restaurado nunca inicie en pausa. Si la capa animada está
+    # detenida, se relanza mpvpaper con la selección persistida en
+    # ~/.config/mpvpaper/current.txt (si ya reproduce o está pausada, se conserva).
+    # Las pausas por ventanas opacas (niri-wallpaper-visibility) operan de forma
+    # independiente y continúan vigentes.
+    mpvpaper-wallpaper resume power-profile >/dev/null 2>&1 || true
+    wallpaper=$(mpvpaper-wallpaper status 2>/dev/null)
+    [ "$wallpaper" = stopped ] && mpvpaper-wallpaper >/dev/null 2>&1 || true
     echo ac-rendimiento
   else
     set_display_mode 59000 61000
-    wallpaper=$(wait_for_wallpaper) || wallpaper=""
-    # Pausa con motivo 'power-profile' apilado: registrar siempre nuestro marcador
-    # otorga inmunidad a resumes ajenos (carrusel o atajos) mientras dure la batería.
-    [ -n "$wallpaper" ] && mpvpaper-wallpaper pause power-profile >/dev/null 2>&1 || true
+    # En batería se detiene la capa animada (mpvpaper) para que quede visible el
+    # fondo estático gestionado por awww (ahorro de energía y preferencia de
+    # usuario). Los motivos de pausa por ventana opaca (niri-wallpaper-visibility)
+    # siguen operando de forma independiente y son inocuos con la capa detenida.
+    wallpaper=$(mpvpaper-wallpaper status 2>/dev/null)
+    [ "$wallpaper" != stopped ] && mpvpaper-wallpaper stop >/dev/null 2>&1 || true
     echo bateria-ahorro
   fi
 }

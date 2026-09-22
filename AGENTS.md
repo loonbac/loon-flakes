@@ -487,7 +487,10 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Pausa de wallpaper por motivo**: el perfil AC/batería pausa con
   `mpvpaper-wallpaper pause power-profile`; los motivos se apilan y `resume`
   solo elimina el suyo — no usar `pause`/`resume` sin motivo para políticas
-  persistentes.
+  persistentes. En batería el perfil **detiene** la capa animada
+  (`mpvpaper-wallpaper stop`) para dejar visible el fondo estático de awww, y en
+  AC relanza el video seteado (`~/.config/mpvpaper/current.txt`); las pausas por
+  motivo quedan para la visibilidad de ventanas opacas.
 
 ---
 
