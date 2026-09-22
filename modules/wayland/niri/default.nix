@@ -122,6 +122,17 @@ in
     });
   };
 
+  # El portal puede activarse por D-Bus incluso sin una sesión gráfica (por
+  # ejemplo desde un proceso lanzado por SSH). Si eso ocurre antes de niri,
+  # arranca sin XDG_CURRENT_DESKTOP y conserva durante horas un conjunto de
+  # backends incompleto, sin ScreenCast. Rechaza esa activación temprana: una
+  # vez activo graphical-session.target, niri-session ya importó el entorno y
+  # el portal puede seleccionar niri-portals.conf correctamente.
+  systemd.user.services.xdg-desktop-portal = {
+    after = [ "graphical-session.target" ];
+    requisite = [ "graphical-session.target" ];
+  };
+
   # Config gestionada por NixOS: niri la lee como fallback desde /etc/niri.
   environment.etc."niri/config.kdl".source = niriConfig;
 
