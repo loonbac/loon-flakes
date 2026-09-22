@@ -470,6 +470,19 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **TS-Bypass**: `ALL_PROXY` usa el dialer SOCKS nativo de Tailscale. No
   duplicarlo en `HTTP_PROXY`/`HTTPS_PROXY`; esos nombres seleccionan la ruta
   HTTP CONNECT y causan `derphttp ... unexpected EOF` contra `ssh -D`.
+- **`switch` en vivo vs `boot`**: nunca correr `nixos-rebuild switch` en una
+  máquina que el usuario esté usando sin avisar: la activación re-servicia
+  unidades y puede tumbar la sesión, la red y el wallpaper (incidente
+  2026-09-22). Preferir `nixos-rebuild boot` (aplica en el próximo arranque,
+  cero interrupción) o `test`, y avisar siempre antes de una activación en vivo.
+- **Primera activación de `monitor.kdl`**: cuando se habilita `include "monitor.kdl"`
+  en una máquina donde el archivo aún no existe, niri puede registrar un error
+  de recarga hasta que tmpfiles cree el archivo; tras el primer arranque queda
+  sembrado y no vuelve a ocurrir.
+- **Pausa de wallpaper por motivo**: el perfil AC/batería pausa con
+  `mpvpaper-wallpaper pause power-profile`; los motivos se apilan y `resume`
+  solo elimina el suyo — no usar `pause`/`resume` sin motivo para políticas
+  persistentes.
 
 ---
 

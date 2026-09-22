@@ -99,12 +99,16 @@ apply_profile() {
   if on_ac; then
     set_display_mode 119000 121000
     wallpaper=$(wait_for_wallpaper) || wallpaper=""
-    [ "$wallpaper" = paused ] && mpvpaper-wallpaper resume >/dev/null 2>&1 || true
+    # Los motivos de pausa se apilan: en AC se retira solo el motivo 'power-profile'
+    # y el wallpaper reanuda únicamente si no restan otros motivos (ej. ventana opaca).
+    [ -n "$wallpaper" ] && mpvpaper-wallpaper resume power-profile >/dev/null 2>&1 || true
     echo ac-rendimiento
   else
     set_display_mode 59000 61000
     wallpaper=$(wait_for_wallpaper) || wallpaper=""
-    [ "$wallpaper" = playing ] && mpvpaper-wallpaper pause >/dev/null 2>&1 || true
+    # Pausa con motivo 'power-profile' apilado: registrar siempre nuestro marcador
+    # otorga inmunidad a resumes ajenos (carrusel o atajos) mientras dure la batería.
+    [ -n "$wallpaper" ] && mpvpaper-wallpaper pause power-profile >/dev/null 2>&1 || true
     echo bateria-ahorro
   fi
 }
