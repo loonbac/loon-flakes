@@ -94,6 +94,9 @@ in
       "${systemctl} --no-block restart laptop-power-profile-debounce.timer";
   };
 
+  # Controles de hardware y sesión de bajo consumo de Moonlight exclusivos de la laptop.
+  services.moonlight-power.enable = true;
+
   # El modo temporal explícito de Moonlight conserva prioridad. Al terminar,
   # se reaplica la política AC/batería real y luego se actualiza la sesión.
   systemd.services.moonlight-power-root.serviceConfig.ExecStopPost =

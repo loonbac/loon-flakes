@@ -1061,10 +1061,10 @@ nixosConfigurations = {
   `modules/networking/default.nix`.
 - La contraseña de `loonbac` NO se guarda en este repo: se define con
   `passwd` en la máquina.
-- Cisco Packet Tracer se incluye en `loon-laptop` (y su alias legado
-  `korosoft`) mediante `pkgs/cisco-packet-tracer`, pero su `.deb` propietario
-  debe aportarse manualmente y coincidir con el hash fijado. `nixos-pc` lo
-  omite para poder reconstruirse desde un checkout limpio.
+- Cisco Packet Tracer ya no se incluye por defecto en `loon-laptop`; ahora es
+  un módulo opt-in (`programs.cisco-packet-tracer.enable = true;`) deshabilitado
+  en todos los hosts hasta que el usuario decida instalarlo. Su `.deb`
+  propietario debe aportarse manualmente y coincidir con el hash fijado.
 
 ## ¿Por qué no hay `configuration.nix` ya?
 

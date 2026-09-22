@@ -16,3 +16,7 @@ result-*
 # Local Pi runtime state
 .atl/
 .pi/
+
+# Bookkeeping de ODD (no versionado)
+odd/
+

@@ -41,6 +41,22 @@ in
     priority = 100;
   };
 
+  hardware.brightness.backend = "ddc";
+
+  # Configuración inicial de salidas para niri (monitores de nixos-pc).
+  programs.niri.defaultMonitorConfig = ''
+    // Valor inicial; nwg-displays puede reemplazar este archivo.
+    output "HDMI-A-1" {
+        hot-corners {
+            off
+        }
+    }
+
+    output "DP-2" {
+        mode "1920x1080@144.002"
+    }
+  '';
+
   # Los monitores externos no exponen /sys/class/backlight. DDC/CI viaja por
   # los buses I2C de la NVIDIA; este backend controla el monitor principal
   # GM3CC236 conectado a DP-2 y alimenta el indicador de Waybar.
@@ -50,7 +66,6 @@ in
     # Diagnóstico, verificación y enrolamiento manual de Secure Boot.
     pkgs.sbctl
     pkgs.ddcutil
-    ddcBrightness
   ];
 
   # Un único proceso conserva el estado, agrupa ráfagas de input y evita que

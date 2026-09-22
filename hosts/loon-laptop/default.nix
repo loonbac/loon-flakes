@@ -18,4 +18,6 @@
   networking.hostName = "loon-laptop";
   system.stateVersion = "26.05";
 
+  # Bypass de Tailscale supervisado por túnel SSH/SOCKS5 exclusivo de la laptop.
+  services.ts-bypass.enable = true;
 }

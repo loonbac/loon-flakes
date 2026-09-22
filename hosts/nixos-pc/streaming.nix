@@ -42,6 +42,10 @@ in
 {
   programs.veadotube-mini.enable = true;
   programs.obs-pwvideo.enable = true;
+
+  # El PC es la máquina de streaming: OBS captura `pear_twitch.monitor`.
+  programs.pear-desktop.twitchSink = true;
+
   programs.obs-studio.package = obsWithStreamingScripts;
   programs.obs-studio.plugins = [
     obsAitumVertical

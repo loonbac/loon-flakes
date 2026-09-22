@@ -5,10 +5,8 @@
 { config, lib, pkgs, ... }:
 
 let
-  brightnessCommand =
-    if config.networking.hostName == "loon-laptop" then "screen-brightness"
-    else if config.networking.hostName == "nixos-pc" then "ddc-brightness"
-    else null;
+  brightnessCommand = config.hardware.brightness.command;
+  isDdc = config.hardware.brightness.backend == "ddc";
   baseConfig = builtins.fromJSON (builtins.readFile ./config.jsonc);
   rightModules = baseConfig."group/right1".modules;
   hostConfig =
@@ -25,14 +23,14 @@ let
     // lib.optionalAttrs (brightnessCommand != null) {
       "custom/backlight" =
         (builtins.removeAttrs baseConfig."custom/backlight"
-          (lib.optionals (config.networking.hostName == "nixos-pc") [ "interval" ]))
+          (lib.optionals isDdc [ "interval" ]))
         // {
           exec = "${brightnessCommand} json";
           on-scroll-up = "${brightnessCommand} up 5";
           on-scroll-down = "${brightnessCommand} down 5";
           # Waybar vuelve a ejecutar `exec` tras cada evento por defecto. En el
           # PC el daemon ya señala cada cambio y leer el estado local es inmediato.
-          "exec-on-event" = config.networking.hostName != "nixos-pc";
+          "exec-on-event" = !isDdc;
         };
     };
   generatedConfig = pkgs.writeText "waybar-config.json" (builtins.toJSON hostConfig);

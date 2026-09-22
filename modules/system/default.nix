@@ -24,12 +24,6 @@ let
     '';
   };
 
-  # Packet Tracer depende de un instalador propietario aportado manualmente
-  # al store de la laptop. No bloquear hosts nuevos que no poseen ese archivo.
-  packetTracerPackages = lib.optionals
-    (builtins.elem config.networking.hostName [ "loon-laptop" "korosoft" ])
-    [ (pkgs.callPackage ../../pkgs/cisco-packet-tracer { }) ];
-
   # Runtimes y outputs de desarrollo requeridos por Tauri/WebKitGTK. Los
   # outputs dev aportan los headers y archivos .pc que consulta pkg-config.
   tauriPackages = with pkgs; [
@@ -65,6 +59,8 @@ in
 {
   imports = [
     ./plymouth.nix
+    ./brightness.nix
+    ./coredump.nix
   ];
 
   # ---- Zona horaria y localización ----
@@ -283,5 +279,5 @@ in
     inxi               # resumen completo de hardware y sistema
     lshw               # listado detallado de hardware
     iw                 # estado y configuración de interfaces WiFi
-  ] ++ tauriPackages ++ tauriDevelopmentPackages ++ packetTracerPackages;
+  ] ++ tauriPackages ++ tauriDevelopmentPackages;
 }

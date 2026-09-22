@@ -3,7 +3,6 @@
 { config, lib, pkgs, ... }:
 
 let
-  isLoonLaptop = config.networking.hostName == "loon-laptop";
   stateDir = "/var/lib/ts-bypass";
   environmentFile = "${stateDir}/tailscaled.env";
 
@@ -69,12 +68,16 @@ let
   };
 in
 {
+  options.services.ts-bypass = {
+    enable = lib.mkEnableOption "túnel SSH supervisor para bypass de Tailscale";
+  };
+
   config = lib.mkMerge [
     {
       services.tailscale.enable = true;
     }
 
-    (lib.mkIf isLoonLaptop {
+    (lib.mkIf config.services.ts-bypass.enable {
       environment.systemPackages = [ tsBypass ];
 
       programs.ssh.knownHosts."vps.korosoft.net".publicKey =

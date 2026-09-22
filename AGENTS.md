@@ -1,15 +1,39 @@
 # AGENTS.md — loon-flakes (NixOS multi-host)
 
 Guía para agentes/asesores que trabajen sobre la configuración de NixOS de las
-máquinas **loon-laptop** y **nixos-pc**. Léelo completo antes de tocar nada: contiene el
-contexto, los flujos exactos y las trampas aprendidas en el camino.
+máquinas **loon-laptop** y **nixos-pc**. Léelo completo antes de
+tocar nada: contiene el contexto, los estándares de arquitectura, los flujos
+exactos y las trampas aprendidas en el camino.
+
+**Índice**
+
+1. Contexto general
+2. Estructura del repo
+3. Estándares de arquitectura (manifiesto de modularidad)
+4. Flujo estándar
+5. Política obligatoria de versiones: no fijar aplicaciones
+6. Tareas comunes
+7. Lecciones aprendidas (gotchas)
+8. Cheat sheet
+9. Notas de seguridad
 
 ---
 
 ## Contexto general
 
-- **Máquinas**: NixOS 26.05; `loon-laptop` (Dell, `192.168.0.2`) y
-  `nixos-pc` (ASRock B550/Ryzen 7 5700X/NVIDIA, `192.168.0.10`).
+- **Máquinas** (NixOS 26.05; dos hosts en `flake.nix` → `nixosConfigurations`):
+  - `loon-laptop` (Dell, `192.168.0.2`) — portátil Intel, el único con `power.nix`.
+  - `nixos-pc` (ASRock B550/Ryzen 7 5700X/NVIDIA, `192.168.0.10`) — escritorio
+    y máquina principal.
+- **Objetivo de paridad**: ambas máquinas comparten la misma configuración de
+  usuario (apps, shell, terminal, temas, atajos, sesión). `nixos-pc` es la
+  referencia —es donde más se usa y donde se ha añadido más software— y
+  `loon-laptop` converge hacia ella. Solo difieren hardware, discos, monitores
+  y energía, que viven en `hosts/<host>/`.
+- **Roles**: `nixos-pc` = gaming + streaming (OBS con plugins, Sunshine y gaming
+  se quedan solo ahí); `loon-laptop` = solo productividad (OBS queda pelado, sin
+  gaming por ahora). Los servicios de batería (`power.nix`, `ts-bypass`,
+  `moonlight-power`) son exclusivos de la laptop; la PC no los lleva.
 - **Acceso SSH**: `ssh loonbac@192.168.0.2` o
   `ssh loonbac@192.168.0.10`, con la clave `~/.ssh/id_ed25519`
   (la máquina local ya tiene la clave en `authorized_keys`, **sin contraseña**).
@@ -27,43 +51,144 @@ contexto, los flujos exactos y las trampas aprendidas en el camino.
 
 ```
 ~/.nixos/
-├── flake.nix                  # inputs (nixpkgs 26.05), mkHost, packages
+├── flake.nix                  # inputs, mkHost (composición) y outputs del flake
+│                              #   (packages, overlays, nixosModules, nixosConfigurations)
 ├── flake.lock                 # lockfile (versionar, no tocar a mano)
 ├── README.md                  # doc de usuario
 ├── AGENTS.md                  # este archivo
-├── pkgs/
+├── pkgs/                      # 43 piezas propias: una carpeta = un concepto (regla 6)
 │   ├── rebuild/               # comando custom `rebuild`
-│   └── loon-launch/           # launcher Rust (GTK4 + libadwaita)
-│       ├── Cargo.toml
-│       ├── Cargo.lock
-│       ├── default.nix        # buildRustPackage
-│       └── src/main.rs
-├── hosts/
-│   ├── loon-laptop/
-│   │   ├── default.nix        # identidad del host (solo compone)
-│   │   ├── platform.nix       # hardware/políticas exclusivas del Dell
-│   │   ├── power.nix          # perfil AC/batería exclusivo del Dell
-│   │   └── hardware-configuration.nix  # autogenerado, NO tocar
-│   └── nixos-pc/
-│       ├── default.nix        # identidad del PC
-│       ├── platform.nix       # plataforma AMD/NVIDIA del PC
-│       └── hardware-configuration.nix  # autogenerado, NO tocar
-└── modules/
-    ├── default.nix            # mod raíz: registra todos los módulos
-    ├── system/                # boot, timezone, locale, systemPackages
+│   ├── loon-launch/           # launcher Rust (GTK4 + libadwaita): Cargo.toml, src/main.rs
+│   ├── nixos-ssh/ ts-bypass/ laptop-power-profile/ moonlight-power/ ...
+│   │                          #   operación de sistema, energía y red
+│   ├── mpvpaper-wallpaper/ niri-cycle/ accent-wallpaper/ mac-plymouth/ ...
+│   │                          #   wallpaper, niri y aspecto
+│   ├── obs-*/ equibop-*/ veadotube-mini/ karaoke-separator/ steamidra/ ...
+│   │                          #   streaming y gaming
+│   └── pi*/ gentle-ai*/ engram*/ gga/   # stack de agentes (launchers mutables)
+├── hosts/                     # identidad + hardware por máquina; solo compone
+│   ├── loon-laptop/           # Dell: default.nix, platform.nix (Intel), power.nix (AC/batería),
+│   │                          #   extras-disk.nix (disco Proyectos sda1) y
+│   │                          #   hardware-configuration.nix (autogenerado, NO tocar)
+│   └── nixos-pc/              # PC: default.nix, platform.nix (NVIDIA/lanzaboote), hardware...
+│                              #   y por capacidad: games-disk, projects-disk, gaming,
+│                              #   streaming, sunshine (*.nix)
+└── modules/                   # módulos compartidos por ambos hosts
+    ├── default.nix            # mod raíz: registra todo + aserción de tmpfiles
+    ├── system/                # boot, locale, fuentes, systemPackages
+    │   ├── brightness.nix     #   opción hardware.brightness: comando screen-brightness único en ambas máquinas
+    │   ├── coredump.nix       #   política de coredump compartida
+    │   └── plymouth.nix       #   splash de arranque
     ├── networking/            # networkmanager, firewall
-    ├── services/
-    │   ├── default.nix        # registra sub-servicios
-    │   └── openssh/           # servicio SSH (solo claves)
+    ├── services/              # openssh, tailscale (+ts-bypass), udisks2, nixos-updates,
+    │                          #   moonlight-power
+    ├── programs/              # 21 módulos: fish, ghostty, gtk, hyprlock, nautilus, swaync,
+    │                          #   waybar, yazi, wine, virtualbox, waydroid, steam, steamidra,
+    │                          #   veadotube-mini, equibop, gentle-ai, obs-studio, obs-pwvideo,
+    │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch),
+    │                          #   cisco-packet-tracer (opcional, deshabilitado)
     ├── wayland/
-    │   ├── default.nix        # registra compositores/greeters
-    │   ├── niri/              # compositor niri + config.kdl gestionado
+    │   ├── niri/              # compositor: config.kdl + session-services.nix (unidades sesión)
     │   └── dms-greeter/       # greeter DankMaterialShell
     └── users/                 # usuario loonbac, grupos
-
-`modules/programs/` contiene además los módulos `fish/`, `ghostty/`,
-`waybar/` y `equibop/` (ver "Equibop + Tailscale" en Lecciones aprendidas).
 ```
+
+Cada módulo de `modules/programs/` sigue el mismo patrón: `default.nix` con la
+configuración y reglas tmpfiles que enlazan `/etc/<app>/` → `~/.config/<app>/`
+(ver gotchas de tmpfiles en Lecciones aprendidas).
+
+---
+
+## Estándares de arquitectura (manifiesto de modularidad)
+
+El manifiesto del home (`~/AGENTS.md`, «Modularidad Cohesiva y Componentes
+Reutilizables») aplica a este repo traducido a Nix: un **módulo** es un módulo
+Nix, un **componente reutilizable** es un paquete de `pkgs/` y el **producto**
+es la configuración del sistema. Regla central: juntar lo que cambia por la
+misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios.
+
+### Reglas
+
+1. **Organización por capacidad.** `modules/` agrupa por subsistema (system,
+   networking, services, programs, wayland, users) y cada host descompone sus
+   capacidades en archivos nombrables (`gaming.nix`, `streaming.nix`,
+   `sunshine.nix`, `games-disk.nix`). No crear archivos por crear: una
+   capacidad pequeña cabe en el `default.nix` de su módulo.
+2. **Una responsabilidad por módulo, con dueño claro.** Un módulo = una
+   capacidad nombrable (ssh, tailscale, niri, steam). `modules/system/` se
+   reserva a arranque, locale, keymap, fuentes y paquetes base; no debe
+   acumular temas ajenos (asociaciones MIME, wrappers de apps concretas,
+   toolchains de un proyecto...).
+3. **La configuración de una máquina vive en `hosts/<host>/`.** Hardware,
+   discos, servicios y políticas exclusivos de un host jamás viven en
+   `modules/`. Ejemplo correcto: `hosts/nixos-pc/games-disk.nix`. Deuda hoy:
+   `modules/system/extras-disk.nix` (disco de loon-laptop) en el árbol
+   compartido.
+4. **Los módulos compartidos no bifurcan por hostname.** Nada de
+   `lib.mkIf (config.networking.hostName == ...)` dentro de `modules/` para
+   decidir qué instalar: el módulo expone su interfaz (opción `enable`,
+   parámetros) y el host compone lo que necesita. Deuda hoy: `tailscale`
+   (ts-bypass), `moonlight-power`, `waybar`, `niri` y `system` bifurcan por
+   hostname.
+5. **Composición explícita.** La única capa de composición es `flake.nix`
+   (`mkHost`) + `hosts/<host>/default.nix`: `mkHost` inyecta `./modules`
+   completo y el host agrega sus extras (nixos-pc añade lanzaboote, nix-flatpak
+   y citron-nextendo). Lo que un host necesita se declara ahí, no condicionado
+   dentro de los módulos.
+6. **`pkgs/` es el catálogo de piezas reutilizables.** Una carpeta por concepto
+   con nombre semántico (`ts-bypass`, `mpvpaper-wallpaper`, `niri-cycle`);
+   prohibido `utils/`, `helpers/`, `common/`. Compartir una pieza solo con
+   consumidores reales; si solo la usa un host, puede vivir junto a su
+   consumidor.
+7. **Sin duplicación que evolucione junta.** Un paquete se declara una sola vez
+   (en su módulo dedicado, no también en `systemPackages`); un
+   `hardware-configuration.nix` no se copia entre hosts; el patrón de tmpfiles
+   que enlaza `/etc/<app>` → `~/.config/<app>` se mantiene en un único lugar.
+8. **Sin abstracciones para futuros imaginados.** Ni overlays/`nixosModules`
+   exportados sin consumidor real, ni paquetes sin referencias, ni cargas
+   pesadas activadas en todos los hosts sin necesidad: una capacidad pesada
+   (virtualbox, waydroid, wine) se activa con opción `enable` o solo donde se
+   usa.
+9. **Verificación proporcionada.** Existe: `niri-config-check` (valida
+   `config.kdl` en el build), `niri validate --config`, la aserción de tmpfiles
+   multilínea (`modules/default.nix`) y tests unitarios de `pkgs/`
+   (loon-launch, pi-ssh-clipboard, equibop-voice-normalizer). Obligatorio al
+   tocar un módulo compartido: validar ambos hosts (`rebuild dry` o
+   `nixos-rebuild build --flake .#<host>`). Falta: `checks` en `flake.nix`, así
+   que `nix flake check` no evalúa los hosts.
+10. **Cambios acotados.** Una tarea localizada no reorganiza el repo entero: las
+    mejoras que no hacen falta para el objetivo se proponen aparte. La política
+    de versiones de arriba manda siempre (sin pins manuales).
+
+### Estado de cumplimiento (auditoría 2026-09-22, actualizado tras parity-phase1)
+
+| Regla | Estado | Referencia |
+| :--- | :--- | :--- |
+| Organización por capacidad | Cumple | `hosts/nixos-pc/*.nix` y `modules/` por subsistema |
+| Responsabilidad única | Parcial | `modules/system/default.nix` acumula ~290 líneas de temas ajenos |
+| Config de host en `hosts/<host>/` | Cumple | `extras-disk.nix` movido a `hosts/loon-laptop/`; ts-bypass/moonlight-power activados solo desde la laptop |
+| Sin branching por hostname | Cumple | `grep -rn "networking.hostName" modules/` sin resultados; sustituido por `hardware.brightness.backend`, `services.ts-bypass.enable`, `services.moonlight-power.enable` y `programs.cisco-packet-tracer.enable` |
+| Composición explícita | Cumple | `mkHost` + `hosts/<host>/default.nix` (korosoft, host inexistente con import cruzado, fue eliminado el 2026-09-22) |
+| `pkgs/` sin vertederos | Cumple | 43 paquetes con nombre por concepto; sin `utils/` ni `helpers/` |
+| Sin duplicación | Incumple | `fish`/`ghostty`/`yazi`/`notepad-next` declarados dos veces; patrón tmpfiles repetido |
+| Sin abstracciones muertas | Incumple | `pkgs/vision-cursor/` sin referencias; overlays exportados que `mkHost` no consume; virtualbox/waydroid/wine globales |
+| Verificación proporcionada | Parcial | checks de niri/tmpfiles/tests sí; output `checks` del flake no |
+| Cambios acotados | Práctica | se exige en cada tarea (sección 6.3 del manifiesto) |
+
+### Deudas conocidas (orden de abordaje sugerido)
+
+1. Dividir `modules/system/default.nix`: paquetes base vs. temas concretos.
+2. Activar virtualbox/waydroid/wine/obs-studio solo donde se usan (opción
+   `enable`).
+3. Unificar `fish`/`ghostty`/`yazi`/`notepad-next`: declararlos solo en su
+   módulo, no también en `systemPackages`.
+4. Retirar `pkgs/vision-cursor/` (huérfano) y decidir si los
+   overlays/`nixosModules` exportados tienen consumidor externo real (hoy son
+   aliases de compatibilidad; si no los tiene, retirarlos).
+5. Mover los puertos 5173/8080 del firewall al módulo/proyecto que los usa.
+6. Añadir `checks.${system}` al flake para evaluar ambos hosts.
+
+---
 
 ## Flujo estándar (aplica a casi todo)
 
@@ -196,6 +321,8 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Binds actuales**: `Super+Return` → ghostty, `Super+Space` → loon-launch.
   En XKB la tecla Enter se llama `Return`. `Super+Space` existe solo si se
   define; niri no tiene binds por defecto.
+- **Brillo**: el comando `screen-brightness` ahora funciona en ambas máquinas
+  (en la PC delega en `ddc-brightness`).
 
 ### Editar el perfil AC/batería de loon-laptop
 
@@ -207,7 +334,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `pkgs/laptop-power-profile/laptop-power-profile-session.sh`.
 - **Wallpaper IPC**: `mpvpaper-wallpaper pause|resume|status`; el socket vive
   en `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/mpv.sock`.
-- **Aislamiento**: comprobar siempre ambos hosts y verificar que korosoft no
+- **Aislamiento**: comprobar siempre ambos hosts y verificar que `nixos-pc` no
   tenga `laptop-power-profile.service` ni
   `laptop-power-profile-session.service`.
 
@@ -217,7 +344,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Hardware y drivers**: `hosts/nixos-pc/platform.nix`.
 - **Particiones detectadas**: `hosts/nixos-pc/hardware-configuration.nix`.
 - Nunca importar `hosts/loon-laptop/power.nix` ni
-  `modules/system/extras-disk.nix` desde este host.
+  `hosts/loon-laptop/extras-disk.nix` desde este host.
 - Validar ambos hosts: el PC no debe heredar el UUID extra, `i915`, `iHD` ni
   `laptop-power-profile`; la laptop debe conservarlos.
 
@@ -272,6 +399,16 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   DERP los trata como proxy HTTP, envía `CONNECT` y el SOCKS responde con EOF.
 - Verificar con `ts-bypass status` y
   `tailscale ping --until-direct=false nixos-pc`.
+
+### Habilitar Cisco Packet Tracer (cuando proceda)
+
+- **Activación**: definir `programs.cisco-packet-tracer.enable = true;` en el
+  `default.nix` del host correspondiente y correr `rebuild`.
+- **Instalador propietario**: requiere aportar manualmente el `.deb` propietario
+  que coincida con el hash fijado en `pkgs/cisco-packet-tracer/default.nix`
+  (mediante `nix store add`).
+- Intencionalmente **NO está instalado** en ningún host en este momento (módulo
+  opt-in deshabilitado por defecto hasta que el usuario decida instalarlo).
 
 ---
 

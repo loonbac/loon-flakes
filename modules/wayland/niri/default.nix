@@ -10,34 +10,17 @@
 
 let
   keyboardLayout = config.services.xserver.xkb.layout;
-  isNixosPc = config.networking.hostName == "nixos-pc";
-  isLoonLaptop = config.networking.hostName == "loon-laptop";
-  brightnessCommand =
-    if isLoonLaptop then "screen-brightness"
-    else if isNixosPc then "ddc-brightness"
-    else null;
-  hostOutputConfig = lib.optionalString isNixosPc ''
-    // Configuración editable generada por nwg-displays en nixos-pc.
+  hostOutputConfig = ''
+    // Configuración editable generada por nwg-displays.
     include "monitor.kdl"
   '';
-  hostBacklightBinds = lib.optionalString (brightnessCommand != null) ''
+  hostBacklightBinds = ''
     // Brillo con Fn+F6 / Fn+F7 usando el backend específico del host.
-    XF86MonBrightnessDown { spawn-sh "${brightnessCommand} down 10"; }
-    XF86MonBrightnessUp { spawn-sh "${brightnessCommand} up 10"; }
+    XF86MonBrightnessDown { spawn-sh "${config.hardware.brightness.command} down 10"; }
+    XF86MonBrightnessUp { spawn-sh "${config.hardware.brightness.command} up 10"; }
   '';
 
-  defaultMonitorConfig = pkgs.writeText "niri-default-monitor.kdl" ''
-    // Valor inicial; nwg-displays puede reemplazar este archivo.
-    output "HDMI-A-1" {
-        hot-corners {
-            off
-        }
-    }
-
-    output "DP-2" {
-        mode "1920x1080@144.002"
-    }
-  '';
+  defaultMonitorConfig = pkgs.writeText "niri-default-monitor.kdl" config.programs.niri.defaultMonitorConfig;
 
   # El tema GTK puede conservar en caché la ausencia de un icono cuando una
   # aplicación se instala con la sesión ya iniciada. Una ruta absoluta evita
@@ -66,9 +49,7 @@ let
       --replace-fail \
         '// HOST_BACKLIGHT_BINDS' \
         ${lib.escapeShellArg hostBacklightBinds}
-    ${lib.optionalString isNixosPc ''
-      cp ${defaultMonitorConfig} "$out/monitor.kdl"
-    ''}
+    cp ${defaultMonitorConfig} "$out/monitor.kdl"
   '';
   niriConfig = "${niriConfigDir}/config.kdl";
 
@@ -98,65 +79,75 @@ in
 {
   imports = [ ./session-services.nix ];
 
-  # GUI para configurar las salidas de Niri. Se instala solo en el PC de
-  # escritorio; la laptop conserva su configuración y paquetes actuales.
-  environment.systemPackages = lib.optionals isNixosPc [ nwgDisplays ];
-
-  programs.niri = {
-    enable = true;
-    # Parcheamos niri-session envolviendo el paquete con symlinkJoin para no recompilar niri desde código fuente.
-    # Esto silencia el aviso de deprecación en stderr de `systemctl --user import-environment`.
-    package = (pkgs.symlinkJoin {
-      name = "niri-patched";
-      paths = [ pkgs.niri ];
-      postBuild = ''
-        rm $out/bin/niri-session
-        substitute ${pkgs.niri}/bin/niri-session $out/bin/niri-session \
-          --replace-fail 'systemctl --user import-environment' 'systemctl --user import-environment PATH DBUS_SESSION_BUS_ADDRESS XDG_DATA_DIRS XDG_CONFIG_DIRS XDG_RUNTIME_DIR XAUTHORITY LANG LC_ALL LC_CTYPE 2>/dev/null'
-        chmod +x $out/bin/niri-session
+  options.programs.niri = {
+    defaultMonitorConfig = lib.mkOption {
+      type = lib.types.lines;
+      default = ''
+        // Valor inicial; nwg-displays puede reemplazar este archivo.
       '';
-    }).overrideAttrs (oldAttrs: {
-      passthru = (pkgs.niri.passthru or { }) // {
-        providedSessions = pkgs.niri.providedSessions or [ "niri" ];
-      };
-    });
+      description = "Configuración inicial de salidas para niri (monitor.kdl).";
+    };
   };
 
-  # El portal puede activarse por D-Bus incluso sin una sesión gráfica (por
-  # ejemplo desde un proceso lanzado por SSH). Si eso ocurre antes de niri,
-  # arranca sin XDG_CURRENT_DESKTOP y conserva durante horas un conjunto de
-  # backends incompleto, sin ScreenCast. Rechaza esa activación temprana: una
-  # vez activo graphical-session.target, niri-session ya importó el entorno y
-  # el portal puede seleccionar niri-portals.conf correctamente.
-  systemd.user.services.xdg-desktop-portal = {
-    after = [ "graphical-session.target" ];
-    requisite = [ "graphical-session.target" ];
+  config = {
+    # GUI para configurar las salidas de Niri (monitor.kdl).
+    environment.systemPackages = [ nwgDisplays ];
+
+    programs.niri = {
+      enable = true;
+      # Parcheamos niri-session envolviendo el paquete con symlinkJoin para no recompilar niri desde código fuente.
+      # Esto silencia el aviso de deprecación en stderr de `systemctl --user import-environment`.
+      package = (pkgs.symlinkJoin {
+        name = "niri-patched";
+        paths = [ pkgs.niri ];
+        postBuild = ''
+          rm $out/bin/niri-session
+          substitute ${pkgs.niri}/bin/niri-session $out/bin/niri-session \
+            --replace-fail 'systemctl --user import-environment' 'systemctl --user import-environment PATH DBUS_SESSION_BUS_ADDRESS XDG_DATA_DIRS XDG_CONFIG_DIRS XDG_RUNTIME_DIR XAUTHORITY LANG LC_ALL LC_CTYPE 2>/dev/null'
+          chmod +x $out/bin/niri-session
+        '';
+      }).overrideAttrs (oldAttrs: {
+        passthru = (pkgs.niri.passthru or { }) // {
+          providedSessions = pkgs.niri.providedSessions or [ "niri" ];
+        };
+      });
+    };
+
+    # El portal puede activarse por D-Bus incluso sin una sesión gráfica (por
+    # ejemplo desde un proceso lanzado por SSH). Si eso ocurre antes de niri,
+    # arranca sin XDG_CURRENT_DESKTOP y conserva durante horas un conjunto de
+    # backends incompleto, sin ScreenCast. Rechaza esa activación temprana: una
+    # vez activo graphical-session.target, niri-session ya importó el entorno y
+    # el portal puede seleccionar niri-portals.conf correctamente.
+    systemd.user.services.xdg-desktop-portal = {
+      after = [ "graphical-session.target" ];
+      requisite = [ "graphical-session.target" ];
+    };
+
+    # Config gestionada por NixOS: niri la lee como fallback desde /etc/niri.
+    environment.etc."niri/config.kdl".source = niriConfig;
+
+    system.extraDependencies = [ niriConfigCheck ];
+
+    # Fuerza que la config del home sea un symlink a la gestionada,
+    # reemplazando el default que niri genera en el primer arranque.
+    # Ruta absoluta: systemd no expande "~" en tmpfiles.
+    systemd.tmpfiles.rules = [
+      # En un home recién creado no existe ~/.config/niri. Debe declararse antes
+      # de crear los archivos; confiar en que una sesión anterior lo haya creado
+      # hacía que `niri validate` fallara en instalaciones limpias.
+      "d /home/loonbac/.config/niri 0755 loonbac users -"
+      "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
+      # Acento dinámico: lo escribe accent-wallpaper. `C` copia el default
+      # solamente si el destino no existe y permite usar un archivo multilínea
+      # sin introducir líneas inválidas en la configuración de tmpfiles.
+      "C /home/loonbac/.config/niri/accent.kdl 0644 loonbac users - ${defaultAccent}"
+      # Archivo persistente y escribible que nwg-displays actualiza. `C` instala
+      # la configuración inicial solo cuando aún no existe, sin pisar cambios.
+      "C /home/loonbac/.config/niri/monitor.kdl 0644 loonbac users - ${defaultMonitorConfig}"
+      # El include relativo que nwg-displays reconoce se resuelve desde /etc/niri;
+      # este enlace lo conecta al archivo persistente del usuario.
+      "L+ /etc/niri/monitor.kdl - - - - /home/loonbac/.config/niri/monitor.kdl"
+    ];
   };
-
-  # Config gestionada por NixOS: niri la lee como fallback desde /etc/niri.
-  environment.etc."niri/config.kdl".source = niriConfig;
-
-  system.extraDependencies = [ niriConfigCheck ];
-
-  # Fuerza que la config del home sea un symlink a la gestionada,
-  # reemplazando el default que niri genera en el primer arranque.
-  # Ruta absoluta: systemd no expande "~" en tmpfiles.
-  systemd.tmpfiles.rules = [
-    # En un home recién creado no existe ~/.config/niri. Debe declararse antes
-    # de crear los archivos; confiar en que una sesión anterior lo haya creado
-    # hacía que `niri validate` fallara en instalaciones limpias.
-    "d /home/loonbac/.config/niri 0755 loonbac users -"
-    "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
-    # Acento dinámico: lo escribe accent-wallpaper. `C` copia el default
-    # solamente si el destino no existe y permite usar un archivo multilínea
-    # sin introducir líneas inválidas en la configuración de tmpfiles.
-    "C /home/loonbac/.config/niri/accent.kdl 0644 loonbac users - ${defaultAccent}"
-  ] ++ lib.optionals isNixosPc [
-    # Archivo persistente y escribible que nwg-displays actualiza. `C` instala
-    # el modo inicial de 144 Hz solo cuando aún no existe, sin pisar cambios.
-    "C /home/loonbac/.config/niri/monitor.kdl 0644 loonbac users - ${defaultMonitorConfig}"
-    # El include relativo que nwg-displays reconoce se resuelve desde /etc/niri;
-    # este enlace lo conecta al archivo persistente del usuario.
-    "L+ /etc/niri/monitor.kdl - - - - /home/loonbac/.config/niri/monitor.kdl"
-  ];
 }

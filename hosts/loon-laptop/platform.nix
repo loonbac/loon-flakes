@@ -3,7 +3,7 @@
 
 {
   imports = [
-    ../../modules/system/extras-disk.nix
+    ./extras-disk.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
@@ -28,12 +28,23 @@
   };
   environment.sessionVariables.LIBVA_DRIVER_NAME = "iHD";
 
+  hardware.brightness.backend = "internal";
+
+  # Configuración inicial de salida para niri (panel integrado eDP-1).
+  programs.niri.defaultMonitorConfig = ''
+    // Valor inicial; nwg-displays puede reemplazar este archivo.
+    output "eDP-1" {
+        hot-corners {
+            off
+        }
+    }
+  '';
+
   # Control exclusivo del panel interno Intel de este Dell. El wrapper
   # permite que las teclas Fn cambien /sys/class/backlight sin contraseña;
-  # no se instala ni se expone en los hosts de escritorio.
+  # el paquete screen-brightness lo provee el módulo de brillo unificado.
   environment.systemPackages = [
     pkgs.brightnessctl
-    (pkgs.callPackage ../../pkgs/screen-brightness { })
   ];
   security.wrappers.brightnessctl = {
     owner = "root";
