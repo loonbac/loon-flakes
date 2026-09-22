@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -38,6 +38,32 @@ function projectRoot(): string {
 }
 
 function entryPoint(): string { return join(projectRoot(), "dist", "src", "host", "entry.js"); }
+let activeCatalogCache: { path: string; mtimeNs: bigint; ids: Set<string> } | undefined;
+function onboardedRouteAllowed(provider: string, model: string): boolean {
+  try {
+    const stateDir = process.env.NATURAL_ROUTER_STATE_DIR?.trim() || join(homedir(), ".pi", "agent", "state", "natural-adaptive-routing");
+    const path = join(stateDir, "model-catalog.json");
+    const mtimeNs = statSync(path, { bigint: true }).mtimeNs;
+    if (!activeCatalogCache || activeCatalogCache.path !== path || activeCatalogCache.mtimeNs !== mtimeNs) {
+      const catalog = JSON.parse(readFileSync(path, "utf8")) as { schemaVersion?: string; models?: Record<string, { status?: string }> };
+      activeCatalogCache = { path, mtimeNs, ids: new Set(catalog.schemaVersion === "model-catalog-v1" ? Object.entries(catalog.models ?? {}).filter(([, card]) => card.status === "ACTIVE").map(([id]) => id) : []) };
+    }
+    return activeCatalogCache.ids.has(`${provider}/${model}`);
+  } catch { return false; }
+}
+
+function runtimeModels(ctx: ExtensionContext): Array<Record<string, unknown>> {
+  return ctx.modelRegistry.getAvailable().map((model) => {
+    const candidate = model as unknown as Record<string, unknown>;
+    const map = candidate.thinkingLevelMap && typeof candidate.thinkingLevelMap === "object" ? candidate.thinkingLevelMap as Record<string, unknown> : {};
+    const efforts = Object.entries(map).filter(([key, value]) => ["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(key) && typeof value === "string").map(([key]) => key);
+    return { provider: model.provider, id: model.id, name: model.name, contextWindow: model.contextWindow,
+      reasoning: model.reasoning, input: model.input,
+      ...(Array.isArray(candidate.supportedEfforts) ? { supportedEfforts: candidate.supportedEfforts } : efforts.length ? { supportedEfforts: efforts } : {}),
+      ...(typeof candidate.supportsTools === "boolean" ? { supportsTools: candidate.supportsTools } : {}),
+      ...(typeof candidate.version === "string" ? { version: candidate.version } : {}) };
+  });
+}
 
 export async function callNaturalRouter(payload: unknown, timeoutMs = ADAPTIVE_ROUTER_TIMEOUT_MS): Promise<RouterResponse> {
   if (!existsSync(entryPoint())) throw new Error(`adaptive router build missing: ${entryPoint()}`);
@@ -71,7 +97,7 @@ export function validAdaptiveDecision(decision: AdaptiveDecision, agent: string)
   const route = decision.requestedAdaptiveRoute;
   if (!route || !route.provider || !route.model || !route.effectiveEffort || !decision.compiledPrompt) return false;
   if (route.model === "claude-opus-4-6") return agent === "jd-judge-b" && route.provider === "antigravity" && route.effectiveEffort === "high";
-  return NATURAL_RECOVERY_ALLOWLIST.has(`${route.provider}/${route.model}`);
+  return NATURAL_RECOVERY_ALLOWLIST.has(`${route.provider}/${route.model}`) || onboardedRouteAllowed(route.provider, route.model);
 }
 
 export function legacyFallbackMayPreempt(adaptivePrimaryApplied: boolean): boolean { return !adaptivePrimaryApplied; }
@@ -109,7 +135,7 @@ const NATURAL_RECOVERY_ALLOWLIST = new Set([
 export function adaptiveRecoveryRouteAllowed(route: Pick<AdaptiveRoute, "provider" | "model">, agentName: string | undefined): boolean {
   if (route.model === "claude-opus-4-6") return agentName === "jd-judge-b";
   if (agentName === "jd-judge-b") return false;
-  return NATURAL_RECOVERY_ALLOWLIST.has(`${route.provider}/${route.model}`);
+  return NATURAL_RECOVERY_ALLOWLIST.has(`${route.provider}/${route.model}`) || onboardedRouteAllowed(route.provider, route.model);
 }
 
 export function hasExplicitGentleProfilePin(cwd: string): boolean {
@@ -180,12 +206,50 @@ function notifyJson(ctx: ExtensionContext, title: string, value: unknown): void 
   ctx.ui.notify(`${title}\n${rendered.slice(0, 6_000)}`, "info");
 }
 
+function notifyModelOnboarding(ctx: ExtensionContext, value: RouterResponse): void {
+  const result = value.result as { receipt?: Record<string, unknown>; dryRun?: boolean; catalogMutated?: boolean; preservedActiveModel?: boolean } | undefined;
+  const card = result?.receipt;
+  if (!card) { notifyJson(ctx, "Model onboarding", value); return; }
+  const fits = Array.isArray(card.taskFits) ? card.taskFits as Array<{ roleState?: string }> : [];
+  const count = (state: string) => fits.filter((item) => item.roleState === state).length;
+  const runtime = card.runtime as { provider?: string; id?: string; supportedEfforts?: string[] } | undefined;
+  const envelope = card.capabilityEnvelope as Record<string, { state?: string; assessment?: string }> | undefined;
+  const research = card.research as { status?: string; usage?: Record<string, number>; sources?: unknown[]; contradictions?: unknown[] } | undefined;
+  const dimensions = Object.entries(envelope ?? {}).filter(([, dimension]) => dimension.state !== "UNKNOWN").map(([name, dimension]) => `  ${name}: ${dimension.assessment}`).join("\n") || "  UNKNOWN (no verified public benchmark prior)";
+  const usage = research?.usage;
+  const lines = [
+    result?.dryRun ? "MODEL ONBOARDING DRY RUN" : "MODEL ONBOARDED",
+    `model: ${String(card.id ?? "unknown")}`,
+    `runtime: ${runtime?.provider ?? "unknown"}/${runtime?.id ?? "unknown"}`,
+    `version: ${String(card.modelVersion ?? "unknown")} (${String(card.versionKind ?? "unknown")})`,
+    `efforts: ${runtime?.supportedEfforts?.join(", ") || "not observable"}`,
+    `benchmark evidence:\n${dimensions}`,
+    `routing: normal ${count("NORMAL_CANDIDATE")}, exploration ${count("EXPLORATION_ONLY")}, shadow ${count("SHADOW_ONLY")}, prohibited ${count("NOT_ELIGIBLE")}`,
+    `local evidence: UNPROVEN; verified runs 0`,
+    `research: ${research?.status ?? "unknown"}; Gemini ${usage?.primaryCalls ?? 0}, Jev ${usage?.jevCalls ?? 0} (${usage?.jevCacheHits ?? 0} cache hits), DeepSeek ${usage?.verifierCalls ?? 0}, Terra ${usage?.escalationCalls ?? 0}`,
+    `sources: ${research?.sources?.length ?? 0}; contradictions: ${research?.contradictions?.length ?? 0}`,
+    `prompt: ${Array.isArray((card.promptCard as { documentedGuidance?: unknown[] } | undefined)?.documentedGuidance) && (card.promptCard as { documentedGuidance: unknown[] }).documentedGuidance.length ? "verified documented guidance" : "neutral task-derived"}`,
+    `status: ${String(card.status ?? "unknown")}; catalog mutated: ${result?.catalogMutated === true ? "yes" : "no"}`,
+    ...(result?.preservedActiveModel ? ["Existing active model preserved after incomplete refresh."] : []),
+    ...((card.warnings as string[] | undefined) ?? []).slice(0, 4).map((warning) => `warning: ${warning}`),
+  ];
+  ctx.ui.notify(lines.join("\n"), "info");
+}
+
 export function registerAdaptiveCommands(pi: ExtensionAPI): void {
   pi.registerCommand("adaptive", {
-    description: "Natural adaptive routing: status|active|shadow|off|explain|quota|history",
+    description: "Natural adaptive routing: status|models|model-add|model-info|model-remove|model-refresh|model-doctor|active|shadow|off|explain|quota|history",
     handler: async (args, ctx) => {
-      const [command = "status"] = args.trim().split(/\s+/u);
+      const [command = "status", model, ...flags] = args.trim().split(/\s+/u);
       try {
+        if (["models", "model-add", "model-info", "model-remove", "model-refresh", "model-doctor"].includes(command)) {
+          if (command !== "models" && (!model || model.startsWith("--"))) throw new Error("usage: /adaptive model-add provider/model-id [--dry-run]");
+          const researchMode = flags.includes("--offline") ? "OFFLINE" : flags.includes("--cached") ? "CACHED" : "ONLINE";
+          const response = await callNaturalRouter({ action: command, model, dryRun: flags.includes("--dry-run"), researchMode, availableModels: runtimeModels(ctx) }, command === "model-add" || command === "model-refresh" ? 480_000 : ADAPTIVE_ROUTER_TIMEOUT_MS);
+          if (command === "model-add" || command === "model-refresh") notifyModelOnboarding(ctx, response);
+          else notifyJson(ctx, `Adaptive ${command}`, response);
+          return;
+        }
         if (["active", "shadow", "off"].includes(command)) {
           const mode = command === "active" ? "ACTIVE_GUARDED" : command.toUpperCase();
           notifyJson(ctx, "Adaptive routing", await callNaturalRouter({ action: "set-mode", mode }));

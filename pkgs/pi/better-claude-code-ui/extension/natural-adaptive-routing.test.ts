@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -11,6 +11,7 @@ import {
   recoveryLineage,
   routeDiffersFromConfiguredGentleDefault,
   routeMatches,
+  registerAdaptiveCommands,
   validAdaptiveDecision,
   type AdaptiveDecision,
 } from "./natural-adaptive-routing.ts";
@@ -52,6 +53,45 @@ test("Opus generic and closed Command Code routes are rejected", () => {
   assert.equal(validAdaptiveDecision({ ...decision, requestedAdaptiveRoute: { provider: "commandcode", model: "gpt-5.6-sol", requestedEffort: "high", effectiveEffort: "high" } }, "gentle-ai-worker"), false);
   assert.equal(adaptiveRecoveryRouteAllowed({ provider: "antigravity", model: "claude-opus-4-6" }, "gentle-ai-worker"), false);
   assert.equal(adaptiveRecoveryRouteAllowed({ provider: "antigravity", model: "claude-opus-4-6" }, "jd-judge-b"), true);
+});
+
+test("transactionally onboarded active route passes existing host guard", () => {
+  const previous = process.env.NATURAL_ROUTER_STATE_DIR;
+  const directory = mkdtempSync(join(tmpdir(), "adaptive-onboard-"));
+  try {
+    process.env.NATURAL_ROUTER_STATE_DIR = directory;
+    const route = { provider: "fixture", model: "test-model", requestedEffort: "high" as const, effectiveEffort: "high" as const };
+    assert.equal(validAdaptiveDecision({ ...decision, requestedAdaptiveRoute: route }, "gentle-ai-worker"), false);
+    writeFileSync(join(directory, "model-catalog.json"), JSON.stringify({ schemaVersion: "model-catalog-v1", models: { "fixture/test-model": { status: "ACTIVE" } } }));
+    assert.equal(validAdaptiveDecision({ ...decision, requestedAdaptiveRoute: route }, "gentle-ai-worker"), true);
+    assert.equal(adaptiveRecoveryRouteAllowed(route, "gentle-ai-worker"), true);
+  } finally {
+    if (previous === undefined) delete process.env.NATURAL_ROUTER_STATE_DIR;
+    else process.env.NATURAL_ROUTER_STATE_DIR = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("/adaptive model-add fixture/test-model --dry-run --offline reaches the existing router command", async () => {
+  const previousState = process.env.NATURAL_ROUTER_STATE_DIR;
+  const directory = mkdtempSync(join(tmpdir(), "adaptive-command-"));
+  let handler: ((args: string, context: unknown) => Promise<void>) | undefined;
+  const notifications: string[] = [];
+  try {
+    process.env.NATURAL_ROUTER_STATE_DIR = directory;
+    registerAdaptiveCommands({ registerCommand: (_name: string, command: { handler: (args: string, context: unknown) => Promise<void> }) => { handler = command.handler; } } as unknown as Parameters<typeof registerAdaptiveCommands>[0]);
+    assert.ok(handler);
+    await handler("model-add fixture/test-model --dry-run --offline", {
+      modelRegistry: { getAvailable: () => [{ provider: "fixture", id: "test-model", name: "Fixture", reasoning: false, contextWindow: 32768, input: ["text"], supportsTools: true }] },
+      ui: { notify: (message: string) => notifications.push(message) },
+    });
+    assert.match(notifications[0] ?? "", /MODEL ONBOARDING DRY RUN/u);
+    assert.match(notifications[0] ?? "", /READY_SHADOW_ONLY/u);
+  } finally {
+    if (previousState === undefined) delete process.env.NATURAL_ROUTER_STATE_DIR;
+    else process.env.NATURAL_ROUTER_STATE_DIR = previousState;
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("compiled contract is appended without rewriting the existing system prompt", () => {
