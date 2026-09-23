@@ -1,5 +1,5 @@
 # Streaming de la pantalla actual de nixos-pc para clientes Moonlight.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   dolphinIsRunning = pkgs.writeShellScript "dolphin-is-running" ''
@@ -50,6 +50,36 @@ let
       done < <(LC_ALL=C $pactl subscribe 2>/dev/null)
       ${pkgs.coreutils}/bin/sleep 1
     done
+  '';
+
+  # El escritorio usa otra instancia: los permisos de entrada de Sunshine
+  # son globales por instancia, no por aplicación o cliente emparejado.
+  desktopStateDir = "/home/loonbac/.config/sunshine-desktop";
+  desktopApps = pkgs.writeText "sunshine-desktop-apps.json" (builtins.toJSON {
+    env = { };
+    apps = [ { name = "Escritorio"; image = "desktop.png"; } ];
+  });
+  desktopConfig = pkgs.writeText "sunshine-desktop.conf" ''
+    sunshine_name=nixos-pc-escritorio
+    address_family=ipv4
+    bind_address=100.73.247.39
+    port=48189
+    origin_web_ui_allowed=wan
+    csrf_allowed_origins=https://100.73.247.39:48190
+    capture=kms
+    output_name=1
+    encoder=vulkan
+    keyboard=enabled
+    mouse=enabled
+    controller=disabled
+    native_pen_touch=disabled
+    system_tray=disabled
+    file_apps=${desktopApps}
+    credentials_file=${desktopStateDir}/sunshine_state.json
+    file_state=${desktopStateDir}/sunshine_state.json
+    pkey=${desktopStateDir}/credentials/cakey.pem
+    cert=${desktopStateDir}/credentials/cacert.pem
+    log_path=${desktopStateDir}/sunshine.log
   '';
 in
 {
@@ -119,6 +149,30 @@ in
   # El servicio de usuario se instala globalmente; esta condición evita que el
   # greeter u otra cuenta intente ocupar los mismos puertos.
   systemd.user.services.sunshine.unitConfig.ConditionUser = "loonbac";
+
+  # Solo la tailnet puede alcanzar esta segunda instancia. Tiene claves y
+  # emparejamientos independientes de la instancia compartida con el amigo.
+  networking.firewall.interfaces.tailscale0 = {
+    allowedTCPPorts = [ 48184 48189 48190 48210 ];
+    allowedUDPPorts = [ 48198 48199 48200 48202 48210 ];
+  };
+
+  systemd.user.services.sunshine-desktop = {
+    description = "Sunshine privado para el escritorio por Tailscale";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    unitConfig = {
+      ConditionUser = "loonbac";
+      StartLimitIntervalSec = 0;
+    };
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/install -d -m 0700 ${desktopStateDir} ${desktopStateDir}/credentials";
+      ExecStart = "${config.security.wrapperDir}/sunshine ${desktopConfig}";
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
+  };
 
   systemd.user.services.sunshine-audio-default-guard = {
     description = "Preserva la salida de audio local durante streams de Sunshine";
