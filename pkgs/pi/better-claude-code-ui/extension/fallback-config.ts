@@ -74,7 +74,10 @@ type GentleProfilesReadResult =
 
 const ROUTE_LABELS: Record<string, string> = {
 	"explabs/deepseek-v4.1-flash": "DeepSeek V4.1 Flash",
-	"opencode-go/muse-spark-1.3-contributor": "Muse Spark 1.3",
+	"commandcode/meta/muse-spark-1.3-contributor": "Muse Spark 1.3 Contributor",
+	"commandcode/xiaomi/mimo-v2.6-flash": "MiMo V2.6 Flash",
+	"commandcode/xiaomi/mimo-v2.6-pro": "MiMo V2.6 Pro",
+	"commandcode/stealth/space-bunny-alpha": "Space Bunny Alpha",
 };
 
 // This packaged default is the same JSON consumed by the Nix bootstrap. A

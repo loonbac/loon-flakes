@@ -105,18 +105,18 @@ let
 
   subagentModelProfiles = {
     gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    gentle-ai-verify = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    gentle-ai-verify = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "high"; };
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-judge-a = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "high"; };
-    pi-btw = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
-    review-readability = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
+    pi-btw = { model = "commandcode/stealth/space-bunny-alpha"; effort = "medium"; };
+    review-readability = { model = "commandcode/xiaomi/mimo-v2.6-flash"; effort = "medium"; };
     review-reliability = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    review-resilience = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-resilience = { model = "commandcode/xiaomi/mimo-v2.6-pro"; effort = "high"; };
     review-risk = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-archive = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
+    sdd-archive = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
     sdd-design = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
@@ -125,8 +125,8 @@ let
     sdd-research = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
     sdd-remediate = { model = "openai-codex/gpt-5.6-terra"; effort = "high"; };
     sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-status = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "low"; };
-    sdd-sync = { model = "opencode-go/muse-spark-1.3-contributor"; effort = "medium"; };
+    sdd-status = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "low"; };
+    sdd-sync = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
     sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-verify = { model = "openai-codex/gpt-6-astra"; effort = "low"; };
   };
@@ -137,7 +137,7 @@ let
       thinking = profile.effort;
     }) subagentModelProfiles
     // {
-      review-refuter = { model = "opencode-go/deepseek-v4.1-flash"; thinking = "high"; };
+      review-refuter = { model = "commandcode/deepseek/deepseek-v4.1-flash"; thinking = "high"; };
       review-validator = { model = "openai-codex/gpt-5.6-sol"; thinking = "high"; };
     };
 
@@ -863,6 +863,12 @@ let
     const [agentDir, manifestPath] = process.argv.slice(2);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const profiles = manifest.subagentModelProfiles;
+    const openCodeModelMigrations = {
+      "opencode-go/deepseek-v4.1-flash": "commandcode/deepseek/deepseek-v4.1-flash",
+      "opencode-go/glm-5.3-flash": "commandcode/z-ai/glm-5.3-flash",
+      "opencode-go/muse-spark-1.3-contributor": "commandcode/meta/muse-spark-1.3-contributor",
+      "opencode-go/mimo-v2.5": "commandcode/xiaomi/mimo-v2.5",
+    };
     const configPath = path.join(agentDir, "subagents.json");
 
     function writeJson(targetPath, value) {
@@ -878,9 +884,9 @@ let
 
     const gentleDir = path.join(path.dirname(agentDir), "gentle-ai");
     writeJson(path.join(gentleDir, "models.json"), manifest.gentleModelProfiles);
-    // Preserve the user's current profile, but migrate the one immutable V1
-    // safety rule: Opus is fixed to jd-judge-b:high and cannot remain on any
-    // other role. Repository/worktree pins remain separate and untouched.
+    // Preserve the user's current profile while migrating retired provider
+    // routes to their Command Code equivalents. Opus remains fixed to
+    // jd-judge-b:high; repository/worktree pins remain separate and untouched.
     const profilesPath = path.join(gentleDir, "profiles.json");
     if (fs.existsSync(profilesPath)) {
       try {
@@ -891,6 +897,15 @@ let
             if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
               current[role] = manifest.gentleModelProfiles[role]
                 || { model: "openai-codex/gpt-5.6-sol", thinking: "high" };
+              continue;
+            }
+            if (role !== "jd-judge-b" && typeof route?.model === "string") {
+              const commandCodeModel = openCodeModelMigrations[route.model];
+              if (commandCodeModel) current[role] = { ...route, model: commandCodeModel };
+              else if (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")) {
+                current[role] = manifest.gentleModelProfiles[role]
+                  || { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" };
+              }
             }
           }
           current["jd-judge-b"] = manifest.gentleModelProfiles["jd-judge-b"];
@@ -956,7 +971,7 @@ let
     ---
     name: pi-btw
     description: Dedicated model route for Pi BTW side questions.
-    model: opencode-go/muse-spark-1.3-contributor
+    model: commandcode/stealth/space-bunny-alpha
     thinking: medium
     ---
 

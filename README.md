@@ -380,24 +380,26 @@ un tercero:
 
 | Subagente | Fallback 1 | Fallback 2 |
 | --- | --- | --- |
-| `gentle-ai-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
-| `gentle-ai-worker` | Muse Spark 1.3 `max` | DeepSeek V4.1 Flash `high` |
-| `jd-fix-agent` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `max` |
-| `sdd-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
-| `sdd-spec` | Muse Spark 1.3 `xhigh` | DeepSeek V4.1 Flash `high` |
-| `sdd-tasks` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
-| `sdd-apply` | Muse Spark 1.3 `max` | DeepSeek V4.1 Flash `high` |
-| `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 `xhigh` |
+| `gentle-ai-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
+| `gentle-ai-worker` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
+| `jd-fix-agent` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
+| `sdd-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
+| `sdd-spec` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
+| `sdd-tasks` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
+| `sdd-apply` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
+| `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
 
-`max` se conserva como la política solicitada. El catálogo actual de
-`opencode-go/muse-spark-1.3-contributor` (free tier) declara `max: null`, por lo
-que Pi lo ajusta a `xhigh`, su máximo efectivo; la extensión no sustituye ese
-modelo por la variante de pago.
+El perfil principal de los subagentes usa `commandcode/stealth/space-bunny-alpha`
+para `pi-btw`, `commandcode/xiaomi/mimo-v2.6-flash` para
+`review-readability` y `commandcode/xiaomi/mimo-v2.6-pro` para
+`review-resilience`. El resto de las rutas Muse usa exclusivamente
+`commandcode/meta/muse-spark-1.3-contributor`. Space Bunny Alpha está gratis
+durante su vista previa actual ([catálogo de Command Code](https://commandcode.ai/models/space-bunny-alpha)).
 
 Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
 puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con
-`/antigravity-fallback clear`. Muse Contributor puede usar prompts y respuestas
-para entrenamiento, según la política de OpenCode Go.
+`/antigravity-fallback clear`. Los fallbacks externos se sirven a través del
+proveedor Command Code.
 
 Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
 correspondiente con verificación de integridad. npm autoriza únicamente el

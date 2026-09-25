@@ -30,7 +30,7 @@ export interface AdaptiveDecision {
 
 interface RouterResponse { ok: boolean; decision?: AdaptiveDecision; error?: string; [key: string]: unknown }
 
-export const ADAPTIVE_ROUTER_TIMEOUT_MS = 5_000;
+export const ADAPTIVE_ROUTER_TIMEOUT_MS = 10_000;
 export const ADAPTIVE_STATUS_KEY = "loon-natural-adaptive-route";
 
 function projectRoot(): string {
@@ -123,11 +123,11 @@ export function recoveryLineage(primary: AdaptiveRoute, fallback: AdaptiveRoute,
 }
 
 const NATURAL_RECOVERY_ALLOWLIST = new Set([
-  "opencode-go/deepseek-v4.1-flash", "opencode-go/glm-5.3-flash",
-  "opencode-go/muse-spark-1.3-contributor", "opencode-go/mimo-v2.5",
   "commandcode/Qwen/Qwen3.8-Flash", "commandcode/deepseek/deepseek-v4.1-flash",
   "commandcode/z-ai/glm-5.3-flash", "commandcode/meta/muse-spark-1.3-contributor",
-  "commandcode/xiaomi/mimo-v2.5", "antigravity/gemini-3.8-flash",
+  "commandcode/xiaomi/mimo-v2.5", "commandcode/xiaomi/mimo-v2.6-flash",
+  "commandcode/xiaomi/mimo-v2.6-pro", "commandcode/stealth/space-bunny-alpha",
+  "antigravity/gemini-3.8-flash",
   "antigravity-alt/gemini-3.8-flash", "openai-codex/gpt-5.6-luna",
   "openai-codex/gpt-5.6-terra", "openai-codex/gpt-5.6-sol",
 ]);
@@ -238,7 +238,7 @@ function notifyModelOnboarding(ctx: ExtensionContext, value: RouterResponse): vo
 
 export function registerAdaptiveCommands(pi: ExtensionAPI): void {
   pi.registerCommand("adaptive", {
-    description: "Natural adaptive routing: status|models|model-add|model-info|model-remove|model-refresh|model-doctor|active|shadow|off|explain|quota|history",
+    description: "Natural adaptive routing: status|models|model-add|model-info|model-remove|model-refresh|model-doctor|active|shadow|off|explain|outcome|quota|history",
     handler: async (args, ctx) => {
       const [command = "status", model, ...flags] = args.trim().split(/\s+/u);
       try {
@@ -253,6 +253,20 @@ export function registerAdaptiveCommands(pi: ExtensionAPI): void {
         if (["active", "shadow", "off"].includes(command)) {
           const mode = command === "active" ? "ACTIVE_GUARDED" : command.toUpperCase();
           notifyJson(ctx, "Adaptive routing", await callNaturalRouter({ action: "set-mode", mode }));
+          return;
+        }
+        if (command === "outcome") {
+          const decisionId = model;
+          const [disposition, source, extra] = flags;
+          if (!decisionId || !disposition || !source || extra) {
+            throw new Error("usage: /adaptive outcome <decision-id> <SUCCESS|PRODUCT_FAILURE|MODEL_CAPABILITY_FAILURE> <human|tests|oracle|native_gate|review|accepted_result_contract>");
+          }
+          const validSources = new Set(["tests", "oracle", "native_gate", "review", "human", "accepted_result_contract"]);
+          if (!validSources.has(source)) throw new Error("unsupported outcome evidence source");
+          notifyJson(ctx, "Adaptive verified outcome", await callNaturalRouter({
+            action: "outcome", decisionId, disposition,
+            source: source as "tests" | "oracle" | "native_gate" | "review" | "human" | "accepted_result_contract",
+          }));
           return;
         }
         const action = command === "quota" ? "quota" : command === "history" ? "history" : command === "explain" ? "explain" : "status";

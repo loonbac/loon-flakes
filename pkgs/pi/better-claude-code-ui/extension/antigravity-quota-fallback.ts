@@ -52,19 +52,10 @@ const DEEPSEEK_HIGH: FallbackRoute = {
 };
 
 const MUSE_XHIGH: FallbackRoute = {
-  provider: "opencode-go",
-  model: "muse-spark-1.3-contributor",
-  label: "Muse Spark 1.3",
+  provider: "commandcode",
+  model: "meta/muse-spark-1.3-contributor",
+  label: "Muse Spark 1.3 Contributor",
   thinking: "xhigh",
-};
-
-const MUSE_MAX: FallbackRoute = {
-  provider: "opencode-go",
-  model: "muse-spark-1.3-contributor",
-  label: "Muse Spark 1.3",
-  // This expresses the requested policy. Pi clamps it to xhigh because the
-  // current free Contributor catalogue publishes max: null for this model.
-  thinking: "max",
 };
 
 // Unknown agents and ordinary Pi sessions retain the existing global order
@@ -77,20 +68,20 @@ export const FALLBACK_CHAIN: readonly FallbackRoute[] = [
     label: "DeepSeek V4.1 Flash",
   },
   {
-    provider: "opencode-go",
-    model: "muse-spark-1.3-contributor",
-    label: "Muse Spark 1.3",
+    provider: "commandcode",
+    model: "meta/muse-spark-1.3-contributor",
+    label: "Muse Spark 1.3 Contributor",
   },
 ] as const;
 
 export const AGENT_FALLBACK_CHAINS: Readonly<Record<string, readonly FallbackRoute[]>> = {
   "gentle-ai-explore": [DEEPSEEK_HIGH, MUSE_XHIGH],
-  "gentle-ai-worker": [MUSE_MAX, DEEPSEEK_HIGH],
-  "jd-fix-agent": [DEEPSEEK_HIGH, MUSE_MAX],
+  "gentle-ai-worker": [MUSE_XHIGH, DEEPSEEK_HIGH],
+  "jd-fix-agent": [DEEPSEEK_HIGH, MUSE_XHIGH],
   "sdd-explore": [DEEPSEEK_HIGH, MUSE_XHIGH],
   "sdd-spec": [MUSE_XHIGH, DEEPSEEK_HIGH],
   "sdd-tasks": [DEEPSEEK_HIGH, MUSE_XHIGH],
-  "sdd-apply": [MUSE_MAX, DEEPSEEK_HIGH],
+  "sdd-apply": [MUSE_XHIGH, DEEPSEEK_HIGH],
   "sdd-onboard": [DEEPSEEK_HIGH, MUSE_XHIGH],
 };
 

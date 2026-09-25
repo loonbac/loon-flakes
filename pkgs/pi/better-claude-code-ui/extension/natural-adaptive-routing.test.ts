@@ -20,7 +20,7 @@ const decision: AdaptiveDecision = {
   kind: "ADAPTIVE_ASSIGNMENT", decisionId: "D-1", reason: "fixture", mode: "ACTIVE_GUARDED",
   role: "gentle-ai-worker", taskClass: "small implementation", risk: "LOW",
   staticRoute: { provider: "openai-codex", model: "gpt-5.6-terra", requestedEffort: "high", effectiveEffort: "high" },
-  requestedAdaptiveRoute: { provider: "opencode-go", model: "glm-5.3-flash", requestedEffort: "high", effectiveEffort: "high" },
+  requestedAdaptiveRoute: { provider: "commandcode", model: "z-ai/glm-5.3-flash", requestedEffort: "high", effectiveEffort: "high" },
   exploration: false, compiledPrompt: "## Goal\n- bounded fixture", promptProfileId: "EXPLICIT",
   promptProfileVersion: "prompt-profile-v1", promptCompilerVersion: "prompt-compiler-v1",
   canonicalContractHash: "contract", compiledPromptHash: "compiled", promptExecutionStatus: "ACTUAL", routingLatencyMs: 2,
