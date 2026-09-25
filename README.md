@@ -234,6 +234,9 @@ El módulo `modules/programs/gentle-ai/` separa configuración y runtime:
   resuelve ese binario; no existe una segunda copia fijada por Nix.
 - Engram vive en `~/.local/share/loon-engram`; `engram update` instala la última
   release oficial después de verificar su checksum publicado.
+- `gentle-pi` incluye la herramienta CodeGraph; su CLI oficial se instala sin
+  versión en el mismo prefijo npm mutable. El launcher Nix `codegraph` permite
+  que Pi la encuentre en `PATH` sin exponer el prefijo entero.
 
 `gentle-ai-bootstrap` se ejecuta al iniciar sesión y también puede ejecutarse
 manualmente. En una máquina nueva instala únicamente lo que falta; nunca
@@ -327,6 +330,10 @@ pi update --extensions    # gentle-pi y las demás extensiones
 engram update             # solo Engram
 gentle-stack-update       # Pi + extensiones + Gentle AI + Engram + configuración
 ```
+
+`gentle-stack-update` también ejecuta el actualizador oficial de CodeGraph.
+Un rebuild solo instala su CLI si falta; conserva la versión mutable ya
+instalada.
 
 Las actualizaciones ejecutadas directamente mediante el launcher `pi` disparan
 al terminar `gentle-ai-bootstrap`. NixOS conserva el origen declarado, no

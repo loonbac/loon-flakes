@@ -6,6 +6,7 @@
 {
   imports = [
     ./system
+    ./system/nix-ld.nix
     ./networking
     ./services
     ./programs

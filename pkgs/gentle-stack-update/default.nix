@@ -22,6 +22,8 @@ writeShellApplication {
   ];
 
   text = ''
+    npm_prefix="''${PI_NPM_PREFIX:-$HOME/.local/share/loon-pi/npm-prefix}"
+
     # Pi updates itself from the writable global npm prefix. Reconcile first
     # so installations migrated from the old Nix closure use unversioned
     # extension sources before Pi evaluates their available updates.
@@ -29,6 +31,9 @@ writeShellApplication {
     gentle-ai-runtime-update
     engram update
     gentle-ai-bootstrap
+    # CodeGraph owns its mutable npm installation and updater. This command is
+    # reached only through the user's explicit full-stack update request.
+    "$npm_prefix/bin/codegraph" upgrade
     LOON_PI_SKIP_POST_UPDATE_RECONCILE=1 pi update --extensions
     # An extension update can ship new agent assets. Apply the declarative
     # model routes again and verify gentle-pi's companion runtime afterwards.
@@ -44,5 +49,7 @@ writeShellApplication {
     node -p 'require(process.env.HOME + "/.pi/agent/${gentlePiPackageSubpath}/package.json").version'
     printf '  Engram:    '
     engram version
+    printf '  CodeGraph: '
+    "$npm_prefix/bin/codegraph" --version
   '';
 }

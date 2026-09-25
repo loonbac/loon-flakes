@@ -17,6 +17,7 @@ let
       "git/github.com/Gentleman-Programming/gentle-pi";
 
   gga = pkgs.callPackage ../../../pkgs/gga { };
+  codegraphLauncher = pkgs.callPackage ../../../pkgs/codegraph-launcher { };
   gentleAiRuntimeUpdater = pkgs.callPackage ../../../pkgs/gentle-ai-runtime-updater {
     source = core.gentleAi.source;
   };
@@ -159,6 +160,7 @@ in
     # The custom Pi UI, notifications, providers and fallbacks remain separate
     # inputs to the local bootstrap and are not modeled as Gentle components.
     environment.systemPackages = [
+      codegraphLauncher
       engramLauncher
       engramUpdater
       gentleAiLauncher

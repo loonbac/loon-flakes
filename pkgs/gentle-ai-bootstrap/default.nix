@@ -1147,6 +1147,21 @@ writeShellApplication {
         @earendil-works/pi-coding-agent@latest >/dev/null
     fi
 
+    # gentle-pi includes its CodeGraph tool, but its CLI has an independent
+    # mutable npm release channel. Install only when missing so a rebuild never
+    # replaces a version the user has already updated.
+    codegraph_package="$npm_prefix/lib/node_modules/@colbymchenry/codegraph"
+    codegraph_binary="$npm_prefix/bin/codegraph"
+    if [ ! -f "$codegraph_package/package.json" ] || [ ! -x "$codegraph_binary" ]; then
+      npm install --global --prefix "$npm_prefix" \
+        --include=optional --ignore-scripts --no-audit --no-fund --loglevel=error \
+        @colbymchenry/codegraph >/dev/null
+    fi
+    if [ ! -x "$codegraph_binary" ]; then
+      echo "gentle-ai-bootstrap: @colbymchenry/codegraph did not provide the codegraph CLI" >&2
+      exit 1
+    fi
+
     # Pi downloads a generic Linux `fd` into its private bin directory. That
     # ELF cannot execute natively on NixOS, so the built-in find tool fails in
     # every child. Point the private command at the Nix-built binary instead.
