@@ -73,7 +73,7 @@ type GentleProfilesReadResult =
 	| { status: "valid"; file: GentleProfilesFile };
 
 const ROUTE_LABELS: Record<string, string> = {
-	"explabs/deepseek-v4.1-flash": "DeepSeek V4.1 Flash",
+	"commandcode/deepseek/deepseek-v4.1-flash": "DeepSeek V4.1 Flash",
 	"commandcode/meta/muse-spark-1.3-contributor": "Muse Spark 1.3 Contributor",
 	"commandcode/xiaomi/mimo-v2.6-flash": "MiMo V2.6 Flash",
 	"commandcode/xiaomi/mimo-v2.6-pro": "MiMo V2.6 Pro",

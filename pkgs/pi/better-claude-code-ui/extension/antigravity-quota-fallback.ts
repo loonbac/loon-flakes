@@ -45,8 +45,8 @@ export interface FallbackRoute {
 }
 
 const DEEPSEEK_HIGH: FallbackRoute = {
-  provider: "explabs",
-  model: "deepseek-v4.1-flash",
+  provider: "commandcode",
+  model: "deepseek/deepseek-v4.1-flash",
   label: "DeepSeek V4.1 Flash",
   thinking: "high",
 };
@@ -63,8 +63,8 @@ const MUSE_XHIGH: FallbackRoute = {
 // two explicit routes requested for their workload.
 export const FALLBACK_CHAIN: readonly FallbackRoute[] = [
   {
-    provider: "explabs",
-    model: "deepseek-v4.1-flash",
+    provider: "commandcode",
+    model: "deepseek/deepseek-v4.1-flash",
     label: "DeepSeek V4.1 Flash",
   },
   {

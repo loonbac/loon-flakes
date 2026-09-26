@@ -32,7 +32,7 @@
         "review-resilience": { "model": "commandcode/meta/muse-spark-1.3-contributor", "effort": "high" },
         "review-risk": { "model": "openai-codex/gpt-5.6-sol", "effort": "high" },
         "review-validator": { "model": "openai-codex/gpt-5.6-sol", "effort": "high" },
-        "pi-btw": { "model": "commandcode/Qwen/Qwen3.8-Flash", "effort": "medium" }
+        "pi-btw": { "model": "commandcode/stealth/space-bunny-alpha", "effort": "medium" }
       }
     },
     {
@@ -66,7 +66,7 @@
         "review-resilience": { "model": "commandcode/Qwen/Qwen3.8-Flash", "effort": "xhigh" },
         "review-risk": { "model": "openai-codex/gpt-5.6-sol", "effort": "high" },
         "review-validator": { "model": "openai-codex/gpt-6-astra", "effort": "low" },
-        "pi-btw": { "model": "commandcode/deepseek/deepseek-v4.1-flash", "effort": "high" }
+        "pi-btw": { "model": "commandcode/stealth/space-bunny-alpha", "effort": "medium" }
       }
     },
     {

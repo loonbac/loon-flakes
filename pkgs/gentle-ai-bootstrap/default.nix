@@ -891,24 +891,30 @@ let
     if (fs.existsSync(profilesPath)) {
       try {
         const stored = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
-        const current = stored?.profiles?.current;
-        if (current && typeof current === "object") {
-          for (const [role, route] of Object.entries(current)) {
-            if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
-              current[role] = manifest.gentleModelProfiles[role]
-                || { model: "openai-codex/gpt-5.6-sol", thinking: "high" };
-              continue;
-            }
-            if (role !== "jd-judge-b" && typeof route?.model === "string") {
-              const commandCodeModel = openCodeModelMigrations[route.model];
-              if (commandCodeModel) current[role] = { ...route, model: commandCodeModel };
-              else if (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")) {
-                current[role] = manifest.gentleModelProfiles[role]
-                  || { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" };
+        if (stored?.profiles && typeof stored.profiles === "object") {
+          for (const [profileName, profile] of Object.entries(stored.profiles)) {
+            if (!profile || typeof profile !== "object") continue;
+            for (const [role, route] of Object.entries(profile)) {
+              if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
+                profile[role] = manifest.gentleModelProfiles[role]
+                  || { model: "openai-codex/gpt-5.6-sol", thinking: "high" };
+                continue;
+              }
+              if (role !== "jd-judge-b" && typeof route?.model === "string") {
+                const commandCodeModel = (role === "pi-btw" && (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")))
+                  ? "commandcode/stealth/space-bunny-alpha"
+                  : openCodeModelMigrations[route.model];
+                if (commandCodeModel) profile[role] = { ...route, model: commandCodeModel };
+                else if (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")) {
+                  profile[role] = manifest.gentleModelProfiles[role]
+                    || { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" };
+                }
               }
             }
+            if (profileName === "current") {
+              profile["jd-judge-b"] = manifest.gentleModelProfiles["jd-judge-b"];
+            }
           }
-          current["jd-judge-b"] = manifest.gentleModelProfiles["jd-judge-b"];
           writeJson(profilesPath, stored);
         }
       } catch {

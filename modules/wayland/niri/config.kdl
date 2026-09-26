@@ -3,6 +3,13 @@
 // Edita este archivo en ~/.nixos/modules/wayland/niri/config.kdl y corre `rebuild`.
 // Referencia: https://niri-wm.github.io/niri/Configuration:-Introduction
 
+// Evita corrupción intermitente al presentar cuadros en NVIDIA. Esperar a
+// que termine el render antes de encolarlo corrige franjas que desaparecen
+// al forzar otro redibujado (cambiar workspace o mover ventanas).
+debug {
+    wait-for-frame-completion-before-queueing
+}
+
 input {
     keyboard {
         // Layout predeterminado. Nix sustituye esta línea con el layout del host.
