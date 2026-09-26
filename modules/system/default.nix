@@ -1,6 +1,6 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
-{ config, lib, pkgs, zen-browser, vscode-insiders, antigravity-cli, ... }:
+{ config, lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -208,6 +208,7 @@ in
     libpq              # deps de pq-sys (sqlx + postgres)
     claude-code
     zen-browser
+    helium-browser
     chromium           # para E2E (Playwright/Puppeteer) en esta máquina
     vscode-insiders
     antigravity

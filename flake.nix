@@ -14,6 +14,11 @@
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Helium Browser (no está en nixpkgs; navegador enfocado en privacidad basado en Chromium).
+    helium-browser = {
+      url = "github:schembriaiden/helium-browser-nix-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # VS Code Insiders (no está en nixpkgs; flake que lo empaqueta al día).
     code-insiders-flake = {
       url = "github:iosmanthus/code-insiders-flake";
@@ -47,7 +52,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote }:
+  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -151,6 +156,7 @@
         inherit system;
         specialArgs = {
           zen-browser = zen-browser.packages.${system}.default;
+          helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
           inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
@@ -175,6 +181,7 @@
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
         zen-browser = zen-browser.packages.${system}.default;
+        helium-browser = helium-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
         # Notificador de batería baja crítica (<=10%)

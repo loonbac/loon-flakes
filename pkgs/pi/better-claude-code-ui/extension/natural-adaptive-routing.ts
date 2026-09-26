@@ -128,8 +128,7 @@ const NATURAL_RECOVERY_ALLOWLIST = new Set([
   "commandcode/xiaomi/mimo-v2.5", "commandcode/xiaomi/mimo-v2.6-flash",
   "commandcode/xiaomi/mimo-v2.6-pro", "commandcode/stealth/space-bunny-alpha",
   "antigravity/gemini-3.8-flash",
-  "antigravity-alt/gemini-3.8-flash", "openai-codex/gpt-5.6-luna",
-  "openai-codex/gpt-5.6-terra", "openai-codex/gpt-5.6-sol",
+  "antigravity-alt/gemini-3.8-flash",
 ]);
 
 export function adaptiveRecoveryRouteAllowed(route: Pick<AdaptiveRoute, "provider" | "model">, agentName: string | undefined): boolean {

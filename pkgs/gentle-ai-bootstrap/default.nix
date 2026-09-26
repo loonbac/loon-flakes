@@ -62,9 +62,9 @@ let
   ];
 
   piSettings = {
-    defaultModel = "gpt-5.6-sol";
+    defaultModel = "meta/muse-spark-1.3-contributor";
     defaultProjectTrust = "always";
-    defaultProvider = "openai-codex";
+    defaultProvider = "commandcode";
     defaultThinkingLevel = "high";
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
@@ -108,27 +108,27 @@ let
     gentle-ai-verify = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "high"; };
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-a = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    jd-judge-a = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
     jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "high"; };
     pi-btw = { model = "commandcode/stealth/space-bunny-alpha"; effort = "medium"; };
     review-readability = { model = "commandcode/xiaomi/mimo-v2.6-flash"; effort = "medium"; };
-    review-reliability = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    review-reliability = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "high"; };
     review-resilience = { model = "commandcode/xiaomi/mimo-v2.6-pro"; effort = "high"; };
-    review-risk = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    review-risk = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-archive = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
-    sdd-design = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
+    sdd-design = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
     sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    sdd-research = { model = "openai-codex/gpt-5.6-sol"; effort = "high"; };
-    sdd-remediate = { model = "openai-codex/gpt-5.6-terra"; effort = "high"; };
+    sdd-proposal = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    sdd-research = { model = "commandcode/stealth/space-bunny-alpha"; effort = "high"; };
+    sdd-remediate = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
     sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-status = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "low"; };
     sdd-sync = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
     sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-verify = { model = "openai-codex/gpt-6-astra"; effort = "low"; };
+    sdd-verify = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "low"; };
   };
 
   gentleModelProfiles =
@@ -138,7 +138,7 @@ let
     }) subagentModelProfiles
     // {
       review-refuter = { model = "commandcode/deepseek/deepseek-v4.1-flash"; thinking = "high"; };
-      review-validator = { model = "openai-codex/gpt-5.6-sol"; thinking = "high"; };
+      review-validator = { model = "commandcode/deepseek/deepseek-v4.1-flash"; thinking = "high"; };
     };
 
   gentleFallbacks = builtins.fromJSON (
@@ -897,15 +897,25 @@ let
             for (const [role, route] of Object.entries(profile)) {
               if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
                 profile[role] = manifest.gentleModelProfiles[role]
-                  || { model: "openai-codex/gpt-5.6-sol", thinking: "high" };
+                  || { model: "commandcode/z-ai/glm-5.3-flash", thinking: "high" };
                 continue;
               }
               if (role !== "jd-judge-b" && typeof route?.model === "string") {
-                const commandCodeModel = (role === "pi-btw" && (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")))
+                const commandCodeModel = (role === "pi-btw" && (
+                    route.model.startsWith("opencode/") ||
+                    route.model.startsWith("opencode-go/") ||
+                    route.model.startsWith("openai/") ||
+                    route.model.startsWith("openai-codex/")
+                  ))
                   ? "commandcode/stealth/space-bunny-alpha"
                   : openCodeModelMigrations[route.model];
                 if (commandCodeModel) profile[role] = { ...route, model: commandCodeModel };
-                else if (route.model.startsWith("opencode/") || route.model.startsWith("opencode-go/")) {
+                else if (
+                  route.model.startsWith("opencode/") ||
+                  route.model.startsWith("opencode-go/") ||
+                  route.model.startsWith("openai/") ||
+                  route.model.startsWith("openai-codex/")
+                ) {
                   profile[role] = manifest.gentleModelProfiles[role]
                     || { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" };
                 }

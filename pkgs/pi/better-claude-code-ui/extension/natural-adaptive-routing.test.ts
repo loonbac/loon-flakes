@@ -19,7 +19,7 @@ import {
 const decision: AdaptiveDecision = {
   kind: "ADAPTIVE_ASSIGNMENT", decisionId: "D-1", reason: "fixture", mode: "ACTIVE_GUARDED",
   role: "gentle-ai-worker", taskClass: "small implementation", risk: "LOW",
-  staticRoute: { provider: "openai-codex", model: "gpt-5.6-terra", requestedEffort: "high", effectiveEffort: "high" },
+  staticRoute: { provider: "commandcode", model: "deepseek/deepseek-v4.1-flash", requestedEffort: "high", effectiveEffort: "high" },
   requestedAdaptiveRoute: { provider: "commandcode", model: "z-ai/glm-5.3-flash", requestedEffort: "high", effectiveEffort: "high" },
   exploration: false, compiledPrompt: "## Goal\n- bounded fixture", promptProfileId: "EXPLICIT",
   promptProfileVersion: "prompt-profile-v1", promptCompilerVersion: "prompt-compiler-v1",
@@ -36,7 +36,7 @@ test("actual custom plugin path applies one adaptive primary before recovery", (
 });
 
 test("provider failure creates a distinct recovery attempt", () => {
-  const fallback = { provider: "openai-codex", model: "gpt-5.6-terra", requestedEffort: "high" as const, effectiveEffort: "high" as const };
+  const fallback = { provider: "commandcode", model: "deepseek/deepseek-v4.1-flash", requestedEffort: "high" as const, effectiveEffort: "high" as const };
   const lineage = recoveryLineage(decision.requestedAdaptiveRoute!, fallback, "provider unavailable");
   assert.equal(lineage.primaryAttempt.attemptIndex, 0);
   assert.equal(lineage.fallbackAttempt.attemptIndex, 1);
@@ -104,7 +104,7 @@ test("a current work-unit route that differs from configured Gentle default is u
   const directory = mkdtempSync(join(tmpdir(), "gentle-profile-"));
   mkdirSync(directory, { recursive: true });
   writeFileSync(join(directory, "profiles.json"), JSON.stringify({
-    active: "current", profiles: { current: { "gentle-ai-worker": { model: "openai-codex/gpt-5.6-terra", thinking: "high" } } },
+    active: "current", profiles: { current: { "gentle-ai-worker": { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" } } },
   }));
   process.env.GENTLE_PI_CONFIG_HOME = directory;
   assert.equal(routeDiffersFromConfiguredGentleDefault("gentle-ai-worker", decision.staticRoute), false);

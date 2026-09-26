@@ -866,7 +866,7 @@ transparente.
   permite regularlo con la rueda del mouse. En el PC un daemon de sesión
   agrupa las ráfagas de input y sincroniza el valor real cada 30 segundos.
 - **Paquetes globales** (`environment.systemPackages`): git, gh, btop,
-  fastfetch, ghostty, nodejs, zen-browser, vscode-insiders,
+  fastfetch, ghostty, nodejs, zen-browser, helium-browser, vscode-insiders,
   equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
   (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
   Gentle-AI, Engram, Pi, Packet Tracer, `gentle-ai-bootstrap` y
@@ -902,10 +902,11 @@ transparente.
 | `nixpkgs`             | `nixos-26.05`                                     |
 | `citron-nextendo`     | AppImages estables por commit + módulo NixOS      |
 | `zen-browser`         | Zen Browser (no está en nixpkgs)                  |
+| `helium-browser`      | Helium Browser (no está en nixpkgs)               |
 | `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
 
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
-`niri-cycle`, `vscode-insiders`, `zen-browser`, `gentle-ai`, `engram`,
+`niri-cycle`, `vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
 `cisco-packet-tracer`, `steamidra`, `citron-nextendo`, `citron-nextendo-v3` y
 `veadotube-mini`, `obs-pwvideo`.
