@@ -101,7 +101,7 @@ const STATUS_KEY = "antigravity-quota-fallback";
 // the RPC session stream. This private status event reports the selected route
 // immediately, before the provider starts returning assistant tokens.
 const EFFECTIVE_ROUTE_STATUS_KEY = "loon-effective-subagent-route";
-const QUOTA_ERROR = /(?:quota\s+(?:reached|exceeded|exhausted)|resource[_\s-]?exhausted|usage\s+(?:limit|quota)[^\n]*(?:reached|exceeded|exhausted)|(?:daily|monthly)\s+(?:usage\s+)?limit[^\n]*(?:reached|exceeded|exhausted))/i;
+const ANTIGRAVITY_FAILURE_ERROR = /(?:quota\s+(?:reached|exceeded|exhausted)|resource[_\s-]?exhausted|usage\s+(?:limit|quota)[^\n]*(?:reached|exceeded|exhausted)|(?:daily|monthly)\s+(?:usage\s+)?limit[^\n]*(?:reached|exceeded|exhausted)|\b403\b|\b429\b|\b401\b|\b503\b|denied\s+this\s+request|verify\s+your\s+account|permission_denied|unauthenticated|rate[_\s-]?limit)/i;
 
 interface ProviderCooldown {
   activeUntil: number;
@@ -115,7 +115,8 @@ interface CooldownState {
 }
 
 export function isQuotaExhaustion(errorMessage: unknown): errorMessage is string {
-  return typeof errorMessage === "string" && QUOTA_ERROR.test(errorMessage);
+  if (typeof errorMessage !== "string") return false;
+  return ANTIGRAVITY_FAILURE_ERROR.test(errorMessage) || errorMessage.includes("Antigravity API error");
 }
 
 export function parseWaitDurationMs(errorMessage: string): number | undefined {
@@ -653,7 +654,10 @@ export default async function antigravityQuotaFallback(pi: ExtensionAPI): Promis
       rememberOriginal(ctx);
       const state = writeState(provider, message.errorMessage, message.model);
       showState(ctx, state);
-      reason = `Antigravity cuenta ${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} agotó su cuota`;
+      const isQuota = typeof message.errorMessage === "string" && /quota|resource[_\s-]?exhausted|limit/i.test(message.errorMessage);
+      reason = isQuota
+        ? `Antigravity cuenta ${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} agotó su cuota`
+        : `Antigravity cuenta ${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "A" : "B"} no está disponible (${provider === PRIMARY_ANTIGRAVITY_PROVIDER ? "Cuenta A" : "Cuenta B"})`;
       if (provider === PRIMARY_ANTIGRAVITY_PROVIDER) {
         if (gentleAgentName) {
           activated = await activateFallback(ctx, 0);
