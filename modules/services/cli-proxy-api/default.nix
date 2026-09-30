@@ -22,6 +22,10 @@ let
     oauth = {
       auth-dir = cfg.authDir;
     };
+    plugins = {
+      enabled = cfg.enablePlugins;
+      dir = cfg.pluginsDir;
+    };
   };
 
   finalSettings = lib.recursiveUpdate defaultSettings cfg.settings;
@@ -57,6 +61,18 @@ in
       type = lib.types.str;
       default = "admin";
       description = "Clave secreta para acceder al panel de administración web (/management.html).";
+    };
+
+    enablePlugins = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Habilita la ejecución y soporte de plugins en CLI Proxy API.";
+    };
+
+    pluginsDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/home/${cfg.user}/.cli-proxy-api/plugins";
+      description = "Directorio donde se descargan e instalan los plugins de CLI Proxy API.";
     };
 
     authDir = lib.mkOption {
