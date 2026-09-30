@@ -396,12 +396,10 @@ un tercero:
 | `sdd-apply` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
 | `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
 
-El perfil principal de los subagentes usa `commandcode/stealth/space-bunny-alpha`
-para `pi-btw`, `commandcode/xiaomi/mimo-v2.6-flash` para
-`review-readability` y `commandcode/xiaomi/mimo-v2.6-pro` para
-`review-resilience`. El resto de las rutas Muse usa exclusivamente
-`commandcode/meta/muse-spark-1.3-contributor`. Space Bunny Alpha está gratis
-durante su vista previa actual ([catálogo de Command Code](https://commandcode.ai/models/space-bunny-alpha)).
+El perfil principal de los subagentes usa `commandcode/stealth/pixel-canary`
+para todas las rutas delegadas a Command Code (`pi-btw`, `review-*`, `sdd-*`,
+`jd-judge-a`, `gentle-ai-verify`). Pixel Canary está disponible en el
+[catálogo de Command Code](https://commandcode.ai/models/pixel-canary).
 
 Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
 puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con

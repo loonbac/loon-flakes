@@ -105,30 +105,30 @@ let
 
   subagentModelProfiles = {
     gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    gentle-ai-verify = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "high"; };
+    gentle-ai-verify = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
     gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-a = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    jd-judge-a = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
     jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "high"; };
-    pi-btw = { model = "commandcode/stealth/space-bunny-alpha"; effort = "medium"; };
-    review-readability = { model = "commandcode/xiaomi/mimo-v2.6-flash"; effort = "medium"; };
-    review-reliability = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "high"; };
-    review-resilience = { model = "commandcode/xiaomi/mimo-v2.6-pro"; effort = "high"; };
-    review-risk = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    pi-btw = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
+    review-readability = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
+    review-reliability = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
+    review-resilience = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
+    review-risk = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-archive = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
-    sdd-design = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    sdd-archive = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
+    sdd-design = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
     sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
-    sdd-research = { model = "commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    sdd-remediate = { model = "commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    sdd-proposal = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
+    sdd-research = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
+    sdd-remediate = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
     sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-status = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "low"; };
-    sdd-sync = { model = "commandcode/meta/muse-spark-1.3-contributor"; effort = "medium"; };
+    sdd-status = { model = "commandcode/stealth/pixel-canary"; effort = "low"; };
+    sdd-sync = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
     sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-verify = { model = "commandcode/deepseek/deepseek-v4.1-flash"; effort = "low"; };
+    sdd-verify = { model = "commandcode/stealth/pixel-canary"; effort = "low"; };
   };
 
   gentleModelProfiles =
@@ -137,8 +137,8 @@ let
       thinking = profile.effort;
     }) subagentModelProfiles
     // {
-      review-refuter = { model = "commandcode/deepseek/deepseek-v4.1-flash"; thinking = "high"; };
-      review-validator = { model = "commandcode/deepseek/deepseek-v4.1-flash"; thinking = "high"; };
+      review-refuter = { model = "commandcode/stealth/pixel-canary"; thinking = "high"; };
+      review-validator = { model = "commandcode/stealth/pixel-canary"; thinking = "high"; };
     };
 
   gentleFallbacks = builtins.fromJSON (
@@ -255,7 +255,7 @@ let
   antigravityQuotaFallback = writeText "loon-antigravity-quota-fallback.ts" ''
     export { default } from "${betterClaudeCodeUi}/extension/antigravity-quota-fallback.ts";
   '';
-  antigravityAliasSchema = 1;
+  antigravityAliasSchema = 2;
   # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
   # separately through lifecycle events, so bridge every blocking extension
   # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
@@ -596,9 +596,11 @@ let
       ['export const ANTIGRAVITY_API = "antigravity-api" as const;', 'export const ANTIGRAVITY_API = "antigravity-alt-api" as const;', 1],
     ]);
     replace("src/index.ts", [
-      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 1],
+      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 2],
       ['name: "generate_image",', 'name: "generate_image_alt",', 1],
       ['label: "Generate image",', 'label: "Generate image (cuenta B)",', 1],
+      ['name: "google_search",', 'name: "google_search_alt",', 1],
+      ['label: "Google Search",', 'label: "Google Search (cuenta B)",', 1],
       ["/login antigravity", "/login antigravity-alt"],
       ["/antigravity.", "/antigravity-alt."],
       ['registerCommand("antigravity.', 'registerCommand("antigravity-alt.'],
@@ -987,7 +989,7 @@ let
     ---
     name: pi-btw
     description: Dedicated model route for Pi BTW side questions.
-    model: commandcode/stealth/space-bunny-alpha
+    model: commandcode/stealth/pixel-canary
     thinking: medium
     ---
 
@@ -1438,7 +1440,7 @@ writeShellApplication {
 
     # Generate a second, independently authenticated provider from the exact
     # installed pi-antigravity release. Only provider/API/persistence ids,
-    # commands and the duplicate image-tool name are changed. A version change
+    # commands and the duplicate image/search tool names are changed. A version change
     # is picked up by gentle-stack-update's post-update bootstrap pass.
     antigravity_official="$npm_node_modules/pi-antigravity"
     antigravity_alt="$local_package_root/pi-antigravity-alt"
