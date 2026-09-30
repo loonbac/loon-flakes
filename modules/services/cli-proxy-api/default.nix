@@ -26,6 +26,11 @@ let
       enabled = cfg.enablePlugins;
       dir = cfg.pluginsDir;
     };
+    observability = {
+      logs = {
+        logging-to-file = true;
+      };
+    };
   };
 
   finalSettings = lib.recursiveUpdate defaultSettings cfg.settings;
