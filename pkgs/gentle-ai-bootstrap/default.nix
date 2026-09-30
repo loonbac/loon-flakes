@@ -95,9 +95,36 @@ let
     };
   };
 
-  subagentModelProfiles = { };
+  subagentModelProfiles = {
+    gentle-ai-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    gentle-ai-worker = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    gentle-ai-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    jd-fix-agent = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    jd-judge-a = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
+    jd-judge-b = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    review-readability = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
+    review-reliability = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    review-resilience = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    review-risk = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
+    sdd-apply = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    sdd-archive = { model = "cpa-gemini/gemini-3.1-flash-lite"; effort = "off"; };
+    sdd-design = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
+    sdd-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    sdd-init = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    sdd-onboard = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    sdd-proposal = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
+    sdd-remediate = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    sdd-research = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    sdd-spec = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
+    sdd-status = { model = "cpa-gemini/gemini-3.1-flash-lite"; effort = "off"; };
+    sdd-tasks = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
+    sdd-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+  };
 
-  gentleModelProfiles = { };
+  gentleModelProfiles = lib.mapAttrs (_name: profile: {
+    inherit (profile) model;
+    thinking = profile.effort;
+  }) subagentModelProfiles;
 
   gentleFallbacks = {
     version = 1;
