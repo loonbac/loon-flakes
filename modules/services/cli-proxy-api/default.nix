@@ -118,6 +118,13 @@ in
       wantedBy = [ "multi-user.target" ];
       wants = [ "network-online.target" ];
       after = [ "network-online.target" ];
+      preStart = ''
+        mkdir -p /home/${cfg.user}/.cli-proxy-api
+        if [ ! -f /home/${cfg.user}/.cli-proxy-api/config.yaml ]; then
+          cp ${configFile} /home/${cfg.user}/.cli-proxy-api/config.yaml
+          chmod 600 /home/${cfg.user}/.cli-proxy-api/config.yaml
+        fi
+      '';
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
@@ -127,7 +134,7 @@ in
           "HOME=/home/${cfg.user}"
           "MANAGEMENT_STATIC_PATH=/home/${cfg.user}/.cli-proxy-api/static"
         ];
-        ExecStart = "${cfg.package}/bin/cli-proxy-api -config /etc/cli-proxy-api/config.yaml";
+        ExecStart = "${cfg.package}/bin/cli-proxy-api -config /home/${cfg.user}/.cli-proxy-api/config.yaml";
         Restart = "always";
         RestartSec = "5s";
       };

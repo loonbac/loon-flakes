@@ -34,22 +34,17 @@ let
   ];
 
   localPiPackages = [
-    "npm:pi-antigravity"
-    "@HOME@/.local/share/loon-pi-packages/pi-antigravity-alt"
     "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
     "@HOME@/.local/share/loon-pi-packages/pi-gpt-fast-mode-shared"
     "npm:pi-discord-activity"
     "npm:pi-web-access"
     "npm:pi-btw"
-    "npm:pi-commandcode-provider"
     "npm:pi-mcp-adapter"
   ];
 
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
 
   piPackageNames = [
-    "pi-antigravity"
-    "pi-antigravity-alt"
     "better-claude-code-ui"
     "pi-gpt-fast-mode-shared"
     "pi-discord-activity"
@@ -57,14 +52,11 @@ let
     "gentle-engram"
     "pi-web-access"
     "pi-btw"
-    "pi-commandcode-provider"
     "pi-mcp-adapter"
   ];
 
   piSettings = {
-    defaultModel = "meta/muse-spark-1.3-contributor";
     defaultProjectTrust = "always";
-    defaultProvider = "commandcode";
     defaultThinkingLevel = "high";
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
@@ -103,47 +95,14 @@ let
     };
   };
 
-  subagentModelProfiles = {
-    gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    gentle-ai-verify = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-a = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    jd-judge-b = { model = "antigravity/claude-opus-4-6"; effort = "high"; };
-    pi-btw = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
-    review-readability = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
-    review-reliability = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    review-resilience = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    review-risk = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-archive = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
-    sdd-design = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-research = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-remediate = { model = "commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-status = { model = "commandcode/stealth/pixel-canary"; effort = "low"; };
-    sdd-sync = { model = "commandcode/stealth/pixel-canary"; effort = "medium"; };
-    sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-verify = { model = "commandcode/stealth/pixel-canary"; effort = "low"; };
+  subagentModelProfiles = { };
+
+  gentleModelProfiles = { };
+
+  gentleFallbacks = {
+    version = 1;
+    fallbacks = [ ];
   };
-
-  gentleModelProfiles =
-    builtins.mapAttrs (_: profile: {
-      inherit (profile) model;
-      thinking = profile.effort;
-    }) subagentModelProfiles
-    // {
-      review-refuter = { model = "commandcode/stealth/pixel-canary"; thinking = "high"; };
-      review-validator = { model = "commandcode/stealth/pixel-canary"; thinking = "high"; };
-    };
-
-  gentleFallbacks = builtins.fromJSON (
-    builtins.readFile ../pi/better-claude-code-ui/extension/fallback-defaults.json
-  );
 
   gentlePortableConfig = {
     backgroundSubagents = {
@@ -171,6 +130,9 @@ let
     # gentle-pi ≥ 3.5.1 ya incluye `ask_user_question`/`ask_user_choice`; mantener
     # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
     "@juicesharp/rpiv-ask-user-question"
+    "pi-antigravity"
+    "pi-antigravity-alt"
+    "pi-commandcode-provider"
   ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
@@ -250,12 +212,6 @@ let
     };
   });
 
-  # The runtime fallback and its editor share fallback-config.ts, so keep them
-  # in the same immutable package and expose the runtime file globally.
-  antigravityQuotaFallback = writeText "loon-antigravity-quota-fallback.ts" ''
-    export { default } from "${betterClaudeCodeUi}/extension/antigravity-quota-fallback.ts";
-  '';
-  antigravityAliasSchema = 2;
   # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
   # separately through lifecycle events, so bridge every blocking extension
   # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
@@ -549,71 +505,6 @@ let
     fs.renameSync(temporary, packageJsonPath);
   '';
 
-  patchAntigravitySecondAccount = writeText "patch-antigravity-second-account.mjs" ''
-    import fs from "node:fs";
-    import path from "node:path";
-
-    const [packageRoot] = process.argv.slice(2);
-    if (!packageRoot) throw new Error("missing cloned package root");
-
-    function replace(relativePath, replacements) {
-      const target = path.join(packageRoot, relativePath);
-      let text = fs.readFileSync(target, "utf8");
-      for (const [from, to, expected] of replacements) {
-        const count = text.split(from).length - 1;
-        if (expected !== undefined && count !== expected) {
-          throw new Error(`upstream compatibility check failed for ''${relativePath}: expected ''${expected} occurrence(s) of ''${JSON.stringify(from)}, found ''${count}`);
-        }
-        text = text.replaceAll(from, to);
-      }
-      fs.writeFileSync(target, text);
-    }
-
-    const packagePath = path.join(packageRoot, "package.json");
-    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
-    if (packageJson.name !== "pi-antigravity" || typeof packageJson.version !== "string") {
-      throw new Error("upstream compatibility check failed for package.json");
-    }
-    packageJson.name = "pi-antigravity-alt";
-    packageJson.description = "Generated second-account alias of pi-antigravity";
-    packageJson.loonAliasSource = {
-      name: "pi-antigravity",
-      version: packageJson.version,
-      schema: ${toString antigravityAliasSchema},
-    };
-    fs.writeFileSync(packagePath, `''${JSON.stringify(packageJson, null, 2)}\n`);
-
-    replace("src/models/models.ts", [
-      ['export const PROVIDER_ID = "antigravity";', 'export const PROVIDER_ID = "antigravity-alt";', 1],
-      ['export const PROVIDER_NAME = "Antigravity";', 'export const PROVIDER_NAME = "Antigravity (cuenta B)";', 1],
-      ["(Antigravity)", "(Antigravity cuenta B)"],
-    ]);
-    replace("src/models/discovery.ts", [
-      ['export const ANTIGRAVITY_PERSIST_KEY = "pi-antigravity";', 'export const ANTIGRAVITY_PERSIST_KEY = "pi-antigravity-alt";', 1],
-      ['provider: "antigravity",', 'provider: "antigravity-alt",', 1],
-    ]);
-    replace("src/types/types.ts", [
-      ['export const ANTIGRAVITY_API = "antigravity-api" as const;', 'export const ANTIGRAVITY_API = "antigravity-alt-api" as const;', 1],
-    ]);
-    replace("src/index.ts", [
-      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 2],
-      ['name: "generate_image",', 'name: "generate_image_alt",', 1],
-      ['label: "Generate image",', 'label: "Generate image (cuenta B)",', 1],
-      ['name: "google_search",', 'name: "google_search_alt",', 1],
-      ['label: "Google Search",', 'label: "Google Search (cuenta B)",', 1],
-      ["/login antigravity", "/login antigravity-alt"],
-      ["/antigravity.", "/antigravity-alt."],
-      ['registerCommand("antigravity.', 'registerCommand("antigravity-alt.'],
-    ]);
-    replace("src/usage/usage.ts", [
-      ['getApiKeyForProvider("antigravity")', 'getApiKeyForProvider("antigravity-alt")', 1],
-      ["/antigravity.models", "/antigravity-alt.models"],
-    ]);
-    for (const relativePath of ["src/auth/oauth.ts", "src/client/client.ts"]) {
-      replace(relativePath, [["/login antigravity", "/login antigravity-alt"]]);
-    }
-  '';
-
   # gentle-pi records the launch model in TaskRecord, but quota fallback can
   # change the child route before its first provider request. Patch the mutable
   # package after every install/update so its card follows the effective RPC
@@ -865,12 +756,6 @@ let
     const [agentDir, manifestPath] = process.argv.slice(2);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const profiles = manifest.subagentModelProfiles;
-    const openCodeModelMigrations = {
-      "opencode-go/deepseek-v4.1-flash": "commandcode/deepseek/deepseek-v4.1-flash",
-      "opencode-go/glm-5.3-flash": "commandcode/z-ai/glm-5.3-flash",
-      "opencode-go/muse-spark-1.3-contributor": "commandcode/meta/muse-spark-1.3-contributor",
-      "opencode-go/mimo-v2.5": "commandcode/xiaomi/mimo-v2.5",
-    };
     const configPath = path.join(agentDir, "subagents.json");
 
     function writeJson(targetPath, value) {
@@ -886,54 +771,6 @@ let
 
     const gentleDir = path.join(path.dirname(agentDir), "gentle-ai");
     writeJson(path.join(gentleDir, "models.json"), manifest.gentleModelProfiles);
-    // Preserve the user's current profile while migrating retired provider
-    // routes to their Command Code equivalents. Opus remains fixed to
-    // jd-judge-b:high; repository/worktree pins remain separate and untouched.
-    const profilesPath = path.join(gentleDir, "profiles.json");
-    if (fs.existsSync(profilesPath)) {
-      try {
-        const stored = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
-        if (stored?.profiles && typeof stored.profiles === "object") {
-          for (const [profileName, profile] of Object.entries(stored.profiles)) {
-            if (!profile || typeof profile !== "object") continue;
-            for (const [role, route] of Object.entries(profile)) {
-              if (role !== "jd-judge-b" && route?.model?.endsWith("/claude-opus-4-6")) {
-                profile[role] = manifest.gentleModelProfiles[role]
-                  || { model: "commandcode/z-ai/glm-5.3-flash", thinking: "high" };
-                continue;
-              }
-              if (role !== "jd-judge-b" && typeof route?.model === "string") {
-                const commandCodeModel = (role === "pi-btw" && (
-                    route.model.startsWith("opencode/") ||
-                    route.model.startsWith("opencode-go/") ||
-                    route.model.startsWith("openai/") ||
-                    route.model.startsWith("openai-codex/")
-                  ))
-                  ? "commandcode/stealth/space-bunny-alpha"
-                  : openCodeModelMigrations[route.model];
-                if (commandCodeModel) profile[role] = { ...route, model: commandCodeModel };
-                else if (
-                  route.model.startsWith("opencode/") ||
-                  route.model.startsWith("opencode-go/") ||
-                  route.model.startsWith("openai/") ||
-                  route.model.startsWith("openai-codex/")
-                ) {
-                  profile[role] = manifest.gentleModelProfiles[role]
-                    || { model: "commandcode/deepseek/deepseek-v4.1-flash", thinking: "high" };
-                }
-              }
-            }
-            if (profileName === "current") {
-              profile["jd-judge-b"] = manifest.gentleModelProfiles["jd-judge-b"];
-            }
-          }
-          writeJson(profilesPath, stored);
-        }
-      } catch {
-        // An invalid user file remains untouched; gentle-pi will surface its
-        // own validation error instead of the bootstrap silently replacing it.
-      }
-    }
     writeJson(
       path.join(gentleDir, "background-subagents.json"),
       manifest.gentlePortableConfig.backgroundSubagents,
@@ -989,8 +826,6 @@ let
     ---
     name: pi-btw
     description: Dedicated model route for Pi BTW side questions.
-    model: commandcode/stealth/pixel-canary
-    thinking: medium
     ---
 
     This agent entry is the gentle-pi model route for the `@narumitw/pi-btw` `/btw` extension.
@@ -1291,19 +1126,7 @@ writeShellApplication {
       ln -s "$notifications_source" "$notifications_destination"
     fi
 
-    # Keep quota handling outside gentle-pi: this global Pi extension also
-    # loads in Gentle Agents child processes and shares one reset deadline.
-    fallback_source="${antigravityQuotaFallback}"
-    fallback_destination="$agent_dir/extensions/loon-antigravity-quota-fallback.ts"
-    if [ -L "$fallback_destination" ]; then
-      ln -sfn "$fallback_source" "$fallback_destination"
-    elif [ -e "$fallback_destination" ]; then
-      mkdir -p "$backup_dir/extensions"
-      mv "$fallback_destination" "$backup_dir/extensions/loon-antigravity-quota-fallback.ts"
-      ln -s "$fallback_source" "$fallback_destination"
-    else
-      ln -s "$fallback_source" "$fallback_destination"
-    fi
+    rm -f "$agent_dir/extensions/loon-antigravity-quota-fallback.ts"
 
     # Remove the replaced subagent/todo implementations from the mutable Pi
     # tree. Keep them recoverable in the same backup area used for migrations.
@@ -1318,6 +1141,11 @@ writeShellApplication {
     retire_package "pi-subagents-j0k3r"
     retire_package "@tintinweb/pi-subagents"
     retire_package "@juicesharp/rpiv-todo"
+    retire_package "pi-antigravity"
+    retire_package "pi-commandcode-provider"
+    rm -rf "$local_package_root/pi-antigravity-alt"
+    rm -f "$agent_dir/commandcode-models.json"
+    rm -f "$agent_dir/state/antigravity-quota-fallback.json"
 
     # Retire only obsolete standalone companions. Pi is intentionally mutable
     # now, and the `gentle-ai` launcher resolves gentle-pi's verified binary.
@@ -1366,11 +1194,9 @@ writeShellApplication {
         )
       fi
     }
-    install_missing_package pi-antigravity npm:pi-antigravity
     install_missing_package pi-discord-activity npm:pi-discord-activity
     install_missing_package pi-web-access npm:pi-web-access
     install_missing_package pi-btw npm:pi-btw
-    install_missing_package pi-commandcode-provider npm:pi-commandcode-provider
     install_missing_package pi-mcp-adapter npm:pi-mcp-adapter
 
     desired_core_source() {
@@ -1436,44 +1262,6 @@ writeShellApplication {
     install -Dm0600 "${coreSources}" "$core_sources_state"
     # pi install may append its source. Normalize the list without touching
     # packages that neither the Gentle core nor the local loon layer owns.
-    node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
-
-    # Generate a second, independently authenticated provider from the exact
-    # installed pi-antigravity release. Only provider/API/persistence ids,
-    # commands and the duplicate image/search tool names are changed. A version change
-    # is picked up by gentle-stack-update's post-update bootstrap pass.
-    antigravity_official="$npm_node_modules/pi-antigravity"
-    antigravity_alt="$local_package_root/pi-antigravity-alt"
-    official_antigravity_identity="$(node -p 'require(process.argv[1]).version' "$antigravity_official/package.json"):${toString antigravityAliasSchema}"
-    installed_alias_identity="$(node -e '
-      try {
-        const source = require(process.argv[1]).loonAliasSource;
-        if (typeof source?.version === "string" && Number.isInteger(source?.schema)) {
-          process.stdout.write(source.version + ":" + source.schema);
-        }
-      } catch {}
-    ' "$antigravity_alt/package.json")"
-
-    if [ "$installed_alias_identity" != "$official_antigravity_identity" ]; then
-      antigravity_alt_tmp="$(mktemp -d "$local_package_root/.pi-antigravity-alt.XXXXXX")"
-      cp -a "$antigravity_official/." "$antigravity_alt_tmp/"
-      if node "${patchAntigravitySecondAccount}" "$antigravity_alt_tmp"; then
-        # The copied package resolves its ordinary npm dependencies through
-        # Pi's managed extension tree without copying another dependency set.
-        ln -s "$npm_node_modules" "$antigravity_alt_tmp/node_modules"
-        if [ -e "$antigravity_alt" ] || [ -L "$antigravity_alt" ]; then
-          mkdir -p "$backup_dir/local-packages"
-          mv "$antigravity_alt" "$backup_dir/local-packages/pi-antigravity-alt"
-        fi
-        mv "$antigravity_alt_tmp" "$antigravity_alt"
-      else
-        rm -rf "$antigravity_alt_tmp"
-        echo "gentle-ai-bootstrap: pi-antigravity changed incompatibly; preserving the previous account-B clone" >&2
-      fi
-    fi
-
-    # The first settings pass intentionally skipped this generated path on a
-    # clean machine. Add it now that its official source is available.
     node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
 
     verify_gentle_ai_runtime() {
