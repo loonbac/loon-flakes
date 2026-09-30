@@ -111,12 +111,12 @@ let
     review-validator = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     sdd-apply = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-archive = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
-    sdd-design = { model = "cpa-commandcode/stealth/pixel-canary"; effort = "high"; };
+    sdd-design = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
     sdd-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-init = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
     sdd-onboard = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-proposal = { model = "cpa-commandcode/stealth/pixel-canary"; effort = "high"; };
-    sdd-remediate = { model = "cpa-commandcode/stealth/pixel-canary"; effort = "high"; };
+    sdd-proposal = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
+    sdd-remediate = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
     sdd-research = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
     sdd-spec = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-status = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "low"; };
