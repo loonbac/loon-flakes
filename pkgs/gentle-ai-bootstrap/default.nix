@@ -97,28 +97,32 @@ let
 
   subagentModelProfiles = {
     gentle-ai-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    gentle-ai-worker = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
-    gentle-ai-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    jd-fix-agent = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
-    jd-judge-a = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
-    jd-judge-b = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    review-readability = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
-    review-reliability = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
-    review-resilience = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    review-risk = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
-    sdd-apply = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
-    sdd-archive = { model = "cpa-gemini/gemini-3.1-flash-lite"; effort = "off"; };
-    sdd-design = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
-    sdd-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    gentle-ai-worker = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    gentle-ai-verify = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    jd-fix-agent = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    jd-judge-a = { model = "cpa-commandcode/commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    jd-judge-b = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
+    pi-btw = { model = "cpa-infronai/qwen/qwen3.8-27b:free"; effort = "medium"; };
+    review-readability = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
+    review-refuter = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    review-reliability = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    review-resilience = { model = "cpa-infronai/qwen/qwen3.8-27b:free"; effort = "high"; };
+    review-risk = { model = "cpa-commandcode/commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    review-validator = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    sdd-apply = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    sdd-archive = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
+    sdd-design = { model = "cpa-commandcode/commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    sdd-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-init = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
     sdd-onboard = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-proposal = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
-    sdd-remediate = { model = "cpa-claude/claude-sonnet-4-6"; effort = "high"; };
+    sdd-proposal = { model = "cpa-commandcode/commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
+    sdd-remediate = { model = "cpa-commandcode/commandcode/z-ai/glm-5.3-flash"; effort = "high"; };
     sdd-research = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-spec = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
-    sdd-status = { model = "cpa-gemini/gemini-3.1-flash-lite"; effort = "off"; };
-    sdd-tasks = { model = "cpa-claude/claude-sonnet-4-6"; effort = "medium"; };
-    sdd-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    sdd-spec = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    sdd-status = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "low"; };
+    sdd-sync = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
+    sdd-tasks = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
+    sdd-verify = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
   };
 
   gentleModelProfiles = lib.mapAttrs (_name: profile: {
