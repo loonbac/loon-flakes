@@ -505,6 +505,33 @@ let
     fs.renameSync(temporary, packageJsonPath);
   '';
 
+  normalizeHostPeerDependencies = writeText "normalize-host-peer-dependencies.mjs" ''
+    import fs from "node:fs";
+    import path from "node:path";
+
+    const [nodeModulesDir] = process.argv.slice(2);
+    if (!nodeModulesDir) process.exit(0);
+
+    const rules = [
+      ["gentle-pi", "@earendil-works/pi-tui"],
+      ["gentle-engram", "typebox"],
+    ];
+
+    for (const [pkg, dep] of rules) {
+      const packagePath = path.join(nodeModulesDir, pkg, "package.json");
+      try {
+        if (!fs.existsSync(packagePath)) continue;
+        const d = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+        if (d.dependencies && d.dependencies[dep]) {
+          delete d.dependencies[dep];
+          d.peerDependencies = d.peerDependencies || {};
+          d.peerDependencies[dep] = "*";
+          fs.writeFileSync(packagePath, JSON.stringify(d, null, 2) + "\n");
+        }
+      } catch {}
+    }
+  '';
+
   # gentle-pi records the launch model in TaskRecord, but quota fallback can
   # change the child route before its first provider request. Patch the mutable
   # package after every install/update so its card follows the effective RPC
@@ -1337,16 +1364,19 @@ NODE
       "${rddRouting}" \
       "$state_path"
 
-    mcp_path="$agent_dir/mcp.json"
+    node "${normalizeHostPeerDependencies}" "$npm_node_modules"
+
+    rm -f "$agent_dir/mcp.json"
+    mcp_path="$agent_dir/mcp-adapter.json"
     if ! [ -L "$mcp_path" ] && [ -e "$mcp_path" ]; then
-      mkdir -p "$(dirname "$backup_dir/mcp.json")"
-      mv "$mcp_path" "$backup_dir/mcp.json"
+      mkdir -p "$(dirname "$backup_dir/mcp-adapter.json")"
+      mv "$mcp_path" "$backup_dir/mcp-adapter.json"
     elif [ -L "$mcp_path" ]; then
       if [ "$(readlink -f "$mcp_path" || true)" = "${mcpConfig}" ]; then
         mcp_path=""
       else
-        mkdir -p "$(dirname "$backup_dir/mcp.json")"
-        mv "$mcp_path" "$backup_dir/mcp.json"
+        mkdir -p "$(dirname "$backup_dir/mcp-adapter.json")"
+        mv "$mcp_path" "$backup_dir/mcp-adapter.json"
       fi
     fi
     if [ -n "$mcp_path" ]; then
