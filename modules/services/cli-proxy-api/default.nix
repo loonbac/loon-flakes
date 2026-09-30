@@ -14,6 +14,11 @@ let
       host = cfg.host;
       port = cfg.port;
     };
+    management = {
+      allow-remote = false;
+      secret-key = cfg.managementKey;
+      disable-control-panel = false;
+    };
     oauth = {
       auth-dir = cfg.authDir;
     };
@@ -46,6 +51,12 @@ in
       type = lib.types.port;
       default = 63817;
       description = "Puerto TCP en el que escuchará el servidor. Por defecto se usa el 63817 (rango privado, fuera del rango efímero local de Linux y sin colisiones).";
+    };
+
+    managementKey = lib.mkOption {
+      type = lib.types.str;
+      default = "admin";
+      description = "Clave secreta para acceder al panel de administración web (/management.html).";
     };
 
     authDir = lib.mkOption {
@@ -98,6 +109,7 @@ in
         WorkingDirectory = "/home/${cfg.user}";
         Environment = [
           "HOME=/home/${cfg.user}"
+          "MANAGEMENT_STATIC_PATH=/home/${cfg.user}/.cli-proxy-api/static"
         ];
         ExecStart = "${cfg.package}/bin/cli-proxy-api -config /etc/cli-proxy-api/config.yaml";
         Restart = "always";
