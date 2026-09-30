@@ -9,5 +9,6 @@
     ./nixos-updates
     ./udisks2
     ./moonlight-power
+    ./cli-proxy-api
   ];
 }

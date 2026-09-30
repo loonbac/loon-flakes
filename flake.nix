@@ -212,6 +212,7 @@
         citron-nextendo-v3 = citron-nextendo.packages.${system}.citron-nextendo-v3;
         veadotube-mini = veadotubeMiniPackage;
         obs-pwvideo = obsPwvideoPackage;
+        cli-proxy-api = pkgs.callPackage ./pkgs/cli-proxy-api { };
       };
 
       overlays = {
