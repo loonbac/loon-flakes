@@ -98,17 +98,17 @@ let
   subagentModelProfiles = {
     gentle-ai-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
     gentle-ai-worker = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    gentle-ai-verify = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    gentle-ai-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     jd-fix-agent = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     jd-judge-a = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
     jd-judge-b = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
     pi-btw = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "medium"; };
     review-readability = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
-    review-refuter = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
-    review-reliability = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    review-refuter = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    review-reliability = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     review-resilience = { model = "cpa-infronai/qwen/qwen3.8-27b:free"; effort = "high"; };
     review-risk = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    review-validator = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    review-validator = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-apply = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
     sdd-archive = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
     sdd-design = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
@@ -122,7 +122,7 @@ let
     sdd-status = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "low"; };
     sdd-sync = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
     sdd-tasks = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-verify = { model = "cpa-infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    sdd-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
   };
 
   gentleModelProfiles = lib.mapAttrs (_name: profile: {
