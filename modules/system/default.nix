@@ -183,6 +183,7 @@ in
     gh
     btop
     bat                # alternativa moderna a cat con resaltado de sintaxis
+    libsecret          # secret-tool CLI para apps que usan Secret Service (ej. andes CLI)
     poppler-utils      # pdftotext, pdfinfo, etc.
     pandoc             # conversión entre Markdown, HTML, PDF y DOCX
     wkhtmltopdf        # motor HTML-a-PDF usado por pandoc con --pdf-engine
