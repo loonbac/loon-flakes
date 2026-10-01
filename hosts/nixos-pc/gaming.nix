@@ -84,4 +84,11 @@ in
     pkgs.heroic
     pkgs.lunar-client
   ];
+
+  # Reglas udev para mandos de juego (GameSir G7 HE y similares sobre hidraw)
+  services.udev.extraRules = ''
+    # GameSir-G7 HE Controller for Xbox (Vendor 3537, Product 1082)
+    KERNEL=="hidraw*", ATTRS{idVendor}=="3537", MODE="0660", TAG+="uaccess"
+    SUBSYSTEM=="input", ATTRS{idVendor}=="3537", MODE="0660", TAG+="uaccess"
+  '';
 }
