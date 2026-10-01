@@ -56,7 +56,7 @@ exactos y las trampas aprendidas en el camino.
 ├── flake.lock                 # lockfile (versionar, no tocar a mano)
 ├── README.md                  # doc de usuario
 ├── AGENTS.md                  # este archivo
-├── pkgs/                      # 43 piezas propias: una carpeta = un concepto (regla 6)
+├── pkgs/                      # 44 piezas propias: una carpeta = un concepto (regla 6)
 │   ├── rebuild/               # comando custom `rebuild`
 │   ├── loon-launch/           # launcher Rust (GTK4 + libadwaita): Cargo.toml, src/main.rs
 │   ├── nixos-ssh/ ts-bypass/ laptop-power-profile/ moonlight-power/ ...
@@ -65,7 +65,7 @@ exactos y las trampas aprendidas en el camino.
 │   │                          #   wallpaper, niri y aspecto
 │   ├── obs-*/ equibop-*/ veadotube-mini/ karaoke-separator/ steamidra/ ...
 │   │                          #   streaming y gaming
-│   └── pi*/ gentle-ai*/ engram*/ gga/   # stack de agentes (launchers mutables)
+│   └── pi*/ gentle-ai*/ engram*/ cline*/ gga/   # stack de agentes (launchers mutables)
 ├── hosts/                     # identidad + hardware por máquina; solo compone
 │   ├── loon-laptop/           # Dell: default.nix, platform.nix (Intel), power.nix (AC/batería),
 │   │                          #   extras-disk.nix (disco Proyectos sda1) y

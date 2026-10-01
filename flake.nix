@@ -213,6 +213,7 @@
         veadotube-mini = veadotubeMiniPackage;
         obs-pwvideo = obsPwvideoPackage;
         cli-proxy-api = pkgs.callPackage ./pkgs/cli-proxy-api { };
+        cline = pkgs.callPackage ./pkgs/cline-launcher { };
       };
 
       overlays = {

@@ -18,6 +18,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── gentle-ai-launcher/            # resuelve el runtime verificado de gentle-pi
 │   ├── engram-launcher/               # launcher de Engram mutable
 │   ├── engram-updater/                # descarga releases y verifica SHA-256
+│   ├── cline-launcher/                # launcher de Cline CLI mutable (npm)
 │   ├── pi-launcher/                    # bootstrap/launcher de Pi mutable
 │   ├── pi/                             # assets locales de Pi (skills + UI custom)
 │   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado

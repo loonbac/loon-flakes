@@ -127,6 +127,7 @@ in
   environment.sessionVariables = {
     PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig:/run/current-system/sw/lib/pkgconfig:/run/current-system/sw/share/pkgconfig";
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
+    SSL_CERT_DIR = "/etc/ssl/certs";
     BROWSER = "zen-browser";
     NPM_CONFIG_PREFIX = "/home/loonbac/.npm-global";
   };
@@ -216,6 +217,7 @@ in
     antigravity-cli
     grok-cli
     codexLatest
+    (pkgs.callPackage ../../pkgs/cline-launcher { })
     zoom-us
     prismlauncher
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
