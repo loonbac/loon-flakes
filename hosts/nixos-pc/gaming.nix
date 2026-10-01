@@ -82,5 +82,6 @@ in
   environment.systemPackages = [
     dolphinForStreaming
     pkgs.heroic
+    pkgs.lunar-client
   ];
 }
