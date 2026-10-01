@@ -1397,22 +1397,23 @@ NODE
 
     node "${normalizeHostPeerDependencies}" "$npm_node_modules"
 
-    rm -f "$agent_dir/mcp.json"
-    mcp_path="$agent_dir/mcp-adapter.json"
-    if ! [ -L "$mcp_path" ] && [ -e "$mcp_path" ]; then
-      mkdir -p "$(dirname "$backup_dir/mcp-adapter.json")"
-      mv "$mcp_path" "$backup_dir/mcp-adapter.json"
-    elif [ -L "$mcp_path" ]; then
-      if [ "$(readlink -f "$mcp_path" || true)" = "${mcpConfig}" ]; then
-        mcp_path=""
-      else
-        mkdir -p "$(dirname "$backup_dir/mcp-adapter.json")"
-        mv "$mcp_path" "$backup_dir/mcp-adapter.json"
+    for config_name in mcp-adapter.json mcp.json; do
+      target_path="$agent_dir/$config_name"
+      if ! [ -L "$target_path" ] && [ -e "$target_path" ]; then
+        mkdir -p "$(dirname "$backup_dir/$config_name")"
+        mv "$target_path" "$backup_dir/$config_name"
+      elif [ -L "$target_path" ]; then
+        if [ "$(readlink -f "$target_path" || true)" = "${mcpConfig}" ]; then
+          target_path=""
+        else
+          mkdir -p "$(dirname "$backup_dir/$config_name")"
+          mv "$target_path" "$backup_dir/$config_name"
+        fi
       fi
-    fi
-    if [ -n "$mcp_path" ]; then
-      ln -s "${mcpConfig}" "$mcp_path"
-    fi
+      if [ -n "$target_path" ]; then
+        ln -s "${mcpConfig}" "$target_path"
+      fi
+    done
 
     node "${mergeState}" "$state_path"
 
