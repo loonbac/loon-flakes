@@ -36,6 +36,14 @@ cursor {
     xcursor-size 32
 }
 
+// Solicita a las aplicaciones que omitan sus decoraciones del lado del cliente (CSD).
+// En juegos y aplicaciones que usan Godot, SDL o libdecor, elimina la barra de título blanca.
+prefer-no-csd
+
+environment {
+    LIBDECOR_FORCE_CSD "0"
+}
+
 layout {
     // Ventanas nuevas al 100% del ancho (efecto "maximizado").
     default-column-width { proportion 1.0; }
@@ -142,13 +150,22 @@ binds {
 // sólido, para no tapar la transparencia de las ventanas.
 window-rule {
     match app-id=".*"
-    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch)$"#
+    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch|windowkill.*)$"#
     open-maximized true
 
     geometry-corner-radius 12
     clip-to-geometry true
 
     draw-border-with-background false
+}
+
+// Windowkill: juego multi-ventana donde las ventanas se mueven y redimensionan libremente.
+// Debe abrir como flotante y sin maximizar para que la mecánica del juego funcione.
+window-rule {
+    match app-id=r#"^windowkill.*$"#
+
+    open-floating true
+    open-maximized false
 }
 
 // loon-launch: flotante y centrado. El launcher normal conserva 680x350;
