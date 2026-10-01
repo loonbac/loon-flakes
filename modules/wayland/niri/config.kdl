@@ -160,12 +160,17 @@ window-rule {
 }
 
 // Windowkill: juego multi-ventana donde las ventanas se mueven y redimensionan libremente.
-// Debe abrir como flotante y sin maximizar para que la mecánica del juego funcione.
+// Debe abrir como flotante y sin maximizar para que la mecánica del juego funcione,
+// sin bordes ni sombras añadidas por niri para que las ventanas transparentes floten limpias.
 window-rule {
     match app-id=r#"^windowkill.*$"#
 
     open-floating true
     open-maximized false
+    border { off; }
+    shadow { off; }
+    geometry-corner-radius 0
+    clip-to-geometry false
 }
 
 // loon-launch: flotante y centrado. El launcher normal conserva 680x350;
