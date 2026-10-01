@@ -27,6 +27,7 @@ in
   loon.programs.steam = {
     enable = true;
     spaceThemeFix.enable = true;
+    slssteam.enable = false;
   };
 
   # Sober y PokeMMO se instalan desde Flathub. Este módulo se importa solo en

@@ -29,8 +29,8 @@ in
     slssteam = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;
-        description = "Inyectar librerías 32-bit de SLSsteam vía LD_AUDIT en Steam";
+        default = false;
+        description = "Inyectar librerías 32-bit de SLSsteam vía LD_AUDIT en Steam (deshabilitado por defecto: genera double free/SIGABRT en glibc actual)";
       };
     };
 
