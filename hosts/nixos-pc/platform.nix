@@ -43,6 +43,9 @@ in
 
   hardware.brightness.backend = "ddc";
 
+  # Gobernador de CPU en máximo rendimiento por defecto (evita caídas de reloj y tirones)
+  powerManagement.cpuFreqGovernor = "performance";
+
   # Configuración inicial de salidas para niri (monitores de nixos-pc).
   programs.niri.defaultMonitorConfig = ''
     // Valor inicial; nwg-displays puede reemplazar este archivo.

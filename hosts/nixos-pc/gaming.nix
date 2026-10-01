@@ -16,6 +16,7 @@ let
   };
 in
 {
+  programs.gamemode.enable = true;
   programs.steamidra.enable = true;
   programs.citron-nextendo = {
     enable = true;
