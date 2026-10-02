@@ -60,6 +60,7 @@ let
     defaultThinkingLevel = "high";
     extensions = [
       "-builtin:codemode"
+      "-builtin:mcp"
     ];
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
@@ -227,8 +228,6 @@ let
     mcpServers.engram = {
       command = "${engramLauncher}/bin/engram";
       args = [ "mcp" "--tools=agent" ];
-      lifecycle = "lazy";
-      directTools = false;
     };
   });
 
