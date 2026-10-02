@@ -132,3 +132,38 @@ test("withoutGentleSidebarBanner removes the ornamental banner and leading space
 	]);
 });
 
+test("withoutGentleSidebarBanner preserves all subsequent rail cards and sections", () => {
+	const multiCardRailLines = [
+		"   \x1b[35m✿\x1b[39m \x1b[37mGentle Shell\x1b[39m \x1b[35m✿\x1b[39m   ",
+		"",
+		" ╭─ ✿ Status ────────────────────────────────────╮ ",
+		" │ Project                                       │ ",
+		" │ ~/Proyectos/pi-custom                         │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+		"",
+		" ╭─ ✿ Changes ───────────────────────────────────╮ ",
+		" │ 1 file changed (+10 -2)                       │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+		"",
+		" ╭─ ✿ Integrations ──────────────────────────────╮ ",
+		" │ git: clean                                    │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+	];
+
+	const cleaned = withoutGentleSidebarBanner(multiCardRailLines);
+	assert.deepEqual(cleaned, [
+		" ╭─ ✿ Status ────────────────────────────────────╮ ",
+		" │ Project                                       │ ",
+		" │ ~/Proyectos/pi-custom                         │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+		"",
+		" ╭─ ✿ Changes ───────────────────────────────────╮ ",
+		" │ 1 file changed (+10 -2)                       │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+		"",
+		" ╭─ ✿ Integrations ──────────────────────────────╮ ",
+		" │ git: clean                                    │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+	]);
+});
+

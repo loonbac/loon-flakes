@@ -1345,7 +1345,7 @@ function stabilizeGentleRailLayout(ui: unknown): (() => LayoutNodeLike) | undefi
 		configureNativeTranscriptGutter(ui, active);
 		if (active) {
 			compactGentleRailGap(node);
-			hideGentleSidebarBanner(ui);
+			patchGentleSidebarInNode(ui, node);
 		}
 		return node;
 	};
@@ -1439,49 +1439,26 @@ function restoreNativeTranscriptScrollbar(ui: unknown): void {
 	}
 }
 
-/**
- * Gentle creates a ScrollView inside its own closure. Pi's layout engine
- * renders the ScrollView's child directly (rather than ScrollView.render), so
- * patch that child from the fixed 50-column hstack entry. This changes only
- * the ornamental row, never Gentle's state, theme, cards, or layout logic.
- */
-function hideGentleSidebarBanner(ui: unknown): boolean {
-	const tui = ui as { layoutRoot?: Record<symbol, unknown> } | undefined;
-	const root = tui?.layoutRoot;
-	const layout = stabilizeGentleRailLayout(ui);
-	if (typeof layout !== "function") return false;
+function patchGentleSidebarInNode(ui: unknown, node: LayoutNodeLike): boolean {
+	const entry = node.type === "hstack"
+		? node.entries?.find((candidate) => candidate.basis === 50 && candidate.component !== undefined)
+		: undefined;
+	const scroll = entry?.component as (RenderableComponent & {
+		child?: RenderableComponent;
+		children?: RenderableComponent[];
+		getContentWidth?: (width: number) => number;
+	}) | undefined;
+	const sidebar = (scroll?.child ?? scroll?.children?.[0]) as RenderableComponent | undefined;
+	if (!sidebar || typeof sidebar.render !== "function") {
+		return false;
+	}
 
-	try {
-		const node = layout.call(root);
-		const entry = node.type === "hstack"
-			? node.entries?.find((candidate) => candidate.basis === 50 && candidate.component !== undefined)
-			: undefined;
-		const scroll = entry?.component as (RenderableComponent & {
-			child?: RenderableComponent;
-			getContentWidth?: (width: number) => number;
-		}) | undefined;
-		const sidebar = (scroll?.child ?? scroll?.children?.[0]) as RenderableComponent | undefined;
-		if (!sidebar || typeof sidebar.render !== "function") {
-			configureNativeTranscriptGutter(ui, false);
-			return false;
-		}
-
-		const originalRender = sidebar[GENTLE_SIDEBAR_RENDER_BASE] as RenderableComponent["render"] | undefined ?? sidebar.render;
+	if (!sidebar[GENTLE_SIDEBAR_RENDER_BASE]) {
+		const originalRender = sidebar.render;
 		sidebar[GENTLE_SIDEBAR_RENDER_BASE] = originalRender;
 		sidebar.render = function ccUiWithoutGentleSidebarBanner(width: number): string[] {
 			restoreNativeTranscriptScrollbar(ui);
-			// Re-read through the stabilized root hook so a root/session transition
-			// also updates the transcript gutter. Geometry is already normalized
-			// before this child render; never request a corrective second frame here.
-			try {
-				const current = layout.call(root);
-				const active = isGentleRailLayout(current);
-				removeLegacyGentleRailGutter(sidebar);
-				configureNativeTranscriptGutter(ui, active);
-			} catch {
-				configureNativeTranscriptGutter(ui, false);
-				// If Gentleman has disposed this rail, leave its native cleanup alone.
-			}
+			removeLegacyGentleRailGutter(sidebar);
 			const lines = originalRender.call(this, width);
 			return withTerminalIntegrationIcons(
 				withCompactGentleSidebar(
@@ -1493,12 +1470,40 @@ function hideGentleSidebarBanner(ui: unknown): boolean {
 				),
 			);
 		};
+	}
 
-		restoreNativeTranscriptScrollbar(ui);
-		removeLegacyGentleRailGutter(sidebar);
+	restoreNativeTranscriptScrollbar(ui);
+	removeLegacyGentleRailGutter(sidebar);
+	return true;
+}
+
+/**
+ * Gentle creates a ScrollView inside its own closure. Pi's layout engine
+ * renders the ScrollView's child directly (rather than ScrollView.render), so
+ * patch that child from the fixed 50-column hstack entry. This changes only
+ * the ornamental row, never Gentle's state, theme, cards, or layout logic.
+ */
+function hideGentleSidebarBanner(ui: unknown): boolean {
+	const tui = ui as { layoutRoot?: Record<symbol, unknown> } | undefined;
+	const root = tui?.layoutRoot;
+	if (!root) return false;
+
+	stabilizeGentleRailLayout(ui);
+
+	const stabilizer = root[GENTLE_RAIL_LAYOUT_STABILIZER] as GentleRailLayoutStabilizer | undefined;
+	const layoutFn = stabilizer?.base ?? (root[LAYOUT_NODE] as (() => LayoutNodeLike) | undefined);
+	if (typeof layoutFn !== "function") return false;
+
+	try {
+		const rawNode = layoutFn.call(root);
+		const node = stripGentleHeaderLayoutNode(rawNode);
 		const active = isGentleRailLayout(node);
 		configureNativeTranscriptGutter(ui, active);
-		return true;
+		if (active) {
+			compactGentleRailGap(node);
+			return patchGentleSidebarInNode(ui, node);
+		}
+		return false;
 	} catch {
 		// The rail is experimental upstream UI. If it is unavailable, leave it
 		// alone rather than affecting Pi's normal layout.
@@ -1988,6 +1993,7 @@ export function installHostPatches(): void {
 			// status line that the rail normally suppresses.
 			suppressGentleHeader(this.ui?.terminal);
 			suppressGentleBelowInputWidget(this);
+			stabilizeGentleRailLayout(this.ui);
 			scheduleGentleSidebarBannerRemoval(this.ui);
 			restoreGentleStatusLine(this);
 			return result;
