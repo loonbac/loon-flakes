@@ -11,6 +11,7 @@ import {
 	isGentleSidebarBannerLine,
 	formatGentleSidebarCards,
 	parseCardRow,
+	stripGentleCardBackgrounds,
 } from "./gentle-header.ts";
 
 test("patchGentleSidebarParts prevents header rail from being stored or read", () => {
@@ -276,6 +277,31 @@ test("formatGentleSidebarCards formats neon cards into balanced two-column rows"
 	const branchLine = plainLines.find((l) => l.includes("Branch"));
 	assert.ok(branchLine);
 	assert.ok(branchLine.includes("Branch") && branchLine.includes("master"));
+});
+
+test("stripGentleCardBackgrounds removes background fills while preserving foreground colors and truecolor channels", () => {
+	const lines = [
+		"  \x1b[48;5;0m\x1b[38;2;33;113;104m▎\x1b[39m \x1b[38;2;111;163;157m✿ Status\x1b[39m                   \x1b[49m  ",
+		"  \x1b[48;2;65;60;65m\x1b[38;2;33;113;104m▎\x1b[39m \x1b[1mProject\x1b[22m   \x1b[36m~/test\x1b[39m   \x1b[49m  ",
+		"  \x1b[40m\x1b[1;32m● ready\x1b[39;22m\x1b[49m  ",
+	];
+
+	const stripped = stripGentleCardBackgrounds(lines);
+
+	// No background escape sequences remain
+	for (const line of stripped) {
+		assert.equal(/\x1b\[(?:4[0-9]|10[0-7]|48[;:;])/.test(line), false);
+		assert.equal(line.includes("\x1b[48;"), false);
+		assert.equal(line.includes("\x1b[49m"), false);
+		assert.equal(line.includes("\x1b[40m"), false);
+	}
+
+	// Foreground colors, truecolor sequences and text are completely preserved
+	assert.ok(stripped[0]!.includes("\x1b[38;2;33;113;104m▎\x1b[39m"));
+	assert.ok(stripped[0]!.includes("\x1b[38;2;111;163;157m✿ Status\x1b[39m"));
+	assert.ok(stripped[1]!.includes("\x1b[1mProject\x1b[22m"));
+	assert.ok(stripped[1]!.includes("\x1b[36m~/test\x1b[39m"));
+	assert.ok(stripped[2]!.includes("\x1b[1;32m● ready\x1b[39;22m"));
 });
 
 

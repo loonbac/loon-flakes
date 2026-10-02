@@ -71,6 +71,7 @@ import { trimTranscriptFrameBody } from "./image-layout.js";
 import {
 	formatGentleSidebarCards,
 	parseCardRow,
+	stripGentleCardBackgrounds,
 	stripGentleHeaderLayoutNode,
 	suppressGentleBelowInputWidget,
 	suppressGentleHeader,
@@ -1461,7 +1462,7 @@ function patchGentleSidebarInNode(ui: unknown, node: LayoutNodeLike): boolean {
 			const withoutBanner = withoutGentleSidebarBanner(lines);
 			const withoutRuntime = withoutGentleSidebarRuntimeDetails(withoutBanner);
 			const formatted = formatGentleSidebarCards(withoutRuntime);
-			return withTerminalIntegrationIcons(stretchGentleRailCards(formatted));
+			return stripGentleCardBackgrounds(withTerminalIntegrationIcons(stretchGentleRailCards(formatted)));
 		};
 	}
 
@@ -1715,18 +1716,26 @@ function frame(lines: string[], width: number, label: string, rainbow = false): 
 	const title = `─ ${shownLabel} `;
 	const topFill = Math.max(0, borderWidth - displayWidth(title));
 	const phase = rainbow ? fastModeAnimationPhase() : 0;
+	const border = (text: string) => transcriptTone("borderAccent", text);
+	const titleTone = (text: string) => transcriptTone("claudeShimmer", text);
 	const content = body.map((rawLine, row) => {
 		const line = label === "Respuesta" ? brightenResponse(rawLine) : rawLine;
 		const padding = Math.max(0, contentWidth - displayWidth(line));
-		if (!rainbow) return `│ ${line}${" ".repeat(padding)} │`;
+		if (!rainbow) return `${border("│")} ${line}${" ".repeat(padding)} ${border("│")}`;
 		return `${rainbowFrame("│", phase + row + 1)} ${line}${" ".repeat(padding)} ${rainbowFrame("│", phase + row + 4)}`;
 	});
-	const top = `┌${title}${"─".repeat(topFill)}┐`;
-	const bottom = `└${"─".repeat(borderWidth)}┘`;
+	const top = rainbow
+		? rainbowFrame(`┌${title}${"─".repeat(topFill)}┐`, phase)
+		: shownLabel.length > 0
+			? `${border("┌─ ")}${titleTone(shownLabel)}${border(` ${"─".repeat(topFill)}┐`)}`
+			: border(`┌${"─".repeat(borderWidth)}┐`);
+	const bottom = rainbow
+		? rainbowFrame(`└${"─".repeat(borderWidth)}┘`, phase + 3)
+		: border(`└${"─".repeat(borderWidth)}┘`);
 	return [
-		rainbow ? rainbowFrame(top, phase) : top,
+		top,
 		...content,
-		rainbow ? rainbowFrame(bottom, phase + 3) : bottom,
+		bottom,
 	];
 }
 

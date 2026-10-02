@@ -9,7 +9,7 @@ import { readFileSync, watch } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { setWallpaperAccent } from "./palette.js";
+import { setWallpaperAccent } from "./palette.ts";
 
 const DEFAULT_DEBOUNCE_MS = 80;
 const DEFAULT_THEME_POLL_MS = 250;
@@ -21,7 +21,7 @@ const TRANSCRIPT_THEME = Symbol.for("better-cc-ui:transcript-theme");
 // Gentle INFO cards paint their title and left rail with customMessageLabel.
 // It must be the *same* accent as the frame roles; using the lighter shimmer
 // here made Status and Changes look like two different wallpaper colors.
-const BRAND_ROLES = ["claude", "border", "borderAccent", "borderMuted", "toolTitle", "customMessageLabel"] as const;
+const BRAND_ROLES = ["claude", "border", "borderAccent", "borderMuted", "toolTitle", "customMessageLabel", "scrollbarThumb"] as const;
 const SHIMMER_ROLES = ["claudeShimmer"] as const;
 
 type ColorMode = "truecolor" | "256color";
@@ -31,9 +31,27 @@ export interface RuntimeTheme {
 	name?: string;
 	sourcePath?: string;
 	sourceInfo?: unknown;
-	fgColors: Map<string, string>;
-	bgColors: Map<string, string>;
+	fgAnsi?: Map<string, string>;
+	bgAnsi?: Map<string, string>;
+	fgColors?: Map<string, string>;
+	bgColors?: Map<string, string>;
 	getColorMode?: () => ColorMode | string;
+}
+
+export function getFgMap(theme: unknown): Map<string, string> | undefined {
+	if (!theme || typeof theme !== "object") return undefined;
+	const t = theme as Record<string, unknown>;
+	if (t.fgAnsi instanceof Map) return t.fgAnsi as Map<string, string>;
+	if (t.fgColors instanceof Map) return t.fgColors as Map<string, string>;
+	return undefined;
+}
+
+export function getBgMap(theme: unknown): Map<string, string> | undefined {
+	if (!theme || typeof theme !== "object") return undefined;
+	const t = theme as Record<string, unknown>;
+	if (t.bgAnsi instanceof Map) return t.bgAnsi as Map<string, string>;
+	if (t.bgColors instanceof Map) return t.bgColors as Map<string, string>;
+	return undefined;
 }
 
 export interface WallpaperThemeUi {
@@ -159,7 +177,10 @@ function fgAnsi(hex: string, colorMode: ColorMode | string | undefined): string 
 }
 
 function isRuntimeTheme(theme: RuntimeTheme | undefined): theme is RuntimeTheme {
-	return theme !== undefined && theme.fgColors instanceof Map && theme.bgColors instanceof Map;
+	if (theme === undefined) return false;
+	const fg = getFgMap(theme);
+	const bg = getBgMap(theme);
+	return fg instanceof Map && bg instanceof Map;
 }
 
 /** Ask the host patch to invalidate Gentle's sidebar cache, if it is mounted. */
@@ -177,28 +198,29 @@ export function buildWallpaperTheme<T extends RuntimeTheme>(theme: T, accent: st
 	const normalized = parseAccentHex(accent);
 	if (normalized === undefined) throw new Error("buildWallpaperTheme requires a #RRGGBB accent");
 	const shimmer = deriveShimmer(normalized);
-	// ctx.ui.theme is pi's global Theme proxy, not the underlying Theme instance.
-	// Object.assign/Object.getPrototypeOf on that proxy only sees `{}`. In the
-	// live path the caller resolves a concrete host Theme with getTheme() first;
-	// copy its runtime fields explicitly so setTheme() keeps the host prototype.
 	const source = theme as T & { mode?: ColorMode | string };
 	const sourcePrototype = Object.getPrototypeOf(theme);
 	const clone = Object.create(
 		sourcePrototype !== Object.prototype && sourcePrototype !== null ? sourcePrototype : Object.prototype,
 	) as T & { mode?: ColorMode | string };
-	// A concrete Theme/fake runtime object exposes ordinary own properties;
-	// copy those first, then explicitly restore the fields hidden by pi's proxy.
 	Object.assign(clone, source);
 	clone.name = source.name;
 	clone.sourcePath = source.sourcePath;
 	clone.sourceInfo = source.sourceInfo;
-	const fgColors = new Map(theme.fgColors);
 	const mode = theme.getColorMode?.();
 	clone.mode = mode;
-	for (const role of BRAND_ROLES) fgColors.set(role, fgAnsi(normalized, mode));
-	for (const role of SHIMMER_ROLES) fgColors.set(role, fgAnsi(shimmer, mode));
-	clone.fgColors = fgColors;
-	clone.bgColors = new Map(theme.bgColors);
+
+	const sourceFg = getFgMap(theme) ?? new Map();
+	const fgMap = new Map(sourceFg);
+	for (const role of BRAND_ROLES) fgMap.set(role, fgAnsi(normalized, mode));
+	for (const role of SHIMMER_ROLES) fgMap.set(role, fgAnsi(shimmer, mode));
+	clone.fgColors = fgMap;
+	clone.fgAnsi = fgMap;
+
+	const sourceBg = getBgMap(theme) ?? new Map();
+	const bgMap = new Map(sourceBg);
+	clone.bgColors = bgMap;
+	clone.bgAnsi = bgMap;
 	return clone as T;
 }
 
@@ -213,8 +235,15 @@ function applyWallpaperAccent(theme: RuntimeTheme, accent: string): void {
 	if (normalized === undefined) throw new Error("applyWallpaperAccent requires a #RRGGBB accent");
 	const mode = theme.getColorMode?.();
 	const shimmer = deriveShimmer(normalized);
-	for (const role of BRAND_ROLES) theme.fgColors.set(role, fgAnsi(normalized, mode));
-	for (const role of SHIMMER_ROLES) theme.fgColors.set(role, fgAnsi(shimmer, mode));
+	const fgMap = getFgMap(theme);
+	if (fgMap) {
+		for (const role of BRAND_ROLES) fgMap.set(role, fgAnsi(normalized, mode));
+		for (const role of SHIMMER_ROLES) fgMap.set(role, fgAnsi(shimmer, mode));
+	}
+	if (theme.fgColors instanceof Map && theme.fgColors !== fgMap) {
+		for (const role of BRAND_ROLES) theme.fgColors.set(role, fgAnsi(normalized, mode));
+		for (const role of SHIMMER_ROLES) theme.fgColors.set(role, fgAnsi(shimmer, mode));
+	}
 }
 
 /** Watches the producer file for one session and maintains the in-memory Theme override. */
@@ -314,14 +343,16 @@ export class WallpaperAccentSync {
 			const expectedShimmer = fgAnsi(deriveShimmer(this.activeAccent), mode);
 			// Do not repeatedly redraw every 250 ms.  The roles are written onto
 			// the same Theme instance Gentleman captured when it built its cards.
+			const fgMap = getFgMap(theme);
 			if (
-				theme.fgColors.get("claude") === expectedAccent &&
-				theme.fgColors.get("border") === expectedAccent &&
-				theme.fgColors.get("borderAccent") === expectedAccent &&
-				theme.fgColors.get("borderMuted") === expectedAccent &&
-				theme.fgColors.get("toolTitle") === expectedAccent &&
-				theme.fgColors.get("customMessageLabel") === expectedAccent &&
-				theme.fgColors.get("claudeShimmer") === expectedShimmer
+				fgMap?.get("claude") === expectedAccent &&
+				fgMap?.get("border") === expectedAccent &&
+				fgMap?.get("borderAccent") === expectedAccent &&
+				fgMap?.get("borderMuted") === expectedAccent &&
+				fgMap?.get("toolTitle") === expectedAccent &&
+				fgMap?.get("customMessageLabel") === expectedAccent &&
+				fgMap?.get("scrollbarThumb") === expectedAccent &&
+				fgMap?.get("claudeShimmer") === expectedShimmer
 			) return;
 			applyWallpaperAccent(theme, this.activeAccent);
 			// ctx.ui.theme is Pi's Theme *proxy*, not an instance accepted by

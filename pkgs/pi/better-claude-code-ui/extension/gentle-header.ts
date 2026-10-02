@@ -187,6 +187,45 @@ export function clipPath(path: string, maxWidth: number): string {
 	return "…" + path.slice(-(maxWidth - 1));
 }
 
+/**
+ * Strip background color ANSI escapes (e.g. \x1b[48;...m, \x1b[40-47m, \x1b[100-107m, \x1b[49m)
+ * so sidebar cards render with terminal-native transparency on Kitty and translucent terminals,
+ * eliminating opaque white/grey background blocks over wallpapers.
+ */
+export function stripGentleCardBackgrounds(lines: string[]): string[] {
+	return lines.map((line) => line.replace(/\x1b\[([0-9;]+)m/g, (match, p1) => {
+		const parts = p1.split(";");
+		const kept: string[] = [];
+		let i = 0;
+		while (i < parts.length) {
+			const code = Number.parseInt(parts[i]!, 10);
+			if (code === 38) {
+				if (parts[i + 1] === "5") {
+					kept.push(parts[i]!, parts[i + 1]!, parts[i + 2]!);
+					i += 3;
+				} else if (parts[i + 1] === "2") {
+					kept.push(parts[i]!, parts[i + 1]!, parts[i + 2]!, parts[i + 3]!, parts[i + 4]!);
+					i += 5;
+				} else {
+					kept.push(parts[i]!);
+					i += 1;
+				}
+			} else if (code === 48) {
+				if (parts[i + 1] === "5") i += 3;
+				else if (parts[i + 1] === "2") i += 5;
+				else i += 1;
+			} else if ((code >= 40 && code <= 49) || (code >= 100 && code <= 107)) {
+				i += 1;
+			} else {
+				kept.push(parts[i]!);
+				i += 1;
+			}
+		}
+		if (kept.length === 0) return "";
+		return `\x1b[${kept.join(";")}m`;
+	}));
+}
+
 export interface CardRowInfo {
 	isNeon: boolean;
 	isFloat: boolean;
@@ -245,11 +284,12 @@ export function formatCardRow(template: string, leftText: string, rightText = ""
  * using clean two-column key/value alignment, eliminating wasted space and left-heavy stacking.
  */
 export function formatGentleSidebarCards(lines: string[]): string[] {
+	const cleanLines = stripGentleCardBackgrounds(lines);
 	const result: string[] = [];
 	let index = 0;
 
-	while (index < lines.length) {
-		const line = lines[index]!;
+	while (index < cleanLines.length) {
+		const line = cleanLines[index]!;
 		const parsed = parseCardRow(line);
 		if (!parsed) {
 			result.push(line);
@@ -365,6 +405,6 @@ export function formatGentleSidebarCards(lines: string[]): string[] {
 		index++;
 	}
 
-	return result;
+	return stripGentleCardBackgrounds(result);
 }
 

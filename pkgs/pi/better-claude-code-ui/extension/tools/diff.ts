@@ -496,7 +496,7 @@ export async function warmHighlightCache(
 
 // The highlighter needs a palette for contrast normalization; the tools layer
 // sets the active palette on session/theme changes.
-let activeSgrPalette: ResolvedPalette = resolvePalette("claude-code-dark", () => undefined);
+let activeSgrPalette: ResolvedPalette = resolvePalette("loon", () => undefined);
 export function setDiffPalette(p: ResolvedPalette): void {
 	if (p === activeSgrPalette) return;
 	activeSgrPalette = p;
