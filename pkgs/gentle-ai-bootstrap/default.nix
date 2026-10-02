@@ -58,6 +58,9 @@ let
   piSettings = {
     defaultProjectTrust = "always";
     defaultThinkingLevel = "high";
+    extensions = [
+      "-builtin:codemode"
+    ];
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
     quietStartup = true;
@@ -406,7 +409,11 @@ let
 
     // La configuración portable del flake es autoritativa. Credenciales,
     // modelos descubiertos y sesiones viven en archivos separados.
+    const existingExtensions = Array.isArray(settings.extensions) ? settings.extensions : [];
     Object.assign(settings, manifest.piSettings);
+    if (Array.isArray(manifest.piSettings?.extensions)) {
+      settings.extensions = Array.from(new Set([...existingExtensions, ...manifest.piSettings.extensions]));
+    }
 
     function packageName(spec) {
       const value = String(spec).replace(/^npm:/, "");
