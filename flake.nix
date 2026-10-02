@@ -30,6 +30,13 @@
       url = "github:jacopone/antigravity-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # LOON: LOON Offers Only Nuanced-gentle — identidad visual Claude Code para
+    # pi. Vive en su propio repo para tener historia y cadence propios; aquí
+    # queda fijado en flake.lock para que la build sea reproducible.
+    loon = {
+      url = "github:loonbac/loon";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Steam con soporte para temas y plugins mediante Millennium.
     millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
     # SpaceTheme Fix para Millennium. No es un flake: se fija como fuente
@@ -52,7 +59,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, loon, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -72,7 +79,7 @@
       engramLauncher = pkgs.callPackage ./pkgs/engram-launcher {
         inherit engramUpdater;
       };
-      betterClaudeCodeUi = pkgs.callPackage ./pkgs/pi/better-claude-code-ui { };
+      betterClaudeCodeUi = loon.packages.${system}.default;
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
         inherit
@@ -159,6 +166,7 @@
           helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
+          loon = betterClaudeCodeUi;
           inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
         };
         modules = [

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, loon, ... }:
 
 let
   cfg = config.programs.gentle-ai;
@@ -34,7 +34,7 @@ let
   engramLauncher = pkgs.callPackage ../../../pkgs/engram-launcher {
     inherit engramUpdater;
   };
-  betterClaudeCodeUi = pkgs.callPackage ../../../pkgs/pi/better-claude-code-ui { };
+  betterClaudeCodeUi = loon;
   gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
     inherit
