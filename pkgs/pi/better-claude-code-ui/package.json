@@ -1,10 +1,12 @@
 {
   "name": "better-claude-code-ui",
+  "displayName": "LOON: LOON Offers Only Nuanced-gentle",
   "version": "0.1.7",
-  "description": "Claude Code visual identity for pi: 6 CC themes, welcome box, status line, CC spinner, turn footer, and CC-style tool rendering",
+  "description": "LOON: LOON Offers Only Nuanced-gentle",
   "keywords": [
     "pi-package",
     "pi-extension",
+    "loon",
     "claude-code",
     "theme",
     "tui"

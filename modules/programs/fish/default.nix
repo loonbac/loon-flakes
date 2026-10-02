@@ -13,6 +13,11 @@
       # Quita el banner "Welcome to fish" al abrir una consola.
       set fish_greeting
 
+      # Banner del sistema: fastfetch
+      if type -q fastfetch
+        fastfetch
+      end
+
       # Banner de actualizaciones de paquetes disponibles en NixOS (si existen).
       if type -q nixos-updates
         nixos-updates banner

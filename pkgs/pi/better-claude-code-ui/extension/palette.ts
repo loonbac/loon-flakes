@@ -133,51 +133,19 @@ export interface CcPalette {
 	bashMsgBg: ColorValue;
 }
 
-type ThemeKey = "dark" | "light" | "dark-daltonized" | "light-daltonized" | "dark-ansi" | "light-ansi";
+type ThemeKey = "loon";
+
+/** The single LOON theme palette (dark ANSI with dynamic wallpaper accent). */
+export const LOON_PALETTE: CcPalette = {
+	claude: 9, claudeShimmer: 11, autoAccept: 13, bashBorder: 13,
+	permission: 12, planMode: 14, promptBorder: 7, inactive: 7,
+	subtle: 7, success: 10, error: 9, warning: 11,
+	diffAddedBg: 2, diffRemovedBg: 1, diffAddedWord: 10, diffRemovedWord: 9,
+	userMsgBg: 8, selectionBg: 4, bashMsgBg: 0,
+};
 
 const PALETTES: Record<ThemeKey, CcPalette> = {
-	dark: {
-		claude: "#D77757", claudeShimmer: "#EB9F7F", autoAccept: "#AF87FF", bashBorder: "#FD5DB1",
-		permission: "#B1B9F9", planMode: "#48968C", promptBorder: "#888888", inactive: "#999999",
-		subtle: "#505050", success: "#4EBA65", error: "#FF6B80", warning: "#FFC107",
-		diffAddedBg: "#225C2B", diffRemovedBg: "#7A2936", diffAddedWord: "#38A660", diffRemovedWord: "#B3596B",
-		userMsgBg: "#373737", selectionBg: "#264F78", bashMsgBg: "#413C41",
-	},
-	light: {
-		claude: "#D77757", claudeShimmer: "#F59575", autoAccept: "#8700FF", bashBorder: "#FF0087",
-		permission: "#5769F7", planMode: "#006666", promptBorder: "#999999", inactive: "#666666",
-		subtle: "#AFAFAF", success: "#2C7A39", error: "#AB2B3F", warning: "#966C1E",
-		diffAddedBg: "#69DB7C", diffRemovedBg: "#FFA8B4", diffAddedWord: "#2F9D44", diffRemovedWord: "#D1454B",
-		userMsgBg: "#F0F0F0", selectionBg: "#B4D5FF", bashMsgBg: "#FAF5FA",
-	},
-	"dark-daltonized": {
-		claude: "#FF9933", claudeShimmer: "#FFB765", autoAccept: "#AF87FF", bashBorder: "#3399FF",
-		permission: "#99CCFF", planMode: "#669999", promptBorder: "#888888", inactive: "#999999",
-		subtle: "#505050", success: "#3399FF", error: "#FF6666", warning: "#FFCC00",
-		diffAddedBg: "#004466", diffRemovedBg: "#660000", diffAddedWord: "#0077B3", diffRemovedWord: "#B30000",
-		userMsgBg: "#373737", selectionBg: "#264F78", bashMsgBg: "#413C41",
-	},
-	"light-daltonized": {
-		claude: "#FF9933", claudeShimmer: "#FFB765", autoAccept: "#8700FF", bashBorder: "#0066CC",
-		permission: "#3366FF", planMode: "#336666", promptBorder: "#999999", inactive: "#666666",
-		subtle: "#AFAFAF", success: "#006699", error: "#CC0000", warning: "#FF9900",
-		diffAddedBg: "#99CCFF", diffRemovedBg: "#FFCCCC", diffAddedWord: "#3366CC", diffRemovedWord: "#993333",
-		userMsgBg: "#DCDCDC", selectionBg: "#B4D5FF", bashMsgBg: "#FAF5FA",
-	},
-	"dark-ansi": {
-		claude: 9, claudeShimmer: 11, autoAccept: 13, bashBorder: 13,
-		permission: 12, planMode: 14, promptBorder: 7, inactive: 7,
-		subtle: 7, success: 10, error: 9, warning: 11,
-		diffAddedBg: 2, diffRemovedBg: 1, diffAddedWord: 10, diffRemovedWord: 9,
-		userMsgBg: 8, selectionBg: 4, bashMsgBg: 0,
-	},
-	"light-ansi": {
-		claude: 9, claudeShimmer: 11, autoAccept: 5, bashBorder: 5,
-		permission: 4, planMode: 6, promptBorder: 7, inactive: 8,
-		subtle: 8, success: 2, error: 1, warning: 3,
-		diffAddedBg: 2, diffRemovedBg: 1, diffAddedWord: 10, diffRemovedWord: 9,
-		userMsgBg: 7, selectionBg: 6, bashMsgBg: 15,
-	},
+	loon: LOON_PALETTE,
 };
 
 /** Diff chrome colors (fixed, like dsh-tui BRAND_COLORS), per scheme. */
@@ -214,31 +182,13 @@ const DIFF_CHROME_LIGHT: DiffChrome = {
 	branch: rgb(204, 204, 204),
 };
 
-/** Resolve a pi theme name to a CC palette key, or undefined when not a CC theme. */
-export function paletteKeyForThemeName(themeName: string | undefined): ThemeKey | undefined {
-	if (!themeName) return undefined;
-	// Only the shipped CC themes are `claude-code-*`. Requiring the prefix keeps
-	// pi's built-in "dark"/"light" (theme.js getBuiltinThemes) — and any bare pi
-	// theme named "dark"/"light-…" — out of the CC board: without the prefix
-	// gate, "dark".replace(/^claude-code-/,"") is a no-op → "dark" in PALETTES →
-	// pi's neutral built-in gets painted with CC's orange palette.
-	const prefix = "claude-code-";
-	if (!themeName.startsWith(prefix)) return undefined;
-	const stripped = themeName.slice(prefix.length);
-	// hasOwnProperty, not `in`: `in` walks the prototype chain, so a theme named
-	// "claude-code-toString"/"claude-code-constructor" would falsely match.
-	if (Object.prototype.hasOwnProperty.call(PALETTES, stripped)) return stripped as ThemeKey;
-	return undefined;
+/** Resolve a pi theme name to the single LOON palette key. */
+export function paletteKeyForThemeName(_themeName?: string): ThemeKey {
+	return "loon";
 }
 
-export function isLightThemeName(themeName: string | undefined): boolean {
-	if (!themeName) return false;
-	// A CC theme's scheme is authoritative from its key (light*/dark* families).
-	const key = paletteKeyForThemeName(themeName);
-	if (key !== undefined) return key.startsWith("light");
-	// Otherwise match a whole "light" segment (word boundary), not a bare
-	// substring — so "moonlight"/"highlight"/"delightful" don't read as light.
-	return /(?:^|[-_ ])light(?:[-_ ]|$)/u.test(themeName);
+export function isLightThemeName(_themeName?: string): boolean {
+	return false;
 }
 
 export interface ResolvedPalette {
@@ -328,9 +278,7 @@ export function resolvePalette(
 	// hex color, so classify those shipped themes explicitly or it would switch
 	// to truecolor only when the orange becomes dynamic.
 	const probedColorMode = detectColorMode(tokenFg);
-	const colorMode = paletteKeyForThemeName(themeName)?.endsWith("-ansi")
-		? "256color"
-		: probedColorMode;
+	const colorMode = probedColorMode;
 	// Fold the color mode into the cache key: diff.ts seeds the cache at module
 	// load with resolvePalette("claude-code-dark", () => undefined) (→ truecolor,
 	// no probe evidence); without the mode in the key that entry would poison the

@@ -1,6 +1,6 @@
-# better-claude-code-ui
+# LOON: LOON Offers Only Nuanced-gentle
 
-Claude Code visual identity for [pi](https://pi.dev): themes, welcome banner, status line, spinner, turn footer, and CC-style tool rendering — faithfully aligned against the Claude Code source, line by line.
+LOON Offers Only Nuanced-gentle — Claude Code visual identity for [pi](https://pi.dev): curated dark ANSI theme, welcome banner, status line, spinner, turn footer, and CC-style tool rendering with dynamic wallpaper accent sync.
 
 ## Install
 
@@ -29,11 +29,9 @@ that project use the condensed logo.
 
 ## What you get
 
-**6 themes** (`/themes` to switch, or use `/cc-theme` for a CC-only picker):
+**Theme**:
 
-- `claude-code-dark` / `claude-code-light` — truecolor, matched key-by-key to CC's palette
-- `claude-code-dark-ansi` / `claude-code-light-ansi` — ANSI-16 for terminals without truecolor
-- `claude-code-dark-daltonized` / `claude-code-light-daltonized` — color-blind friendly variants
+- `loon` — single unified ANSI-16 theme synchronized with the active wallpaper accent color
 
 **UI modules**:
 
@@ -47,7 +45,6 @@ that project use the condensed logo.
 
 **Commands**:
 
-- `/cc-theme` — theme picker (CC themes only)
 - `/cc-tools` — toggle CC-style tool rendering options
 - `/cc-spinner` — spinner options
 

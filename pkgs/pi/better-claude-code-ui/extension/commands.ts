@@ -1,6 +1,5 @@
 /**
- * Commands: /cc-tools, /cc-theme, /cc-spinner (same names as the old extension
- * to keep migration cost zero), plus Ctrl+Shift+O extra-detail toggle.
+ * Commands: /cc-tools, /cc-spinner, plus Ctrl+Shift+O extra-detail toggle.
  *
  * The group and extra-detail toggles persist to ~/.pi/settings.json (old ext
  * writeSettingsKey pattern) so they survive restarts; grouping.ts reads
@@ -15,7 +14,6 @@ import { bustGroupingSettingsCache, repaintGroupedRows } from "./tools/grouping.
 
 const SETTINGS_KEY_GROUP = "groupToolCalls";
 const SETTINGS_KEY_EXTRA_DETAIL = "ccToolsExtraDetail";
-const SETTINGS_KEY_CC_THEME = "ccTheme";
 
 // Old-ext settings cache (index.ts:121-143): merged cwd + home settings, 5s TTL.
 let settingsCache: { value: Record<string, unknown>; timestamp: number } | null = null;
@@ -87,23 +85,12 @@ export function registerCommands(pi: ExtensionAPI): void {
 	// 在这里一次性同步：让 builtins 的开关与持久化/显示状态一致。
 	setExtraDetail(extraDetail);
 
-	// Restore the CC theme if pi fell back to its built-in default at startup.
-	// This happens when the CC theme package isn't registered yet when pi
-	// applies the saved theme (package resolution timing in createStartupTui).
-	// pi's initTheme catches the load failure and silently falls back to
-	// "dark"; without this restore, the user's /cc-theme choice is lost for
-	// the rest of the session.
+	// Ensure the single LOON theme is active if pi fell back to built-in default at startup.
 	pi.on("session_start", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
-		const saved = readSettings()[SETTINGS_KEY_CC_THEME];
-		if (typeof saved !== "string" || !saved.startsWith("claude-code-")) return;
 		const current = ctx.ui.theme?.name;
-		// Only re-apply when the theme fell back to pi's built-in default.
-		// If the user intentionally switched to dark/light via /settings,
-		// this overrides that choice — but a CC-extension user who picked a
-		// CC theme via /cc-theme expects it to stick across projects.
 		if (current === "dark" || current === "light") {
-			ctx.ui.setTheme(saved);
+			ctx.ui.setTheme("loon");
 		}
 	});
 
@@ -174,45 +161,6 @@ export function registerCommands(pi: ExtensionAPI): void {
 			if (ctx.hasUI) {
 				ctx.ui.notify(`Unknown option "${sub}". Try /cc-tools status.`, "error");
 			}
-		},
-	});
-
-	// /cc-theme — pick one of the shipped CC themes (pi persists the choice via
-	// its setTheme path, settings.json `theme`). pi 0.84 has no built-in /theme
-	// command — theme switching lives in /settings — so this panel is the fast
-	// path for the six CC variants.
-	pi.registerCommand("cc-theme", {
-		description: "Pick a Claude Code theme",
-		async handler(_args, ctx) {
-			if (!ctx.hasUI) return;
-			const themes = [
-				"claude-code-dark",
-				"claude-code-light",
-				"claude-code-dark-ansi",
-				"claude-code-light-ansi",
-				"claude-code-dark-daltonized",
-				"claude-code-light-daltonized",
-			];
-			const current = ctx.ui.theme?.name;
-			const choice = await ctx.ui.select(
-				current ? `Claude Code theme (current: ${current})` : "Claude Code theme",
-				themes,
-			);
-			if (!choice) return;
-			const result = ctx.ui.setTheme(choice) as { success?: boolean; error?: string } | boolean | undefined;
-			const failed = result === false || (typeof result === "object" && result !== null && result.success === false);
-			if (failed) {
-				const err = typeof result === "object" && result !== null ? result.error : undefined;
-				ctx.ui.notify(`Theme switch failed: ${err ?? choice}`, "error");
-				return;
-			}
-			ctx.ui.notify(`Theme: ${choice}`, "info");
-			// Belt-and-suspenders: persist the choice to the extension's own settings
-			// file too. pi's setTheme already writes ~/.pi/agent/settings.json, but
-			// if the CC theme package isn't registered yet at startup (package
-			// resolution timing), pi silently falls back to "dark" and never
-			// recovers. The session_start handler below restores it.
-			writeSettingsKey(SETTINGS_KEY_CC_THEME, choice);
 		},
 	});
 

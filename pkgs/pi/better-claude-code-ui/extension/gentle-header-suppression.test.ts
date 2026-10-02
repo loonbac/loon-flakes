@@ -9,6 +9,8 @@ import {
 	suppressGentleHeader,
 	withoutGentleSidebarBanner,
 	isGentleSidebarBannerLine,
+	formatGentleSidebarCards,
+	parseCardRow,
 } from "./gentle-header.ts";
 
 test("patchGentleSidebarParts prevents header rail from being stored or read", () => {
@@ -166,4 +168,114 @@ test("withoutGentleSidebarBanner preserves all subsequent rail cards and section
 		" ╰───────────────────────────────────────────────╯ ",
 	]);
 });
+
+test("formatGentleSidebarCards formats float cards into balanced two-column key-value rows", () => {
+	const TERMINAL_CONTROL_RE = /\x1b\[[0-9:;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB0]/g;
+	const strip = (s: string) => s.replace(TERMINAL_CONTROL_RE, "");
+
+	const bg = "\x1b[48;2;20;25;30m";
+	const bgReset = "\x1b[49m";
+	const frameColor = "\x1b[38;2;200;200;200m";
+	const reset = "\x1b[39m";
+	const width = 48;
+
+	const makeRow = (text: string) => {
+		const innerWidth = width - 4;
+		const pad = " ".repeat(Math.max(0, innerWidth - strip(text).length));
+		return ` ${bg}${frameColor}▎${reset} ${text}${pad} ${bgReset} `;
+	};
+
+	const rawFloatLines = [
+		makeRow(""),
+		makeRow("✿ Status"),
+		makeRow(""),
+		makeRow("Project"),
+		makeRow("  ~/Proyectos/pi-custom"),
+		makeRow("  Branch master"),
+		makeRow(""),
+		makeRow("Changes"),
+		makeRow("  No captured changes"),
+		makeRow("  /gentle:changes"),
+		makeRow(""),
+		makeRow("Integrations"),
+		makeRow("  🧠 pi-custom · ready"),
+		makeRow("  🔌 MCP: 2 servers enabled"),
+		makeRow(""),
+	];
+
+	const formatted = formatGentleSidebarCards(rawFloatLines);
+
+	// All generated rows maintain exact card width
+	for (const line of formatted) {
+		assert.equal(strip(line).length, width + 1);
+	}
+
+	const plainLines = formatted.map(strip);
+	// Project is inlined into a single key-value row
+	const projectLine = plainLines.find((l) => l.includes("Project"));
+	assert.ok(projectLine);
+	assert.ok(projectLine.includes("Project") && projectLine.includes("~/Proyectos/pi-custom"));
+
+	// Branch is inlined with git glyph
+	const branchLine = plainLines.find((l) => l.includes("Branch"));
+	assert.ok(branchLine);
+	assert.ok(branchLine.includes("Branch") && branchLine.includes("master"));
+
+	// Changes is inlined
+	const changesLine = plainLines.find((l) => l.includes("Changes"));
+	assert.ok(changesLine);
+	assert.ok(changesLine.includes("Changes") && changesLine.includes("No captured changes"));
+
+	// Integrations are formatted with Nerd Font icons and right-aligned statuses
+	const piLine = plainLines.find((l) => l.includes("ready"));
+	assert.ok(piLine);
+	assert.ok(piLine.includes(" pi-custom") && piLine.includes("ready"));
+
+	const mcpLine = plainLines.find((l) => l.includes("MCP"));
+	assert.ok(mcpLine);
+	assert.ok(mcpLine.includes(" MCP") && mcpLine.includes("2 servers enabled"));
+});
+
+test("formatGentleSidebarCards formats neon cards into balanced two-column rows", () => {
+	const TERMINAL_CONTROL_RE = /\x1b\[[0-9:;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB0]/g;
+	const strip = (s: string) => s.replace(TERMINAL_CONTROL_RE, "");
+
+	const frameColor = "\x1b[38;2;200;200;200m";
+	const reset = "\x1b[39m";
+	const width = 48;
+
+	const makeRow = (text: string) => {
+		const innerWidth = width - 4;
+		const pad = " ".repeat(Math.max(0, innerWidth - strip(text).length));
+		return ` ${frameColor}│${reset} ${text}${pad} ${frameColor}│${reset} `;
+	};
+
+	const rawNeonLines = [
+		" ╭─ ✿ Status ────────────────────────────────────╮ ",
+		makeRow("Project"),
+		makeRow("  ~/Proyectos/pi-custom"),
+		makeRow("  Branch master"),
+		makeRow(""),
+		makeRow("Changes"),
+		makeRow("  No captured changes"),
+		makeRow("  /gentle:changes"),
+		makeRow(""),
+		makeRow("Integrations"),
+		makeRow("  🧠 pi-custom · ready"),
+		makeRow("  🔌 MCP: 2 servers enabled"),
+		" ╰───────────────────────────────────────────────╯ ",
+	];
+
+	const formatted = formatGentleSidebarCards(rawNeonLines);
+
+	const plainLines = formatted.map(strip);
+	const projectLine = plainLines.find((l) => l.includes("Project"));
+	assert.ok(projectLine);
+	assert.ok(projectLine.includes("Project") && projectLine.includes("~/Proyectos/pi-custom"));
+
+	const branchLine = plainLines.find((l) => l.includes("Branch"));
+	assert.ok(branchLine);
+	assert.ok(branchLine.includes("Branch") && branchLine.includes("master"));
+});
+
 

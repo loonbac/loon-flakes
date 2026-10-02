@@ -1,8 +1,8 @@
 /**
- * better-claude-code-ui — Claude Code visual identity for pi.
+ * LOON: LOON Offers Only Nuanced-gentle — Claude Code visual identity for pi.
  *
  * Layers:
- *   1. themes/            six CC color themes (JSON, loaded by pi)
+ *   1. theme/             curated dark ANSI theme (JSON, loaded by pi)
  *   2. chrome             banner (welcome box), spinner, status line, turn footer
  *   3. tools/             CC-style tool rendering (builtins, diff, grouping)
  *   4. thinking           CC-style thinking title + hidden label + spinner row

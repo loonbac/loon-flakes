@@ -22,7 +22,7 @@ buildNpmPackage {
   '';
 
   meta = {
-    description = "Locally customized Better Claude Code UI for Pi";
+    description = "LOON: LOON Offers Only Nuanced-gentle";
     license = lib.licenses.mit;
     platforms = lib.platforms.all;
   };

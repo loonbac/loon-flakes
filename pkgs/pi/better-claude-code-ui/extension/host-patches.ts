@@ -69,6 +69,8 @@ import { codexUsageSnapshot, observeCodexUsage } from "./codex-usage-cache.js";
 import { installFallbackPanelBehavior } from "./fallback-panel.js";
 import { trimTranscriptFrameBody } from "./image-layout.js";
 import {
+	formatGentleSidebarCards,
+	parseCardRow,
 	stripGentleHeaderLayoutNode,
 	suppressGentleBelowInputWidget,
 	suppressGentleHeader,
@@ -918,11 +920,7 @@ function stretchGentleStatusLine(lines: string[], width: number): string[] {
 
 /** Text inside a Gentle card row, excluding its styled left/right rails. */
 function gentleCardBody(line: string): string | undefined {
-	const plain = line.replace(TERMINAL_CONTROL_RE, "");
-	const left = plain.indexOf("│");
-	const right = plain.lastIndexOf("│");
-	if (left < 0 || right <= left) return undefined;
-	return plain.slice(left + 1, right).trim();
+	return parseCardRow(line)?.body;
 }
 
 /** Model and context belong to Gentle's one-line footer, not the rail card. */
@@ -1460,15 +1458,10 @@ function patchGentleSidebarInNode(ui: unknown, node: LayoutNodeLike): boolean {
 			restoreNativeTranscriptScrollbar(ui);
 			removeLegacyGentleRailGutter(sidebar);
 			const lines = originalRender.call(this, width);
-			return withTerminalIntegrationIcons(
-				withCompactGentleSidebar(
-					withoutGentleSidebarFallbackSummary(
-						withoutGentleSidebarRuntimeDetails(
-							stretchGentleRailCards(withoutGentleSidebarBanner(lines)),
-						),
-					),
-				),
-			);
+			const withoutBanner = withoutGentleSidebarBanner(lines);
+			const withoutRuntime = withoutGentleSidebarRuntimeDetails(withoutBanner);
+			const formatted = formatGentleSidebarCards(withoutRuntime);
+			return withTerminalIntegrationIcons(stretchGentleRailCards(formatted));
 		};
 	}
 

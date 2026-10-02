@@ -266,6 +266,7 @@ if __name__ == "__main__":
 
   script = pkgs.writeShellScriptBin "nixos-updates" ''
     set -euo pipefail
+    export PATH="${lib.makeBinPath [ pkgs.git pkgs.nix pkgs.coreutils pkgs.rsync pkgs.python3 ]}:$PATH"
 
     CACHE_DIR="$HOME/.cache/nixos-updates"
     FLAKE_DIR="$HOME/.nixos"

@@ -170,7 +170,12 @@ export function extensionDisplayName(entry: string): string {
 	const segments = spec.split("/").filter(Boolean);
 	for (let i = segments.length - 1; i >= 0; i--) {
 		const base = segments[i]!.replace(/\.(ts|js)$/, "");
-		if (!GENERIC_SEGMENTS.has(base)) return base;
+		if (!GENERIC_SEGMENTS.has(base)) {
+			if (base === "better-claude-code-ui" || base === "better-claude-code-ui-loon" || base === "loon") {
+				return "LOON: LOON Offers Only Nuanced-gentle";
+			}
+			return base;
+		}
 	}
 	return spec;
 }
@@ -268,8 +273,11 @@ export class BannerComponent {
 	private cacheKey: string | undefined;
 	private cacheTheme: Theme | undefined;
 	private cacheLines: string[] | undefined;
+	private readonly info: BannerInfo;
 
-	constructor(private readonly info: BannerInfo) {}
+	constructor(info: BannerInfo) {
+		this.info = info;
+	}
 
 	setRevealWidth(width: number | undefined): void {
 		if (width === this.revealWidth) return;

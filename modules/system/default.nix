@@ -129,6 +129,7 @@ in
   environment.sessionVariables = {
     PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.libpq.dev}/lib/pkgconfig:/run/current-system/sw/lib/pkgconfig:/run/current-system/sw/share/pkgconfig";
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
+    SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
     BROWSER = "zen-browser";
     NPM_CONFIG_PREFIX = "/home/loonbac/.npm-global";
@@ -194,6 +195,7 @@ in
     uv                 # gestor de Python (venv + paquetes)
     fastfetch
     ghostty
+    kitty
     nodejs
     pnpm
     bubblewrap         # sandbox Linux usado por Codex (`bwrap` en PATH)

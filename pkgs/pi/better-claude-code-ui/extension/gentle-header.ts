@@ -176,3 +176,195 @@ export function withoutGentleSidebarBanner(lines: string[]): string[] {
 	}
 	return filtered;
 }
+
+export function visibleWidth(text: string): number {
+	return text.replace(TERMINAL_CONTROL_RE, "").length;
+}
+
+export function clipPath(path: string, maxWidth: number): string {
+	if (visibleWidth(path) <= maxWidth) return path;
+	if (maxWidth <= 3) return "…";
+	return "…" + path.slice(-(maxWidth - 1));
+}
+
+export interface CardRowInfo {
+	isNeon: boolean;
+	isFloat: boolean;
+	usableWidth: number;
+	leftPrefix: string;
+	rightSuffix: string;
+	body: string;
+}
+
+export function parseCardRow(template: string): CardRowInfo | undefined {
+	const plain = template.replace(TERMINAL_CONTROL_RE, "");
+	// Skip top/bottom corner rows
+	if (/^[ ╭╰]/.test(plain) && (plain.includes("─") || plain.includes("╮") || plain.includes("╯"))) {
+		return undefined;
+	}
+
+	const isNeon = plain.includes("│") && plain.lastIndexOf("│") > plain.indexOf("│");
+	const isFloat = plain.includes("▎");
+	if (!isNeon && !isFloat) return undefined;
+
+	if (isNeon) {
+		const left = template.indexOf("│");
+		const right = template.lastIndexOf("│");
+		const usableWidth = Math.max(0, visibleWidth(template.slice(left + 1, right)) - 2);
+		const leftPrefix = template.slice(0, left + 1) + " ";
+		const rightSuffix = " " + template.slice(right);
+		const body = plain.slice(plain.indexOf("│") + 1, plain.lastIndexOf("│")).trim();
+		return { isNeon: true, isFloat: false, usableWidth, leftPrefix, rightSuffix, body };
+	}
+
+	const left = template.indexOf("▎");
+	const resetIdx = template.lastIndexOf("\x1b[49m");
+	const leftPrefix = template.slice(0, left + 1) + " ";
+	const rightSuffix = resetIdx >= 0 ? " " + template.slice(resetIdx) : " ";
+	const usableWidth = Math.max(0, visibleWidth(plain) - visibleWidth(leftPrefix) - visibleWidth(rightSuffix));
+	const body = plain.slice(plain.indexOf("▎") + 1).trim();
+	return { isNeon: false, isFloat: true, usableWidth, leftPrefix, rightSuffix, body };
+}
+
+export function formatCardRow(template: string, leftText: string, rightText = ""): string {
+	const parsed = parseCardRow(template);
+	if (!parsed) return template;
+	const leftWidth = visibleWidth(leftText);
+	const rightWidth = visibleWidth(rightText);
+	if (!rightText) {
+		const pad = " ".repeat(Math.max(0, parsed.usableWidth - leftWidth));
+		return `${parsed.leftPrefix}${leftText}${pad}${parsed.rightSuffix}`;
+	}
+	const gap = Math.max(1, parsed.usableWidth - leftWidth - rightWidth);
+	const pad = " ".repeat(gap);
+	return `${parsed.leftPrefix}${leftText}${pad}${rightText}${parsed.rightSuffix}`;
+}
+
+/**
+ * Transforms Gentle sidebar cards so content spans the full available card width
+ * using clean two-column key/value alignment, eliminating wasted space and left-heavy stacking.
+ */
+export function formatGentleSidebarCards(lines: string[]): string[] {
+	const result: string[] = [];
+	let index = 0;
+
+	while (index < lines.length) {
+		const line = lines[index]!;
+		const parsed = parseCardRow(line);
+		if (!parsed) {
+			result.push(line);
+			index++;
+			continue;
+		}
+
+		const body = parsed.body;
+
+		// 1. Project section
+		if (body === "Project" && index + 1 < lines.length) {
+			const nextParsed = parseCardRow(lines[index + 1]!);
+			const rawPath = nextParsed?.body.replace(/^~?\/?/, (m) => m) ?? "";
+			const maxPathWidth = Math.max(10, parsed.usableWidth - visibleWidth("Project") - 2);
+			const path = clipPath(rawPath, maxPathWidth);
+
+			result.push(formatCardRow(line, "\x1b[1mProject\x1b[22m", `\x1b[36m${path}\x1b[39m`));
+			index += 2; // consumed "Project" and path
+
+			// Check for Branch, Session, Profile
+			while (index < lines.length) {
+				const subParsed = parseCardRow(lines[index]!);
+				if (!subParsed || subParsed.body === "") break;
+				const branchMatch = subParsed.body.match(/^Branch\s+(.+)$/i);
+				if (branchMatch) {
+					result.push(formatCardRow(lines[index]!, "Branch", `\x1b[32m ${branchMatch[1]}\x1b[39m`));
+					index++;
+					continue;
+				}
+				const sessionMatch = subParsed.body.match(/^Session\s+(.+)$/i);
+				if (sessionMatch) {
+					result.push(formatCardRow(lines[index]!, "Session", `\x1b[35m${sessionMatch[1]}\x1b[39m`));
+					index++;
+					continue;
+				}
+				const profileMatch = subParsed.body.match(/^Profile\s+(.+)$/i);
+				if (profileMatch) {
+					result.push(formatCardRow(lines[index]!, "Profile", `\x1b[33m${profileMatch[1]}\x1b[39m`));
+					index++;
+					continue;
+				}
+				result.push(lines[index]!);
+				index++;
+			}
+			continue;
+		}
+
+		// 2. Changes section
+		if (body === "Changes" && index + 1 < lines.length) {
+			const nextParsed = parseCardRow(lines[index + 1]!);
+			const changesText = nextParsed?.body ?? "No captured changes";
+			const isNone = /no captured changes/i.test(changesText);
+			const formattedValue = isNone
+				? `\x1b[90m${changesText}\x1b[39m`
+				: `\x1b[33m${changesText}\x1b[39m`;
+
+			result.push(formatCardRow(line, "\x1b[1mChanges\x1b[22m", formattedValue));
+			index += 2; // skip "Changes" and its status line
+
+			// Skip command line like "/gentle:changes"
+			if (index < lines.length) {
+				const cmdParsed = parseCardRow(lines[index]!);
+				if (cmdParsed?.body.startsWith("/gentle:changes")) {
+					index++;
+				}
+			}
+			continue;
+		}
+
+		// 3. Integrations section
+		if (body === "Integrations") {
+			result.push(formatCardRow(line, "\x1b[1mIntegrations\x1b[22m"));
+			index++;
+			while (index < lines.length) {
+				const itemParsed = parseCardRow(lines[index]!);
+				if (!itemParsed || itemParsed.body === "") break;
+				const isRuntimeStatus = /^(?:🧠||🔌|)\s/.test(itemParsed.body);
+				if (!isRuntimeStatus) {
+					index++;
+					continue;
+				}
+				let itemBody = itemParsed.body;
+				itemBody = itemBody.replace(/^🧠\s*/, " ").replace(/^🔌\s*/, " ");
+
+				const dotIdx = itemBody.indexOf("·");
+				const colonIdx = itemBody.indexOf(":");
+				if (dotIdx >= 0) {
+					const left = itemBody.slice(0, dotIdx).trim();
+					const right = itemBody.slice(dotIdx + 1).trim();
+					const rightStyled = right === "ready" ? `\x1b[32m● ready\x1b[39m` : right;
+					result.push(formatCardRow(lines[index]!, `  ${left}`, rightStyled));
+				} else if (colonIdx >= 0) {
+					const left = itemBody.slice(0, colonIdx).trim();
+					const right = itemBody.slice(colonIdx + 1).trim();
+					result.push(formatCardRow(lines[index]!, `  ${left}`, `\x1b[36m${right}\x1b[39m`));
+				} else {
+					result.push(formatCardRow(lines[index]!, `  ${itemBody}`));
+				}
+				index++;
+			}
+			continue;
+		}
+
+		// 4. RDD section (if present)
+		if (body.includes("RDD") && index + 1 < lines.length) {
+			const nextParsed = parseCardRow(lines[index + 1]!);
+			result.push(formatCardRow(line, "\x1b[1m🌹 RDD\x1b[22m", nextParsed ? `\x1b[35m${nextParsed.body}\x1b[39m` : ""));
+			index += 2;
+			continue;
+		}
+
+		result.push(line);
+		index++;
+	}
+
+	return result;
+}
+
