@@ -72,6 +72,7 @@ import {
 	stripGentleHeaderLayoutNode,
 	suppressGentleBelowInputWidget,
 	suppressGentleHeader,
+	withoutGentleSidebarBanner,
 } from "./gentle-header.js";
 
 // CSI + OSC (BEL or ST terminated) + charset selects. OSC matters: the host
@@ -862,24 +863,7 @@ function tuiForGentleAgentsOverlay(tui: unknown): unknown {
 	});
 }
 
-/** Remove Gentle's ornamental rail banner and its following section spacer. */
-function withoutGentleSidebarBanner(lines: string[]): string[] {
-	const filtered: string[] = [];
-	let skipSpacer = false;
-	for (const line of lines) {
-		if (line.replace(TERMINAL_CONTROL_RE, "").includes("Gentle-Pi")) {
-			skipSpacer = true;
-			continue;
-		}
-		if (skipSpacer && isOnlyWhitespace(line)) {
-			skipSpacer = false;
-			continue;
-		}
-		skipSpacer = false;
-		filtered.push(line);
-	}
-	return filtered;
-}
+
 
 /**
  * Gentle's compact footer is independent from the rail banner.  Keep its
@@ -1359,7 +1343,10 @@ function stabilizeGentleRailLayout(ui: unknown): (() => LayoutNodeLike) | undefi
 		const node = stripGentleHeaderLayoutNode(rawNode);
 		const active = isGentleRailLayout(node);
 		configureNativeTranscriptGutter(ui, active);
-		if (active) compactGentleRailGap(node);
+		if (active) {
+			compactGentleRailGap(node);
+			hideGentleSidebarBanner(ui);
+		}
 		return node;
 	};
 	root[GENTLE_RAIL_LAYOUT_STABILIZER] = { revision: 1, base, wrapper } satisfies GentleRailLayoutStabilizer;
@@ -1470,9 +1457,10 @@ function hideGentleSidebarBanner(ui: unknown): boolean {
 			? node.entries?.find((candidate) => candidate.basis === 50 && candidate.component !== undefined)
 			: undefined;
 		const scroll = entry?.component as (RenderableComponent & {
+			child?: RenderableComponent;
 			getContentWidth?: (width: number) => number;
 		}) | undefined;
-		const sidebar = scroll?.children?.[0] as RenderableComponent | undefined;
+		const sidebar = (scroll?.child ?? scroll?.children?.[0]) as RenderableComponent | undefined;
 		if (!sidebar || typeof sidebar.render !== "function") {
 			configureNativeTranscriptGutter(ui, false);
 			return false;

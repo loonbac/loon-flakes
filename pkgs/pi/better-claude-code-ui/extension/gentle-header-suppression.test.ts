@@ -7,6 +7,8 @@ import {
 	stripGentleHeaderLayoutNode,
 	suppressGentleBelowInputWidget,
 	suppressGentleHeader,
+	withoutGentleSidebarBanner,
+	isGentleSidebarBannerLine,
 } from "./gentle-header.ts";
 
 test("patchGentleSidebarParts prevents header rail from being stored or read", () => {
@@ -97,3 +99,36 @@ test("suppressGentleBelowInputWidget clears below-input widget", () => {
 	assert.equal(widgetsAbove.has("gentle-shell-below-input-header"), false);
 	assert.ok(calls.some((c) => c.key === "gentle-shell-below-input-header" && c.value === undefined));
 });
+
+test("isGentleSidebarBannerLine detects Gentle Shell and Gentle-Pi banner rows", () => {
+	assert.equal(isGentleSidebarBannerLine("   ✿ Gentle Shell ✿   "), true);
+	assert.equal(isGentleSidebarBannerLine(" \x1b[35m✿\x1b[39m \x1b[37mGentle Shell\x1b[39m \x1b[35m✿\x1b[39m "), true);
+	assert.equal(isGentleSidebarBannerLine("   ✿ Gentle-Pi ✿   "), true);
+	assert.equal(isGentleSidebarBannerLine("   Gentle-Pi   "), true);
+
+	// Card headers and other content are not banner lines
+	assert.equal(isGentleSidebarBannerLine(" ╭─ ✿ Status ────────────────────────────────────╮ "), false);
+	assert.equal(isGentleSidebarBannerLine(" │ Project: ~/foo                                │ "), false);
+	assert.equal(isGentleSidebarBannerLine(""), false);
+	assert.equal(isGentleSidebarBannerLine("   "), false);
+});
+
+test("withoutGentleSidebarBanner removes the ornamental banner and leading spacer", () => {
+	const rawRailLines = [
+		"   \x1b[35m✿\x1b[39m \x1b[37mGentle Shell\x1b[39m \x1b[35m✿\x1b[39m   ",
+		"",
+		" ╭─ ✿ Status ────────────────────────────────────╮ ",
+		" │ Project                                       │ ",
+		" │ ~/Proyectos/pi-custom                         │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+	];
+
+	const cleaned = withoutGentleSidebarBanner(rawRailLines);
+	assert.deepEqual(cleaned, [
+		" ╭─ ✿ Status ────────────────────────────────────╮ ",
+		" │ Project                                       │ ",
+		" │ ~/Proyectos/pi-custom                         │ ",
+		" ╰───────────────────────────────────────────────╯ ",
+	]);
+});
+

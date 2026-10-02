@@ -143,3 +143,36 @@ export function stripGentleHeaderLayoutNode(node: LayoutNodeLike): LayoutNodeLik
 	}
 	return node;
 }
+
+export const TERMINAL_CONTROL_RE = /\x1b\[[0-9:;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB0]/g;
+
+export function isGentleSidebarBannerLine(line: string): boolean {
+	const plain = line.replace(TERMINAL_CONTROL_RE, "").trim();
+	if (!plain) return false;
+	return plain.includes("Gentle Shell")
+		|| plain.includes("Gentle-Pi")
+		|| (plain.includes("Gentle") && plain.includes("✿"))
+		|| (plain.startsWith("✿") && plain.endsWith("✿"));
+}
+
+/** Remove Gentle's ornamental rail banner and its following section spacer. */
+export function withoutGentleSidebarBanner(lines: string[]): string[] {
+	const filtered: string[] = [];
+	let skipSpacer = false;
+	for (const line of lines) {
+		if (isGentleSidebarBannerLine(line)) {
+			skipSpacer = true;
+			continue;
+		}
+		if (skipSpacer && line.replace(TERMINAL_CONTROL_RE, "").trim() === "") {
+			skipSpacer = false;
+			continue;
+		}
+		skipSpacer = false;
+		filtered.push(line);
+	}
+	while (filtered.length > 0 && filtered[0]!.replace(TERMINAL_CONTROL_RE, "").trim() === "") {
+		filtered.shift();
+	}
+	return filtered;
+}
