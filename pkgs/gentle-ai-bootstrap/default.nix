@@ -109,20 +109,6 @@ let
     review-resilience = { model = "cpa-infronai/qwen/qwen3.8-27b:free"; effort = "high"; };
     review-risk = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
     review-validator = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    sdd-apply = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    sdd-archive = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
-    sdd-design = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    sdd-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    sdd-init = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-onboard = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-proposal = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    sdd-remediate = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    sdd-research = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-spec = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    sdd-status = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "low"; };
-    sdd-sync = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
-    sdd-tasks = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    sdd-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
   };
 
   gentleModelProfiles = lib.mapAttrs (_name: profile: {
@@ -716,95 +702,6 @@ let
     ]) assert.ok(source.includes(expected), "missing effective-route patch fragment: " + expected);
   '';
 
-  # gentle-pi documents every shipped SDD phase as foreground-mandatory. Keep
-  # that contract enforced at the launch boundary even if a user explicitly
-  # enables the global background policy; ordinary explore/worker agents may
-  # still use background mode when requested.
-  patchGentleSddForeground = writeText "patch-gentle-sdd-foreground.mjs" ''
-    import fs from "node:fs";
-    import path from "node:path";
-
-    const [packageRoot] = process.argv.slice(2);
-    if (!packageRoot) throw new Error("missing gentle-pi package root");
-
-    const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
-    if (packageJson.name !== "gentle-pi" || typeof packageJson.version !== "string") {
-      throw new Error("gentle-pi SDD foreground patch: incompatible package.json");
-    }
-
-    const relativePath = "extensions/gentle-agents.ts";
-    const target = path.join(packageRoot, relativePath);
-    let text = fs.readFileSync(target, "utf8");
-    const marker = "LOON_SDD_FOREGROUND_PATCH_V1";
-    if (text.includes(marker)) process.exit(0);
-
-    function replaceOnce(from, to) {
-      const count = text.split(from).length - 1;
-      if (count !== 1) {
-        throw new Error(
-          "gentle-pi SDD foreground patch: expected one occurrence in "
-          + relativePath + ", found " + count,
-        );
-      }
-      text = text.replace(from, to);
-    }
-
-    replaceOnce(
-      "function sddPhaseForAgent(name: string): SddChangeSelection[\"phase\"] | undefined {\n"
-        + "\treturn Object.hasOwn(SDD_PHASE_BY_AGENT, name) ? SDD_PHASE_BY_AGENT[name as keyof typeof SDD_PHASE_BY_AGENT] : undefined;\n"
-        + "}",
-      "function sddPhaseForAgent(name: string): SddChangeSelection[\"phase\"] | undefined {\n"
-        + "\treturn Object.hasOwn(SDD_PHASE_BY_AGENT, name) ? SDD_PHASE_BY_AGENT[name as keyof typeof SDD_PHASE_BY_AGENT] : undefined;\n"
-        + "}\n\n"
-        + "// " + marker + ": SDD phases are foreground-mandatory even when the global background policy is on.\n"
-        + "export function resolveRequestedSubagentMode(agentName: string, requested: AgentMode): AgentMode {\n"
-        + "\treturn SHIPPED_SDD_AGENT_NAME_SET.has(agentName) ? AGENT_MODE.TASK : requested;\n"
-        + "}",
-    );
-
-    const runMode = "\t\t\tconst mode = (params.mode as AgentMode | undefined) ?? agent.mode ?? resolveDefaultSubagentMode({\n"
-      + "\t\t\t\tconfiguredDefault: loadAgentsConfig(roots(ctx)).defaultMode,\n"
-      + "\t\t\t\tpolicy: resolveBackgroundSubagentsPolicy(ctx.cwd).policy,\n"
-      + "\t\t\t\tparentMode: ctx.mode,\n"
-      + "\t\t\t});";
-    replaceOnce(
-      runMode,
-      "\t\t\tconst requestedMode = (params.mode as AgentMode | undefined) ?? agent.mode ?? resolveDefaultSubagentMode({\n"
-        + "\t\t\t\tconfiguredDefault: loadAgentsConfig(roots(ctx)).defaultMode,\n"
-        + "\t\t\t\tpolicy: resolveBackgroundSubagentsPolicy(ctx.cwd).policy,\n"
-        + "\t\t\t\tparentMode: ctx.mode,\n"
-        + "\t\t\t});\n"
-        + "\t\t\tconst mode = resolveRequestedSubagentMode(agent.name, requestedMode);",
-    );
-
-    replaceOnce(
-      "\t\t\tconst mode = (params.mode as AgentMode | undefined) ?? (previous.mode as AgentMode);",
-      "\t\t\tconst requestedMode = (params.mode as AgentMode | undefined) ?? (previous.mode as AgentMode);\n"
-        + "\t\t\tconst mode = resolveRequestedSubagentMode(agent.name, requestedMode);",
-    );
-
-    fs.writeFileSync(target, text);
-  '';
-
-  verifyGentleSddForeground = writeText "verify-gentle-sdd-foreground.mjs" ''
-    import assert from "node:assert/strict";
-    import fs from "node:fs";
-    import path from "node:path";
-
-    const [packageRoot] = process.argv.slice(2);
-    const source = fs.readFileSync(path.join(packageRoot, "extensions", "gentle-agents.ts"), "utf8");
-    for (const expected of [
-      "LOON_SDD_FOREGROUND_PATCH_V1",
-      "export function resolveRequestedSubagentMode",
-      "SHIPPED_SDD_AGENT_NAME_SET.has(agentName) ? AGENT_MODE.TASK : requested",
-      "const mode = resolveRequestedSubagentMode(agent.name, requestedMode)",
-    ]) assert.ok(source.includes(expected), "missing SDD foreground patch fragment: " + expected);
-    assert.equal(
-      source.split("const mode = resolveRequestedSubagentMode(agent.name, requestedMode)").length - 1,
-      2,
-      "run and continue must both enforce the SDD foreground mode",
-    );
-  '';
 
   syncAgentRouting = writeText "sync-pi-agent-routing.mjs" ''
     import crypto from "node:crypto";
@@ -905,14 +802,13 @@ let
   rddRouting = writeText "pi-rdd-routing.md" ''
     ## Implementation Routing
 
-    Route work for the requested outcome with the smallest useful topology. Every change takes exactly one implementation route: direct inline, delegated direct, or optional SDD.
+    Route work for the requested outcome with the smallest useful topology. Every change takes exactly one implementation route: direct inline, delegated direct, or ODD workflow.
 
     - **Direct inline:** decide or verify from 1–3 files inline. Keep one mechanical, already-understood file change inline only when it needs no research and has no unresolved design decision.
     - **Delegated direct:** delegate one narrow exploration when understanding needs 4+ files; delegate one writer for 2+ non-trivial files. Reading that prepares a write and broad research also delegate.
-    - **Optional SDD:** propose SDD only when durable proposal, spec, design, and tasks would materially reduce substantial ambiguity. SDD is selected only by an explicit request or an accepted proposal.
-    - File count, changed lines, size, or perceived risk alone never selects SDD and never forces a heavier route.
+    - **ODD workflow:** use ODD when structured outcome, task breakdown, and evidence tracking are required.
+    - File count, changed lines, size, or perceived risk alone never forces a heavier route without ambiguity.
     - These are implementation routes, not a ban on per-action delegation. Tests, builds, installs, and review actors may still use fresh workers without changing the selected route.
-    - Direct and delegated work never create SDD artifacts, prompts, phase attempts, or synthetic SDD runs.
 
     ### Receipt-driven development is user-owned
 
@@ -920,7 +816,7 @@ let
 
     - `status` is read-only. It reports the deciding source and the effective mode, and changes nothing.
     - When the user asks to stop using receipt-driven development, run `disable`. Do not argue, do not work around it, and do not propose alternatives first.
-    - While it is disabled, keep implementing organically through direct inline, delegated direct, or optional SDD: do not start reviews, do not retry, do not reactivate it, and do not fall back to any retired path.
+    - While it is disabled, keep implementing organically through direct inline, delegated direct, or ODD: do not start reviews, do not retry, do not reactivate it, and do not fall back to any retired path.
     - Delivery under a disabled switch follows ordinary repository policy and reports `disabled/unmanaged`, never a fabricated approval.
     - Never enable receipt-driven development on the user's behalf unless the user explicitly asks for it.
   '';
@@ -1352,8 +1248,8 @@ NODE
     # upstream update changes the relevant protocol anchors.
     node "${patchGentleEffectiveRoute}" "$gentle_pi_root"
     node "${verifyGentleEffectiveRoute}" "$gentle_pi_root"
-    node "${patchGentleSddForeground}" "$gentle_pi_root"
-    node "${verifyGentleSddForeground}" "$gentle_pi_root"
+    # gentle-pi ≥ 4.0.0 retiró las fases y agentes SDD en favor del harness ODD,
+    # por lo que el parche que forzaba el modo foreground en SDD quedó obsoleto y se retiró.
     # gentle-pi ≥ 3.5.1 ya reenvía el sessionId de la sesión viva al relay del
     # reviewer (campo reviewerSessionId), por lo que el parche local quedó redundante y se retiró.
 
@@ -1379,6 +1275,9 @@ NODE
     # Reconcile the mutable package's current assets with the declarative
     # model routes. A package update therefore needs no Nix source edit.
     mkdir -p "$agent_dir/agents" "$agent_dir/chains" "$agent_dir/gentle-ai/support"
+    rm -f "$agent_dir/agents/"sdd-*.md "$agent_dir/agents/"sdd-*.md.bak \
+          "$agent_dir/chains/"sdd-*.chain.md \
+          "$agent_dir/gentle-ai/support/"sdd-*.md
     cp "$gentle_pi_root/assets/agents/"*.md "$agent_dir/agents/"
     cp "$gentle_pi_root/assets/chains/"*.md "$agent_dir/chains/"
     cp "$gentle_pi_root/assets/support/"*.md "$agent_dir/gentle-ai/support/"
