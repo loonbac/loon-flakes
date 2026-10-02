@@ -68,6 +68,11 @@ import { commandCodeUsageSnapshot, type CommandCodeUsageSnapshot } from "./comma
 import { codexUsageSnapshot, observeCodexUsage } from "./codex-usage-cache.js";
 import { installFallbackPanelBehavior } from "./fallback-panel.js";
 import { trimTranscriptFrameBody } from "./image-layout.js";
+import {
+	stripGentleHeaderLayoutNode,
+	suppressGentleBelowInputWidget,
+	suppressGentleHeader,
+} from "./gentle-header.js";
 
 // CSI + OSC (BEL or ST terminated) + charset selects. OSC matters: the host
 // render wraps a message's first/last row in OSC133 zone marks, which the
@@ -1350,7 +1355,8 @@ function stabilizeGentleRailLayout(ui: unknown): (() => LayoutNodeLike) | undefi
 	// Gentle replaced the hook in the meantime, the current hook is the new base.
 	const base = previous && current === previous.wrapper ? previous.base : current as () => LayoutNodeLike;
 	const wrapper = function ccUiStableGentleRailLayout(this: unknown): LayoutNodeLike {
-		const node = base.call(this);
+		const rawNode = base.call(this);
+		const node = stripGentleHeaderLayoutNode(rawNode);
 		const active = isGentleRailLayout(node);
 		configureNativeTranscriptGutter(ui, active);
 		if (active) compactGentleRailGap(node);
@@ -1560,12 +1566,11 @@ function restoreGentleStatusLine(host: unknown): boolean {
  */
 function scheduleGentleSidebarBannerRemoval(ui: unknown): void {
 	const requestRender = () => (ui as { requestRender?: () => void } | undefined)?.requestRender?.();
-	// The rail's first layout may replace its generated hstack after the
-	// transcript obtains its initial scroll position. Reapply the *same* local
-	// decoration during that bounded settling window; this is not a watcher and
-	// it leaves Gentle's source and later lifecycle untouched.
+	const tui = ui as { terminal?: Record<symbol, unknown> } | undefined;
+	suppressGentleHeader(tui?.terminal);
 	let attemptsLeft = 20;
 	const retry = () => {
+		suppressGentleHeader(tui?.terminal);
 		if (hideGentleSidebarBanner(ui)) {
 			requestRender();
 		}
@@ -1981,6 +1986,7 @@ export function installHostPatches(): void {
 			// footer is already gone, peel the orphan left by the preceding live
 			// revision before a new Gentle sidebar is installed.
 			restoreGentleRailLayoutHook(this.ui, this.customFooter === undefined);
+			suppressGentleHeader(this.ui?.terminal);
 			(globalThis as unknown as Record<symbol, unknown>)[WALLPAPER_REDRAW] = () => {
 				const terminal = this.ui?.terminal as Record<symbol, unknown> | undefined;
 				const cache = terminal?.[GENTLE_SIDEBAR_CACHE] as { revision?: unknown } | undefined;
@@ -1992,6 +1998,8 @@ export function installHostPatches(): void {
 			// Gentle builds the fullscreen sidebar while installing its footer. The
 			// live layout now exists, so patch its rail and restore the compact
 			// status line that the rail normally suppresses.
+			suppressGentleHeader(this.ui?.terminal);
+			suppressGentleBelowInputWidget(this);
 			scheduleGentleSidebarBannerRemoval(this.ui);
 			restoreGentleStatusLine(this);
 			return result;
@@ -2009,11 +2017,24 @@ export function installHostPatches(): void {
 		const originalCreateContext = imProto[EXTENSION_UI_BASE] ?? imProto.createExtensionUIContext;
 		imProto[EXTENSION_UI_BASE] = originalCreateContext;
 		imProto.createExtensionUIContext = function ccUiExtensionContext() {
+			suppressGentleHeader(this.ui?.terminal);
+			suppressGentleBelowInputWidget(this);
 			const context = originalCreateContext.call(this) as Record<string, unknown>;
 			const currentTheme = context.theme;
 			if (currentTheme && typeof currentTheme === "object") {
 				transcriptTheme = currentTheme as TranscriptTheme;
 				sharedHostState[TRANSCRIPT_THEME] = transcriptTheme;
+			}
+			const originalSetWidget = typeof context.setWidget === "function"
+				? context.setWidget as (key: string, content: unknown, options?: unknown) => void
+				: undefined;
+			if (originalSetWidget) {
+				context.setWidget = function ccUiFilteredSetWidget(key: string, content: unknown, options?: unknown) {
+					if (key === "gentle-shell-below-input-header") {
+						return originalSetWidget.call(this, key, undefined, options);
+					}
+					return originalSetWidget.call(this, key, content, options);
+				};
 			}
 			const originalCustom = typeof context.custom === "function"
 				? context.custom as (...args: unknown[]) => unknown

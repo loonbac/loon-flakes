@@ -123,6 +123,11 @@ export default function (pi: ExtensionAPI) {
 	const fastModeIndicator = new FastModeIndicator();
 	pi.on("session_start", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		try {
+			ctx.ui.setWidget("gentle-shell-below-input-header", undefined);
+		} catch {
+			// ignore
+		}
 		fastModeIndicator.start(ctx.ui as unknown as FastModeIndicatorUi);
 		await wallpaperSync.start(ctx.ui as unknown as WallpaperThemeUi);
 	});
