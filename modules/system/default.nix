@@ -1,6 +1,6 @@
 # Módulo "system": boot, zona horaria, locale, paquetes globales y
 # política de paquetes. Una sola responsabilidad, bien aislada.
-{ config, lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, ... }:
+{ config, lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -195,7 +195,9 @@ in
     uv                 # gestor de Python (venv + paquetes)
     fastfetch
     ghostty
-    kitty
+    # PORT: terminal con GPUI y sistema de plugins. Llega ya resuelto desde
+    # `specialArgs`, como el resto de paquetes externos del flake.
+    port
     nodejs
     pnpm
     bubblewrap         # sandbox Linux usado por Codex (`bwrap` en PATH)

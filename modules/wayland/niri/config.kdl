@@ -91,6 +91,9 @@ binds {
     Super+Space { spawn "loon-launch"; }
     // Explorador de archivos (Nautilus) con Super+E, como en Windows.
     Super+E { spawn "nautilus"; }
+    // Sidebar de spaces de kitty: ventana tileada a la izquierda del workspace
+    // "kitty". No arranca con la sesión; aparece solo al pulsar esto.
+    Super+M { spawn "/home/loonbac/.config/kitty/spaces/sidebar.sh"; }
     // Android (Waydroid): arranca la sesión si no está y muestra la ventana.
     Super+D { spawn "waydroid" "show-full-ui"; }
     Super+Q { close-window; }
@@ -150,13 +153,23 @@ binds {
 // sólido, para no tapar la transparencia de las ventanas.
 window-rule {
     match app-id=".*"
-    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch|windowkill.*)$"#
+    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch|windowkill.*|kitty-spaces-panel)$"#
     open-maximized true
 
     geometry-corner-radius 12
     clip-to-geometry true
 
     draw-border-with-background false
+}
+
+// Spaces de kitty: el sidebar es una ventana normal que niri tilea como columna
+// angosta a la izquierda, y solo existe cuando se pide con Super+M.
+window-rule {
+    match app-id=r#"^kitty-spaces-panel$"#
+
+    open-maximized false
+    default-column-width { fixed 240; }
+    open-focused false
 }
 
 // Windowkill: juego multi-ventana donde las ventanas se mueven y redimensionan libremente.

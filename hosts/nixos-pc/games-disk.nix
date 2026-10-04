@@ -12,15 +12,6 @@
     ];
   };
 
-  fileSystems."/home/loonbac/Datos" = {
-    device = "/dev/disk/by-uuid/96417a54-5f22-4aad-a6f3-8125a6f7a7d4";
-    fsType = "ext4";
-    options = [
-      "noatime"
-      "nofail"
-    ];
-  };
-
   # Los directorios raíz de ext4 nacen propiedad de root; tmpfiles ajusta la
   # propiedad después de montar para que el usuario pueda escribir en ellos.
   systemd.tmpfiles.rules = [

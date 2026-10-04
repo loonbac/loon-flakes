@@ -9,6 +9,12 @@
       url = "github:loonbac/citron-nextendo-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # PORT: terminal con GPUI y sistema de plugins. Repositorio local mientras
+    # no haya release estable publicada.
+    port = {
+      url = "git+file:///home/loonbac/Proyectos/port";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
@@ -59,7 +65,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, zen-browser, code-insiders-flake, antigravity-nix, loon, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, zen-browser, code-insiders-flake, antigravity-nix, loon, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -168,6 +174,9 @@
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
           loon = betterClaudeCodeUi;
           inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
+          # PORT llega como paquete ya resuelto: el modulo no debe conocer
+          # inputs del flake ni llamar a getFlake, que exigiria --impure.
+          port = port.packages.${system}.default;
         };
         modules = [
           ./hosts/${hostName}
