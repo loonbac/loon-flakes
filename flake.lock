@@ -319,6 +319,26 @@
         "type": "github"
       }
     },
+    "port": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791154767,
+        "narHash": "sha256-qIc25NDs8BsM4G0BeI25CbaOveuAEQi02okjng6Zn30=",
+        "ref": "refs/heads/master",
+        "rev": "b1591a5b20d3c2b31b4676c81d2c1f521456580d",
+        "revCount": 72,
+        "type": "git",
+        "url": "file:///home/loonbac/Proyectos/port"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///home/loonbac/Proyectos/port"
+      }
+    },
     "pre-commit": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -353,6 +373,7 @@
         "nix-flatpak": "nix-flatpak",
         "nix-tools-steam": "nix-tools-steam",
         "nixpkgs": "nixpkgs_2",
+        "port": "port",
         "space-theme-fix": "space-theme-fix",
         "zen-browser": "zen-browser"
       }
