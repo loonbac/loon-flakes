@@ -224,10 +224,25 @@ let
     fs.chmodSync(outputPath, 0o600);
   '';
 
+  # Config que el bootstrap symlinka en ~/.pi/agent/{mcp.json,mcp-adapter.json}:
+  # es la única que Pi lee a nivel de usuario, así que los servers declarados
+  # aquí tienen acceso en todas las sesiones. `lida` (asistente Discord) vive
+  # en el home porque sus bytes son mutables del usuario: wrapper, binario
+  # compilado y token (.env) quedan fuera de la store. Los campos `lifecycle` y
+  # `directTools` del fichero original no son del formato de Pi: `exposure`
+  # por defecto (codemode) ya cubre el segundo, y Pi conecta al arranque.
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
-    mcpServers.engram = {
-      command = "${engramLauncher}/bin/engram";
-      args = [ "mcp" "--tools=agent" ];
+    mcpServers = {
+      engram = {
+        command = "${engramLauncher}/bin/engram";
+        args = [ "mcp" "--tools=agent" ];
+      };
+      lida = {
+        command = "/home/loonbac/.local/share/loon-pi-mcp/run-lida-mcp";
+        args = [ ];
+        cwd = "/home/loonbac/.local/share/loon-pi-mcp/lida";
+        description = "Discord guild assistant: plans, guilds and messaging";
+      };
     };
   });
 
