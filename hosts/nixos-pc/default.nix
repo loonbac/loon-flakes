@@ -18,5 +18,8 @@
   services.xserver.xkb.layout = "us";
   console.keyMap = "us";
 
+  # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
+  loon.devPorts = [ 5173 8080 ];
+
   system.stateVersion = "26.05";
 }

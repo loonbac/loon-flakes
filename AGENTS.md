@@ -165,28 +165,29 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 | Regla | Estado | Referencia |
 | :--- | :--- | :--- |
 | Organización por capacidad | Cumple | `hosts/nixos-pc/*.nix` y `modules/` por subsistema |
-| Responsabilidad única | Parcial | `modules/system/default.nix` acumula ~290 líneas de temas ajenos |
+| Responsabilidad única | Cumple | `modules/system/` separa la configuración del sistema (`default.nix`), la lista de paquetes (`packages.nix`) y lo que hace ver al sistema (`theme.nix`) |
 | Config de host en `hosts/<host>/` | Cumple | `extras-disk.nix` movido a `hosts/loon-laptop/`; ts-bypass/moonlight-power activados solo desde la laptop |
 | Sin branching por hostname | Cumple | `grep -rn "networking.hostName" modules/` sin resultados; sustituido por `hardware.brightness.backend`, `services.ts-bypass.enable`, `services.moonlight-power.enable` y `programs.cisco-packet-tracer.enable` |
 | Composición explícita | Cumple | `mkHost` + `hosts/<host>/default.nix` (korosoft, host inexistente con import cruzado, fue eliminado el 2026-09-22) |
 | `pkgs/` sin vertederos | Cumple | 43 paquetes con nombre por concepto; sin `utils/` ni `helpers/` |
-| Sin duplicación | Incumple | `fish`/`ghostty`/`yazi`/`notepad-next` declarados dos veces; patrón tmpfiles repetido |
-| Sin abstracciones muertas | Incumple | `pkgs/vision-cursor/` sin referencias; overlays exportados que `mkHost` no consume; virtualbox/waydroid/wine globales |
-| Verificación proporcionada | Parcial | checks de niri/tmpfiles/tests sí; output `checks` del flake no |
+| Sin duplicación | Parcial | `fish` unificado (se instalaba por tres vías: `systemPackages`, `programs.fish` y el shell del usuario). `ghostty`/`yazi`/`notepad-next` **no** estaban duplicados: sus módulos solo escriben configuración y referencian el binario. Sigue pendiente el patrón de tmpfiles repetido |
+| Sin abstracciones muertas | Parcial | `pkgs/vision-cursor/` retirado (huérfano real: sin consumidor en el árbol vivo). Siguen los overlays exportados sin consumidor y virtualbox/waydroid/wine globales |
+| Verificación proporcionada | Cumple | checks de niri/tmpfiles/tests, y `checks.${system}` del flake evalúa ambos hosts sin construirlos (`nix flake check --no-build`) |
 | Cambios acotados | Práctica | se exige en cada tarea (sección 6.3 del manifiesto) |
 
 ### Deudas conocidas (orden de abordaje sugerido)
 
-1. Dividir `modules/system/default.nix`: paquetes base vs. temas concretos.
-2. Activar virtualbox/waydroid/wine/obs-studio solo donde se usan (opción
+1. Activar virtualbox/waydroid/wine/obs-studio solo donde se usan (opción
    `enable`).
-3. Unificar `fish`/`ghostty`/`yazi`/`notepad-next`: declararlos solo en su
-   módulo, no también en `systemPackages`.
-4. Retirar `pkgs/vision-cursor/` (huérfano) y decidir si los
-   overlays/`nixosModules` exportados tienen consumidor externo real (hoy son
-   aliases de compatibilidad; si no los tiene, retirarlos).
-5. Mover los puertos 5173/8080 del firewall al módulo/proyecto que los usa.
-6. Añadir `checks.${system}` al flake para evaluar ambos hosts.
+2. Decidir si los overlays/`nixosModules` exportados tienen consumidor externo
+   real (hoy son aliases de compatibilidad; si no lo tiene, retirarlos).
+3. Unificar el patrón de tmpfiles que enlaza `/etc/<app>` → `~/.config/<app>`:
+   hoy se repite en cada módulo de `modules/programs/`.
+
+> Resueltos el 2026-10-07: dividir `modules/system/default.nix` (configuración,
+> paquetes y temas), unificar `fish`, retirar `pkgs/vision-cursor/`, mover los
+> puertos de desarrollo a una opción del host (`loon.devPorts`) y añadir
+> `checks` al flake.
 
 ---
 
@@ -416,6 +417,18 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ## Lecciones aprendidas (gotchas)
 
+- **`imports`: el orden importa, y es al revés.** `lib/modules.nix` fusiona las
+  definiciones en orden **inverso** al de la lista `imports`, así que reordenarla
+  o dividir un módulo en varios cambia el orden final de listas como
+  `environment.systemPackages` y con él el hash de `system-path`, aunque el
+  conjunto de paquetes sea el mismo. Al dividir un módulo, comprobar que el
+  `drvPath` del toplevel de ambos hosts no cambie; en `modules/system/default.nix`
+  los imports quedan en el orden que reproduce la fusión histórica y un
+  comentario lo explica.
+- **Paquetes declarados por varias vías**: `programs.fish.enable` y
+  `users.users.<u>.shell` ya instalan el paquete, así que repetirlo en
+  `environment.systemPackages` es una tercera declaración (y tocar esa lista
+  mueve el hash de `system.path`, que usa la lista cruda).
 - **Flake + git**: archivos nuevos sin `git add` → error "not tracked by Git".
 - **"Git tree is dirty"**: aviso normal cuando hay cambios sin commitear; el
   rebuild funciona igual. Desaparece al commitear.

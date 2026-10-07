@@ -116,7 +116,8 @@ in
     # (ONLYOFFICE incluye Qt embebido sin soporte Wayland). niri lo lanza
     # automáticamente (socket activation, display :0) si está en PATH.
     xwayland-satellite
-    fish
+    # fish no se declara aquí: lo instala `programs.fish` (modules/programs/fish)
+    # y, además, `users.users.loonbac.shell`. Una sola dueña por paquete.
     psmisc             # killall, pstree, fuser
     lzip               # compresión lz (requisito de waydroid_script)
     yazi

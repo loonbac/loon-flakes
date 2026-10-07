@@ -20,4 +20,7 @@
 
   # Bypass de Tailscale supervisado por túnel SSH/SOCKS5 exclusivo de la laptop.
   services.ts-bypass.enable = true;
+
+  # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
+  loon.devPorts = [ 5173 8080 ];
 }
