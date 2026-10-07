@@ -183,6 +183,30 @@
           ./modules
         ] ++ hostModules;
       };
+
+      # `checks`: un check por host que solo *evalúa* su configuración.
+      #
+      # Forzamos el `drvPath` del toplevel del sistema, lo que evalúa la
+      # configuración completa (módulos, tipos, aserciones y `imports`) y
+      # volcamos el resultado en una derivación trivial. Así `nix flake check`
+      # detecta errores de evaluación sin compilar dos sistemas NixOS.
+      #
+      # `unsafeDiscardStringContext` es deliberado: sin él la cadena del
+      # `drvPath` arrastraría el contexto de derivación y el check heredaría
+      # el toplevel como dependencia de build, de modo que `nix flake check`
+      # terminaría construyendo los dos sistemas. Al descartarlo, el check
+      # fuerza la evaluación igual, pero se construye en milisegundos.
+      #
+      # Ejecutar: `nix flake check --no-build` (evalúa ambos hosts sin
+      # construir nada). Sin ese flag, `nix flake check` construye además los
+      # toplevels de `nixosConfigurations` y los paquetes del flake, que es el
+      # comportamiento propio de ese comando y no algo que introduzcan estos
+      # checks.
+      hostEvalCheck = hostName:
+        pkgs.runCommand "eval-${hostName}" { } ''
+          echo ${lib.escapeShellArg (builtins.unsafeDiscardStringContext
+            self.nixosConfigurations.${hostName}.config.system.build.toplevel.drvPath)} > $out
+        '';
     in
     {
       # Paquetes custom del flake (el "workspace" de binarios propios).
@@ -262,5 +286,10 @@
           lanzaboote.nixosModules.lanzaboote
         ];
       };
+
+      # Un check de evaluación por cada host declarado arriba (una sola
+      # fuente para los nombres). Ver `hostEvalCheck` en el `let`.
+      checks.${system} =
+        lib.genAttrs (builtins.attrNames self.nixosConfigurations) hostEvalCheck;
     };
 }
