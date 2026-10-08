@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Router + Jev · Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nueva Pestaña</title>
 <style>
   /* La paleta viene del fondo de pantalla, asi que la pagina cambia de color con el
      escritorio en vez de tener un tema propio que lo contradiga. El acento no queda en
@@ -32,9 +33,11 @@
      trabaja, y una vista que hay que desplazar deja de servir para eso. */
   html, body { height: 100%; overflow: hidden; }
 
+  /* Un solo color de fondo con un degradado apenas insinuado. Nada se mueve: el panel
+     existe para mirar numeros, y todo lo que se movia competia con ellos. */
   body {
     margin: 0;
-    background: color-mix(in srgb, var(--background) 82%, #000);
+    background: color-mix(in srgb, var(--background) 88%, #000);
     color: var(--foreground);
     font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
     font-size: 12px; line-height: 1.4;
@@ -44,38 +47,15 @@
   /* El fondo no es un color: son cuatro manchas del acento, el realce y el aviso que
      se desplazan muy despacio. Un color plano hace que el panel parezca una captura;
      algo que se mueve, aunque sea lento, dice que esto esta corriendo ahora. */
-  .aurora {
-    position: fixed; inset: -18%; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(46% 38% at 16% 20%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 62%),
-      radial-gradient(42% 34% at 84% 26%, color-mix(in srgb, var(--highlight) 52%, transparent), transparent 64%),
-      radial-gradient(52% 44% at 64% 88%, color-mix(in srgb, var(--warning) 32%, transparent), transparent 66%),
-      radial-gradient(38% 30% at 6% 84%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 68%);
-    animation: drift 38s ease-in-out infinite alternate;
-  }
-  @keyframes drift {
-    0%   { transform: translate3d(-3%, -2%, 0) scale(1.05) rotate(-1deg); }
-    50%  { transform: translate3d(2%, 3%, 0) scale(1.12) rotate(1.5deg); }
-    100% { transform: translate3d(4%, -1%, 0) scale(1.06) rotate(-0.5deg); }
-  }
+
+
 
   /* Una grilla fina que deriva: da profundidad y hace visible que el fondo tiene vida. */
-  .lattice {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 46px 46px;
-    animation: lattice 26s linear infinite;
-    mask-image: radial-gradient(120% 100% at 50% 40%, #000 30%, transparent 85%);
-  }
-  @keyframes lattice { to { background-position: 46px 46px, 46px 46px; } }
+
+
 
   /* El velo: oscurece los bordes para que el contenido del centro tenga contraste. */
-  .vignette {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background: radial-gradient(120% 90% at 50% 45%, transparent 40%, color-mix(in srgb, var(--background) 70%, #000) 100%);
-  }
+
 
   .shell {
     position: relative; z-index: 1;
@@ -143,8 +123,6 @@
     position: relative; background: var(--card); border: 1px solid var(--card-edge);
     border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0;
   }
-  /* El borde se ilumina cuando la araña lo pisa. */
-  .panel.lit, .tile.lit { border-color: var(--accent); }
   .panel > h2 {
     display: flex; align-items: center; gap: 8px; margin: 0; flex: none;
     padding: 5px 10px; font-size: 9px; font-weight: 500;
@@ -170,7 +148,7 @@
   .l.d { grid-template-columns: 30px minmax(80px,1fr) 44px; }
 
   .sw { width: 6px; height: 6px; border-radius: 50%; background: var(--card-edge); flex: none; }
-  .sw.on { background: var(--accent); box-shadow: 0 0 7px var(--accent); }
+
   .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nm em { font-style: normal; color: var(--muted); font-size: 9.5px; }
   .nm .u { color: var(--accent); font-size: 9px; }
@@ -199,7 +177,6 @@
     background: color-mix(in srgb, var(--board) 72%, transparent);
     display: flex; flex-direction: column; min-width: 0;
   }
-  .ws.lit { border-color: var(--accent); }
   .ws .top { display: flex; align-items: center; gap: 5px; padding: 3px 6px;
              border-bottom: 1px solid color-mix(in srgb, var(--card-edge) 60%, transparent); flex: none; }
   .ws .top b { font-size: 9px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase;
@@ -256,67 +233,33 @@
      desfase propio, de modo que nunca barren todos a la vez —que se veria como un
      parpadeo— y el destello marca el numero que acaba de cambiar. */
 
-  .panel::after {
-    content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(105deg, transparent 42%,
-      color-mix(in srgb, var(--accent) 13%, transparent) 50%, transparent 58%);
-    background-size: 300% 100%; background-position: 200% 0;
-    animation: sheen 9s linear infinite;
-  }
+
   .panel:nth-child(2)::after { animation-delay: -2.2s; }
   .panel:nth-child(3)::after { animation-delay: -4.6s; }
-  @keyframes sheen {
-    0%   { background-position: 200% 0; }
-    55%  { background-position: -120% 0; }
-    100% { background-position: -120% 0; }
-  }
 
-  .changed { animation: flash 1.1s ease-out; }
-  @keyframes flash {
-    0%   { background: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--on-accent); }
-    60%  { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-    100% { background: transparent; }
-  }
+
+
+
 
   /* Un punto que respira en lo que esta vivo: el modelo en uso, los agentes con
      trabajo, la cuota con margen. */
   .sw.on { animation: breathe 2.6s ease-in-out infinite; }
-  @keyframes breathe {
-    0%, 100% { opacity: 1; box-shadow: 0 0 7px var(--accent); }
-    50%      { opacity: .55; box-shadow: 0 0 13px var(--accent); }
-  }
+
 
   /* La barra superior late mas rapido cuando hay trabajo reciente. */
   .bar { position: relative; overflow: hidden; }
-  .bar::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    background-size: 40% 100%; background-repeat: no-repeat;
-    animation: sweep 3.4s linear infinite;
-  }
-  body.busy .bar::after { animation-duration: 1.1s; }
-  @keyframes sweep {
-    0%   { background-position: -40% 0; }
-    100% { background-position: 140% 0; }
-  }
+
+
 
   /* ------------------------------------------------- la telaraña, sobre todo ==
 
      Una sola capa fija por encima del panel. La araña no vive dentro de un recuadro:
      recorre la página entera, apoyándose en las tarjetas reales, porque es el router
      el que se mueve por todo el trabajo y no por una sección suya. */
-  #web {
-    position: fixed; inset: 0; width: 100vw; height: 100vh;
-    pointer-events: none; z-index: 40;
-  }
+
 </style>
 </head>
 <body>
-
-<div class="aurora"></div>
-<div class="lattice"></div>
-<div class="vignette"></div>
-<canvas id="web"></canvas>
 
 <div class="shell">
 
@@ -343,31 +286,31 @@
   <div class="tiles" id="tiles"></div>
 
   <div class="row r-3">
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Orquestación<span class="tag" id="orchTag"></span></h2>
       <div class="body pad" id="orch"></div>
     </div>
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Consumo diario<span class="tag">30 días</span></h2>
       <div class="bal"><span class="big" id="balTotal"></span><span class="lbl" id="balSub"></span></div>
       <div class="body pad" style="padding-top:2px" id="daily"></div>
     </div>
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Cuota<span class="tag" id="quotaTag"></span></h2>
       <div class="body" id="quota"></div>
     </div>
   </div>
 
   <div class="row r-3">
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Mesa de agentes<span class="tag" id="deskTag"></span></h2>
       <div class="desk" id="desk"></div>
     </div>
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Modelos<span class="tag" id="modelsTag"></span></h2>
       <div class="body" id="models"></div>
     </div>
-    <div class="panel" data-web>
+    <div class="panel">
       <h2>Decisiones<span class="tag" id="decTag"></span></h2>
       <div class="body" id="decisions"></div>
     </div>
@@ -435,7 +378,7 @@ function render() {
   ];
 
   $("tiles").innerHTML = tiles.map(([k, sub, value, foot, acc]) => `
-    <div class="tile${acc ? " acc" : ""}" data-web>
+    <div class="tile${acc ? " acc" : ""}">
       <div class="cap"><span class="ico"></span>${esc(k)}<em>${esc(sub)}</em></div>
       <div class="val">${esc(value)}</div>
       <canvas class="spark"></canvas>
@@ -510,7 +453,7 @@ function render() {
   $("deskTag").textContent = shownAgents.length + " de " + DATA.agents.length;
   $("desk").innerHTML = shownAgents.length === 0 ? `<div class="empty">Sin agentes.</div>`
     : shownAgents.map((a) => `
-      <div class="ws" data-web>
+      <div class="ws">
         <div class="top"><b>${esc(a.name.replace(/^gentle-ai-|^jd-|^sdd-/, ""))}</b>
           <span class="sw${a.decisions > 0 ? " on" : ""}"></span></div>
         <div class="mid">${a.actuallyUsed.length ? `<span class="m">${esc(a.actuallyUsed[0].model.split("/").pop().slice(0, 18))}</span> · ` : ""}${esc((a.assigned || "").split("/").pop().split(" · ")[0].slice(0, 16))}</div>
@@ -540,7 +483,7 @@ function render() {
   $("modelsTag").textContent = shownModels.length + " de " + DATA.models.length;
   $("models").innerHTML = shownModels.length === 0 ? `<div class="empty">Sin consumo registrado.</div>`
     : shownModels.map(m => `
-      <div class="l m" data-web>
+      <div class="l m">
         <span class="sw${m.live ? " on" : ""}"></span>
         <span class="nm">${esc(m.name)}<em> · ${esc(m.provider)}</em></span>
         <span class="n hi">${esc(m.tokensText)}</span>
@@ -572,7 +515,7 @@ function render() {
   $("decTag").textContent = DATA.decisions.length + " últimas";
   $("decisions").innerHTML = DATA.decisions.length === 0 ? `<div class="empty">Sin decisiones.</div>`
     : DATA.decisions.slice(0, 12).map(d => `
-      <div class="l d" data-web title="${esc(d.reason || "")}">
+      <div class="l d" title="${esc(d.reason || "")}">
         <span class="n">${esc(d.ago.replace("hace ", ""))}</span>
         <span class="nm"><span class="pill ${chip(d)}">${d.kind === "ADAPTIVE_ASSIGNMENT" ? "adapt" : "estát"}</span>
           ${esc((d.role || "").replace(/^gentle-ai-/, ""))}
@@ -595,549 +538,12 @@ markChanges();
    El dibujo es deliberadamente tenue: tiene que leerse como algo que está por encima
    del panel sin competir con los números, que es lo que el panel existe para mostrar. */
 
-const canvas = $("web"), ctx = canvas.getContext("2d");
-const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let targets = [], litNode = null, entering = true;
-
-const colorOf = (name, fallback) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-
-function collect() {
-  /* Cada elemento con `data-web` aporta un punto de apoyo, tomado de su caja real. Se
-     usa el borde y no el centro para que la araña camine por los marcos, que es donde
-     el paso se ve, en vez de cruzar por encima de los números. */
-  const nodes = [];
-  document.querySelectorAll("[data-web]").forEach((el) => {
-    const r = el.getBoundingClientRect();
-    if (r.width < 24 || r.height < 12) return;
-    const corners = [
-      { x: r.left, y: r.top }, { x: r.right, y: r.top },
-      { x: r.right, y: r.bottom }, { x: r.left, y: r.bottom },
-    ];
-    nodes.push({ x: r.left + r.width / 2, y: r.top, el, box: r });
-    nodes.push({ x: r.left + r.width / 2, y: r.bottom, el, box: r });
-    nodes.push({ x: r.left, y: r.top + r.height / 2, el, box: r });
-    nodes.push({ x: r.right, y: r.top + r.height / 2, el, box: r });
-    void corners;
-  });
-  targets = nodes;
-}
-
-function size() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  collect();
-}
-
-/* --------------------------------------------------------------- la araña ===
-
-   Portada de "web-crawlers" de cyohei9907 (github.com/cyohei9907/web-crawlers), que
-   camina sobre el DOM con las patas apoyadas en elementos reales. Se conservan sus
-   decisiones de diseno, porque cada una responde a un defecto que se ve al mirarlo:
-
-   - Ocho patas mas dos palpos, con angulos de 31, 66, 112 y 146 grados. Un abanico
-     angosto se lee como una estrella; con este las patas traseras casi apuntan atras
-     y aparece la silueta.
-   - Dos huesos por pata resueltos por cinematica inversa. La rodilla no se dibuja
-     donde caiga: el lado del quiebre es FIJO por pata. Elegirlo por cuadro hacia que
-     la rodilla saltara de un lado al otro a mitad del paso.
-   - Un punto en la rodilla y otro en el pie. Eso es lo que hace que la araña se lea
-     como una red y no como un insecto: los puntos son la estructura.
-   - Los pies se apoyan en cosas. Aca se apoyan en los bordes de las tarjetas, que es
-     el equivalente de las palabras en la pagina original: la araña toca el trabajo.
-
-   La marcha es por umbral: un pie se levanta cuando su cuerpo se alejo demasiado de
-   donde estaba comodo, no en un compas fijo. Asi el paso acompana al movimiento en
-   vez de pelear con el. */
-
-/* La escala del original en escritorio, no la de movil. Con la de movil el cuerpo queda
-   chico frente a las patas: los diez anclajes caben en doce pixeles y las patas de un
-   lado y del otro salen casi del mismo punto, asi que se superponen cerca del cuerpo. */
-/* El cuerpo tiene que ser grande frente a las patas. Con la escala de escritorio del
-   original, los diez anclajes caben en una franja de treinta y siete pixeles y las diez
-   patas salen de ahi: cerca del cuerpo se superponen y se leen como patas que se
-   atraviesan. Agrandando la araña entera se separa todo sin cambiar ninguna proporcion. */
-const SCALE = 1.25;
-const LW = 1.15 * Math.sqrt(SCALE);
-/* Los anclajes van mas repartidos a lo largo del cuerpo que en el original. Con diez patas
-   naciendo de diecisiete pixeles, las rodillas de las delanteras quiebran hacia adentro y
-   se cruzan entre si: el cruce se ve como patas que se atraviesan. Repartidos, cada pata
-   tiene su tramo de cuerpo y no se pisan. */
-/* Ocho patas. El original suma dos palpos, dos lineas cortas al frente; en una pagina de
-   texto largo se leen como antenas, pero aca caen justo en la zona donde las patas ya se
-   superponen y solo agregaban cruce. La referencia que eligio el dueño del panel tiene
-   ocho. */
-const LEG_DEF = [
-  [0.55, 118, 14], [1.15, 106, 6], [1.95, 106, -3], [2.55, 126, -12],
-];
-const STEP_FRAC = 0.30;      // se vuelve a pisar al alejarse esta fraccion del alcance
-const PLACE_FRAC = 0.85;     // un pie nuevo nunca va mas alla de esto
-const CRUISE = 92;           // px/s del cuerpo
-const MARGIN = 110;          // el cuerpo nunca entra en esta franja del borde
-
-/* El cuerpo se queda dentro del panel. Sin esto la araña camina hasta la esquina, y
-   contra el borde todas sus patas se apelotonan porque no tienen a donde extenderse:
-   la silueta se pierde justo donde el panel tiene su marco. */
-function clampBody() {
-  const m = MARGIN;
-  const inside = spiderPos.x > m && spiderPos.x < window.innerWidth - m
-    && spiderPos.y > m && spiderPos.y < window.innerHeight - m;
-  // Mientras esta entrando no se recorta: recortarlo lo teletransportaria adentro y se
-  // perderia el momento de verlo llegar, que es lo unico que lo hace parecer un animal.
-  if (entering) { if (inside) entering = false; return; }
-  const before = { x: spiderPos.x, y: spiderPos.y };
-  spiderPos.x = Math.max(m, Math.min(window.innerWidth - m, spiderPos.x));
-  spiderPos.y = Math.max(m, Math.min(window.innerHeight - m, spiderPos.y));
-  /* Al tocar el borde se anula la velocidad que empujaba contra el. Recortar la posicion
-     sin tocar la velocidad deja al cuerpo empujando contra la pared cuadro tras cuadro, y
-     eso se ve como un temblor de alta frecuencia pegado al margen. */
-  if (spiderPos.x !== before.x) spiderVelocity.x = 0;
-  if (spiderPos.y !== before.y) spiderVelocity.y = 0;
-}
-
-let legs = [], spiderPos = { x: 0, y: 0 }, spiderHeading = 0;
-let spiderTarget = null, plantFlashes = [], silkThreads = [], spin = { x: 0, y: 0 };
-let abdomen = { x: 0, y: 0 };
-
-function buildLegs() {
-  legs = [];
-  for (const side of [1, -1]) {
-    LEG_DEF.forEach(([ang, reach, hip], i) => {
-      const r = reach * SCALE;
-      legs.push({
-        side, idx: i, ang: ang * side, reach: r, hip: hip * SCALE,
-        L1: r * 0.56, L2: r * 0.64, palp: i === 4,
-        foot: null, from: null, next: null, t: 0, dur: 0.16, stepping: false,
-        ext: 0.46 + Math.random() * 0.40,
-        // Fijo por pata. La pata trasera y el palpo quiebran hacia afuera; el resto
-        // hacia adentro, que es como se doblan las de una araña.
-        bend: (i === 3 || i === 4 ? 1 : -1) * side,
-      });
-    });
-  }
-}
-
-/* El anclaje se separa del eje del cuerpo mas que en el original. Con los dos lados a tres
-   pixeles, las patas izquierdas y derechas nacen practicamente del mismo punto y se cruzan
-   apenas se abren; separandolas, cada lado tiene su propio origen y el cruce desaparece. */
-const HIP_SIDE = 5;
-const hipOf = (L) => ({
-  x: spiderPos.x + Math.cos(spiderHeading) * L.hip - Math.sin(spiderHeading) * (L.side * HIP_SIDE * SCALE),
-  y: spiderPos.y + Math.sin(spiderHeading) * L.hip + Math.cos(spiderHeading) * (L.side * HIP_SIDE * SCALE),
-});
-
-const restOf = (L) => {
-    /* Cada pata con su propia extension, sorteada una vez. Con todas al mismo porcentaje,
-     las ocho miden lo mismo y el conjunto forma un patron radial simetrico: eso es lo que
-     se lee como postes cruzandose. En la referencia las patas llegan a distancias
-     distintas porque los pies se apoyan en texto de largo variable. */
-  const k = L.ext;
-  const h = hipOf(L);
-  const rx = Math.cos(L.ang) * L.reach * k, ry = Math.sin(L.ang) * L.reach * k;
-  return {
-    x: h.x + Math.cos(spiderHeading) * rx - Math.sin(spiderHeading) * ry,
-    y: h.y + Math.sin(spiderHeading) * rx + Math.cos(spiderHeading) * ry,
-  };
-};
-
-/* Cinematica inversa de dos huesos. `bend` decide de que lado quiebra la rodilla, y
-   por eso es una propiedad de la pata y no un calculo del cuadro. */
-function ik(h, f, L) {
-  const dx = f.x - h.x, dy = f.y - h.y;
-  const d = Math.hypot(dx, dy) || 0.0001;
-  const base = Math.atan2(dy, dx);
-  if (d >= L.L1 + L.L2 - 0.01) {
-    return { x: h.x + Math.cos(base) * L.L1, y: h.y + Math.sin(base) * L.L1 };
-  }
-  const c = Math.max(-1, Math.min(1, (L.L1 * L.L1 + d * d - L.L2 * L.L2) / (2 * L.L1 * d)));
-  const b = base + L.bend * Math.acos(c);
-  return { x: h.x + Math.cos(b) * L.L1, y: h.y + Math.sin(b) * L.L1 };
-}
-
-/* A donde deberia ir un pie nuevo: su posicion comoda, corrida un poco hacia donde va
-   el cuerpo. El destino es lo que define la direccion de la pata. */
-function stepTarget(L) {
-  const hip = hipOf(L);
-  const rest = restOf(L);
-  /* El adelanto del pie sigue a la velocidad real del cuerpo, no a su rumbo. Son
-     distintos: en una curva el rumbo ya apunta al lado nuevo mientras el cuerpo todavia
-     se desplaza hacia el anterior, y adelantar el pie segun el rumbo lo pone donde el
-     cuerpo no va a llegar. */
-  const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
-  const leadLen = Math.min(speed * 0.3, L.reach * 0.3);
-  const lead = speed > 1
-    ? { x: spiderVelocity.x / speed * leadLen, y: spiderVelocity.y / speed * leadLen }
-    : { x: 0, y: 0 };
-  const p = { x: rest.x + lead.x, y: rest.y + lead.y };
-  // Y nunca mas lejos del hip que la fraccion comoda de la pata.
-  const dx = p.x - hip.x, dy = p.y - hip.y;
-  const d = Math.hypot(dx, dy) || 1;
-  const limit = (L.L1 + L.L2) * PLACE_FRAC;
-  if (d > limit) return { x: hip.x + dx / d * limit, y: hip.y + dy / d * limit };
-  return p;
-}
-
-/* El punto de apoyo se busca cerca del DESTINO DEL PASO, no del cuerpo. Buscarlo cerca
-   del cuerpo —que fue el primer intento— hace que cualquier pie tome el punto mas
-   proximo sin importar de que lado le toca, y las ocho patas terminan cruzándose sobre
-   el cuerpo. El destino ya esta en la direccion de la pata, asi que buscando ahi la
-   direccion queda resuelta sola. */
-function gripFor(L, target) {
-  /* Radio chico, como el original. Buscar hasta el alcance completo deja apoyar el pie
-     lejisimos de su posicion comoda, y en el cuadro siguiente la deriva ya supera el
-     umbral de urgencia: la pata vuelve a levantar de inmediato y se queda vibrando. */
-  const radius = 40 * Math.sqrt(SCALE);
-  let best = null, bestD = radius * radius;
-  for (const node of targets) {
-    if (node.taken) continue;
-    const dx = node.x - target.x, dy = node.y - target.y;
-    const d = dx * dx + dy * dy;
-    if (d < bestD) { bestD = d; best = node; }
-  }
-  return best;
-}
-
-function startStep(L, quick) {
-  const rest = restOf(L);
-  const target = stepTarget(L);
-  const grip = gripFor(L, target);
-  const to = grip ? { x: grip.x, y: grip.y } : target;
-  if (grip) grip.taken = true;
-
-  const hip = hipOf(L);
-  let from = L.foot ? { x: L.foot.x, y: L.foot.y } : rest;
-  // Nunca animar una pata desde mas alla de su propia longitud: el primer cuadro daria
-  // un salto que se ve como un latigazo.
-  const full = L.L1 + L.L2;
-  const dx = from.x - hip.x, dy = from.y - hip.y;
-  const dl = Math.hypot(dx, dy);
-  if (dl > full) from = { x: hip.x + dx / dl * full, y: hip.y + dy / dl * full };
-
-  L.from = from;
-  L.next = to;
-  L.t = 0;
-  /* Duracion distinta y al azar para cada pata. Con una duracion fija todas recorren su
-     arco en el mismo tiempo y el conjunto se lee como un tiron mecanico; con duraciones
-     propias, cada pata llega cuando llega y el paso se ve suelto. */
-  L.dur = quick ? 0.07 + RND() * 0.04 : (L.palp ? 0.08 : 0.10) + RND() * 0.07;
-  L.stepping = true;
-}
-
-/* Suavizado exponencial. Un valor que persigue a otro con esto llega rapido y frena
-   solo, sin las discontinuidades de un salto directo: es la diferencia entre un cuerpo
-   que se desplaza y uno que se teletransporta en cada cuadro. */
-const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
-const RND = () => Math.random();
-
-/* Cuantas patas estan levantadas ahora mismo. Es lo que impide que las ocho se muevan a
-   la vez: con ocho en el aire el cuerpo queda sin apoyo y la silueta tiembla. */
-const steppingCount = () => {
-  let n = 0;
-  for (const L of legs) if (L.stepping) n++;
-  return n;
-};
-
-/* Una pata no levanta si su vecina del mismo lado ya esta en el aire. Eso es la
-   coordinacion de la marcha: sin ella cada pata decide por su cuenta y el conjunto se ve
-   nervioso, como si no supiera donde apoyarse. */
-function neighbourStepping(L) {
-  for (const o of legs) {
-    if (o.stepping && o.side === L.side && Math.abs(o.idx - L.idx) === 1 && !o.palp && !L.palp) return true;
-  }
-  return false;
-}
-
-let spiderVelocity = { x: 0, y: 0 }, surgePhase = 0;
-
-function updateSpider(dt) {
-  /* El ritmo: el cuerpo acelera y afloja en oleadas en vez de avanzar parejo. Dos senos
-     de periodo distinto sumados dan un pulso que no se repite igual, y de ahi sale esa
-     cadencia de araña que avanza a impulsos. El piso de la oleada evita que se detenga. */
-  surgePhase += dt;
-  const pulse = Math.pow(Math.max(0,
-    Math.sin(surgePhase * 3.1) * 0.6 + Math.sin(surgePhase * 1.27) * 0.5 + 0.35), 0.7);
-  const burst = 0.55 + (1.15 - 0.55) * Math.min(1, pulse);
-
-  if (!spiderTarget || Math.hypot(spiderTarget.x - spiderPos.x, spiderTarget.y - spiderPos.y) < 26) {
-    spiderTarget = pickTarget();
-  }
-
-  if (spiderTarget) {
-    const dx = spiderTarget.x - spiderPos.x, dy = spiderTarget.y - spiderPos.y;
-    const d = Math.hypot(dx, dy) || 1;
-    const wantX = dx / d * CRUISE * burst, wantY = dy / d * CRUISE * burst;
-    // La velocidad persigue a la deseada en vez de igualarla: asi el arranque y la
-    // frenada tienen recorrido, que es lo que se percibe como fluidez.
-    const k = damp(5, dt);
-    spiderVelocity.x += (wantX - spiderVelocity.x) * k;
-    spiderVelocity.y += (wantY - spiderVelocity.y) * k;
-    spiderPos.x += spiderVelocity.x * dt;
-    spiderPos.y += spiderVelocity.y * dt;
-
-    const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
-    if (speed > 6) {
-      const want = Math.atan2(spiderVelocity.y, spiderVelocity.x);
-      let delta = want - spiderHeading;
-      while (delta > Math.PI) delta -= Math.PI * 2;
-      while (delta < -Math.PI) delta += Math.PI * 2;
-      spiderHeading += delta * damp(4 + speed * 0.02, dt);
-    }
-    // Un temblor minimo de rumbo: sin el, el cuerpo se ve como un objeto que sigue un
-    // carril en vez de un animal que se orienta.
-    spiderHeading += (RND() - 0.5) * 0.02;
-    clampBody();
-  }
-
-  // El abdomen sigue al cuerpo con retraso, y la hilera al abdomen. La cadena es lo que
-  // le da el andar de cuerpo articulado en vez de bloque rigido.
-  const abdT = { x: spiderPos.x - Math.cos(spiderHeading) * 17 * SCALE,
-                 y: spiderPos.y - Math.sin(spiderHeading) * 17 * SCALE };
-  const abdK = damp(12, dt);
-  abdomen.x += (abdT.x - abdomen.x) * abdK;
-  abdomen.y += (abdT.y - abdomen.y) * abdK;
-
-  const sdx = spin.x - abdomen.x, sdy = spin.y - abdomen.y;
-  const sl = Math.hypot(sdx, sdy) || 1;
-  const spinT = { x: abdomen.x + sdx / sl * 13 * SCALE, y: abdomen.y + sdy / sl * 13 * SCALE };
-  const spinK = damp(14, dt);
-  spin.x += (spinT.x - spin.x) * spinK;
-  spin.y += (spinT.y - spin.y) * spinK;
-
-  // Los puntos de apoyo que ya usa un pie quedan reservados para este cuadro.
-  for (const node of targets) node.taken = false;
-  for (const L of legs) {
-    // Se reserva el punto donde la pata esta Y aquel al que va volando: si no, dos patas
-    // pueden elegir el mismo punto durante los cuadros que dura un paso.
-    for (const point of [L.foot, L.stepping ? L.next : null]) {
-      if (!point) continue;
-      for (const node of targets) {
-        if (Math.hypot(node.x - point.x, node.y - point.y) < 3) node.taken = true;
-      }
-    }
-  }
-
-  const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
-  // Con el cuerpo rapido hacen falta mas patas en el aire para no quedarse atras; con el
-  // cuerpo quieto, cuatro alcanzan y el conjunto se ve sereno.
-  // Con el cuerpo rapido hacen falta mas patas en el aire para no quedarse atras; con el
-  // cuerpo quieto, cuatro alcanzan y el conjunto se ve sereno.
-  const maxStepping = speed > 70 ? 6 : 4;
-
-  for (const L of legs) {
-    if (L.stepping) {
-      L.t += dt / L.dur;
-      if (L.t >= 1) {
-        L.stepping = false;
-        L.t = 1;
-        L.foot = { x: L.next.x, y: L.next.y };
-        plantFlashes.push({ x: L.foot.x, y: L.foot.y, age: 0 });
-      }
-      continue;
-    }
-
-    const rest = restOf(L);
-    const hip = hipOf(L);
-    const foot = L.foot || rest;
-    const drift = Math.hypot(foot.x - rest.x, foot.y - rest.y);
-    const full = L.L1 + L.L2;
-    // Tres umbrales distintos: estirada de mas, urgencia y paso normal. Un solo umbral
-    // para todo hace que la pata reaccione igual a una deriva minima que a un tiron.
-    const over = Math.hypot(foot.x - hip.x, foot.y - hip.y) > full * 0.92;
-    const urgent = drift > L.reach * 0.5;
-    const threshold = L.reach * (L.palp ? 0.25 : 0.30);
-
-    if (over || urgent) startStep(L, true);
-    // El conteo se lee ACA y no antes del bucle. Cachearlo fuera dejaba levantar hasta
-    // ocho patas en el mismo cuadro: el limite se comparaba contra un numero que ya no
-    // reflejaba lo que el bucle acababa de levantar, y con las ocho en el aire el cuerpo
-    // se queda sin apoyo y la silueta tiembla.
-    else if (drift > threshold && steppingCount() < maxStepping && !neighbourStepping(L)) startStep(L, false);
-    else if (speed < 4 && RND() < dt * 0.3) startStep(L, false);
-  }
-
-  for (const f of plantFlashes) f.age += dt;
-  plantFlashes = plantFlashes.filter(f => f.age < 0.3);
-}
-
-function drawSpider(t, color, ink, dotColor) {
-  const P = (p) => p;
-
-
-
-  for (const L of legs) {
-    const h = hipOf(L);
-    let f;
-    if (L.stepping) {
-      const e = L.t * L.t * (3 - 2 * L.t);
-      f = { x: L.from.x + (L.next.x - L.from.x) * e, y: L.from.y + (L.next.y - L.from.y) * e };
-      // El pie se levanta acercandose al cuerpo: eso es lo que se ve como un paso.
-      f.x += (h.x - f.x) * Math.sin(Math.PI * L.t) * 0.18;
-      f.y += (h.y - f.y) * Math.sin(Math.PI * L.t) * 0.18;
-    } else {
-      f = L.foot ? L.foot : restOf(L);
-    }
-    const k = ik(h, f, L);
-    const w = L.palp ? LW * 0.75 : LW;
-    ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(k.x, k.y);
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.92; ctx.lineWidth = w;
-    ctx.lineCap = "round"; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(f.x, f.y);
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.78; ctx.lineWidth = w;
-    ctx.stroke(); ctx.globalAlpha = 1;
-
-    // Los puntos: rodilla y pie. Son la estructura, no un adorno.
-    for (const [px, py, r] of [[k.x, k.y, L.palp ? 2.0 : 2.9], [f.x, f.y, L.palp ? 1.8 : 2.7]]) {
-      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2);
-      ctx.fillStyle = dotColor; ctx.shadowColor = dotColor; ctx.shadowBlur = 8;
-      ctx.fill(); ctx.shadowBlur = 0;
-    }
-  }
-
-  for (const flash of plantFlashes) {
-    const p = (flash.age / 0.3);
-    ctx.beginPath(); ctx.arc(flash.x, flash.y, 3 + p * 9, 0, Math.PI * 2);
-    ctx.strokeStyle = dotColor; ctx.globalAlpha = 1 - p; ctx.lineWidth = 1; ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-
-  // Cuerpo: cefalotorax como caja, y el abdomen detras con la hilera.
-  ctx.beginPath(); ctx.moveTo(spiderPos.x, spiderPos.y); ctx.lineTo(abdomen.x, abdomen.y);
-  ctx.strokeStyle = color; ctx.globalAlpha = 0.85; ctx.lineWidth = LW * 1.2; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(abdomen.x, abdomen.y); ctx.lineTo(spin.x, spin.y);
-  ctx.lineWidth = LW; ctx.stroke(); ctx.globalAlpha = 1;
-
-  ctx.save();
-  ctx.translate(spiderPos.x, spiderPos.y); ctx.rotate(spiderHeading); ctx.scale(SCALE * 0.72, SCALE * 0.72);
-  ctx.fillStyle = dotColor; ctx.globalAlpha = 0.35;
-  ctx.fillRect(-13, -8, 30, 16);
-  ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 1.2 / SCALE;
-  ctx.strokeRect(-13, -8, 30, 16);
-  ctx.restore();
-
-  for (const [px, py, r] of [[abdomen.x, abdomen.y, 3.2], [spin.x, spin.y, 2.2]]) {
-    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2);
-    ctx.fillStyle = dotColor; ctx.shadowColor = dotColor; ctx.shadowBlur = 10;
-    ctx.fill(); ctx.shadowBlur = 0;
-  }
-}
-
-
-
-/* A donde va el cuerpo. Se sortea entre los puntos que estan a una distancia razonable,
-   no entre los mas cercanos: eligiendo los mas cercanos la araña se quedaba girando en un
-   rincon en vez de recorrer el panel. Un anillo amplio da una caminata al azar. */
-function pickTarget() {
-  if (!targets.length) return null;
-  const inside = targets.filter(n => n.x > 70 && n.y > 70
-    && n.x < window.innerWidth - 70 && n.y < window.innerHeight - 70);
-  const pool = inside.length ? inside : targets;
-  const ring = pool.filter(n => {
-    const d = Math.hypot(n.x - spiderPos.x, n.y - spiderPos.y);
-    return d > 90 && d < 460;
-  });
-  const from = ring.length ? ring : pool;
-  return from[Math.floor(Math.random() * from.length)];
-}
-
-function placeSpider() {
-  buildLegs();
-  const w = window.innerWidth, h = window.innerHeight, off = 150;
-
-  /* Entra desde afuera de la pantalla. Una araña que aparece ya dentro del panel se ve
-     como un dibujo; una que llega caminando desde el borde se ve como algo que entro.
-     El borde y el punto por donde entra se sortean, asi que no siempre llega por el
-     mismo lado. */
-  const edge = Math.floor(Math.random() * 4);
-  if (edge === 0)      { spiderPos = { x: Math.random() * w, y: -off }; spiderHeading = Math.PI / 2; }
-  else if (edge === 1) { spiderPos = { x: w + off, y: Math.random() * h }; spiderHeading = Math.PI; }
-  else if (edge === 2) { spiderPos = { x: Math.random() * w, y: h + off }; spiderHeading = -Math.PI / 2; }
-  else                 { spiderPos = { x: -off, y: Math.random() * h }; spiderHeading = 0; }
-
-  abdomen = { x: spiderPos.x - Math.cos(spiderHeading) * 20, y: spiderPos.y - Math.sin(spiderHeading) * 20 };
-  spin = { x: spiderPos.x - Math.cos(spiderHeading) * 34, y: spiderPos.y - Math.sin(spiderHeading) * 34 };
-  entering = true;
-  spiderTarget = null;
-  /* Cada pata arranca APOYADA en su posicion comoda. Con `foot = null` la deriva se mide
-     contra la posicion ideal y da cero, asi que las patas quedan pegadas al cuerpo
-     mientras el cuerpo avanza: es exactamente el "no saben donde ponerse". */
-  for (const L of legs) { L.foot = { ...restOf(L) }; L.stepping = false; L.t = 0; }
-}
-
-/* El bucle. Lee el estado y dibuja; lo unico que escribe del DOM es la clase de la
-   tarjeta encendida, y es una sola por cuadro. */
-let sincePlan = 0, frameLast = 0;
-
-function frame(ms) {
-  const t = ms / 1000;
-  const color = colorOf("--accent", "#7aa2f7");
-  const ink = colorOf("--foreground", "#fff");
-  const dot = colorOf("--highlight", "#ff4d8d");
-  const W = window.innerWidth, H = window.innerHeight;
-
-  ctx.clearRect(0, 0, W, H);
-
-  /* La tela: un hilo tenue entre los puntos de apoyo cercanos. Es lo que hace que el
-     panel se lea como una red y no como puntos sueltos, y es el fondo por el que camina
-     la araña. */
-  ctx.lineWidth = 1;
-  for (let i = 0; i < targets.length; i++) {
-    for (let j = i + 1; j < targets.length; j++) {
-      const a = targets[i], b = targets[j];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d > 132) continue;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = color; ctx.globalAlpha = (1 - d / 132) * 0.075; ctx.stroke();
-    }
-  }
-  ctx.globalAlpha = 1;
-
-  for (const node of targets) {
-    const beat = 0.5 + Math.sin(t * 1.4 + node.x * 0.01) * 0.5;
-    ctx.beginPath(); ctx.arc(node.x, node.y, 1.5 + beat * 0.7, 0, Math.PI * 2);
-    ctx.fillStyle = color; ctx.globalAlpha = 0.28 + beat * 0.2; ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  const dt = Math.min(0.05, (ms - frameLast) / 1000 || 0.016);
-  frameLast = ms;
-  if (!still && legs.length) updateSpider(dt);
-  if (legs.length) drawSpider(t, color, ink, dot);
-
-  /* La tarjeta sobre la que esta parada se enciende: es la version minima de lo que
-     hacia el original con las palabras, marcar sobre que se esta trabajando. */
-  if (litNode && litNode.el) litNode.el.classList.remove("lit");
-  litNode = null;
-  for (const node of targets) {
-    const box = node.box;
-    if (box && spiderPos.x >= box.left && spiderPos.x <= box.right
-        && spiderPos.y >= box.top && spiderPos.y <= box.bottom) {
-      litNode = node; node.el.classList.add("lit"); break;
-    }
-  }
-
-  /* El DOM cambia de tamano cuando cargan las chispas y cuando llegan datos nuevos, asi
-     que los puntos de apoyo se releen cada tanto en vez de quedar fijados al inicio. */
-  sincePlan++;
-  if (sincePlan > 240) {
-    sincePlan = 0;
-    const wasEmpty = targets.length === 0;
-    collect();
-    if (wasEmpty && targets.length) placeSpider();
-  }
-  requestAnimationFrame(frame);
-}
-
 function markChanges() {
   document.querySelectorAll(".val, .n.hi, .kv span:last-child, .tile .foot").forEach((el, i) => {
-    const key = i + "|" + (el.closest("[data-web]") ? el.closest("[data-web]").className : "");
+    const key = i + "|" + (el.closest(".panel, .tile") ? el.closest(".panel, .tile").className : "");
     const text = el.textContent.trim();
-    if (changed(key, text)) {
-      el.classList.remove("changed"); void el.offsetWidth; el.classList.add("changed");
-    }
+    changed(key, text);
   });
-  document.body.classList.toggle("busy", !!DATA.live);
 }
 
 /* ------------------------------------------------------------- datos en vivo ==
@@ -1181,13 +587,6 @@ function poll() {
 setInterval(poll, 3000);
 poll();
 
-size();
-/* Sin esta llamada la araña se queda en el origen, sin patas y en la esquina: la
-   funcion estaba escrita pero nadie la invocaba, y el sintoma era justamente el que se
-   veia —siempre entrando por el mismo lado—. */
-placeSpider();
-window.addEventListener("resize", size);
-requestAnimationFrame(frame);
 
 /* La página se recarga sola para seguir al generador, que reescribe este archivo cada
    30 s. No necesita servidor ni conexión. */
