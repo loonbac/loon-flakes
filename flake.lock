@@ -183,11 +183,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790942209,
-        "narHash": "sha256-oCmkOMoFoznEQ9KgOFBjDIdja4qW/Z0WOxExhi2ipe8=",
+        "lastModified": 1791472141,
+        "narHash": "sha256-YTClsXsoSxpunTeHSfwKj7bKoOI6KcvA5kdTsiUxu5o=",
         "owner": "loonbac",
         "repo": "loon",
-        "rev": "8d9d91b3ae5c7a27c087ad7a57eb3e894ddaafaa",
+        "rev": "2af64997a67fbeaad1536244e2f29151251bf794",
         "type": "github"
       },
       "original": {
@@ -326,11 +326,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791413396,
-        "narHash": "sha256-GdPx5H0MCk/74k30Cmm5R5q1XS4rPoU9TCcNmaMxCww=",
+        "lastModified": 1791475532,
+        "narHash": "sha256-8fkndoz5EvxBy7rD1Okq2trotu8jRDzklZtzXI0L4sE=",
         "ref": "refs/heads/master",
-        "rev": "777680dbd3076530a91033bb1b39a4d6147c6e75",
-        "revCount": 104,
+        "rev": "835186198c32d96cea218fa8012091a24b443703",
+        "revCount": 106,
         "type": "git",
         "url": "file:///home/loonbac/Proyectos/port"
       },
