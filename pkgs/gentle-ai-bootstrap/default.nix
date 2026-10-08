@@ -41,6 +41,7 @@ let
     "npm:pi-btw"
     "npm:pi-mcp-adapter"
     "npm:pi-antigravity"
+    "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
   ];
 
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
@@ -55,6 +56,7 @@ let
     "pi-btw"
     "pi-mcp-adapter"
     "pi-antigravity"
+    "pi-cline-free"
   ];
 
   piSettings = {
