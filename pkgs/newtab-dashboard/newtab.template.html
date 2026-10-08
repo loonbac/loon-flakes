@@ -673,8 +673,14 @@ function clampBody() {
   // Mientras esta entrando no se recorta: recortarlo lo teletransportaria adentro y se
   // perderia el momento de verlo llegar, que es lo unico que lo hace parecer un animal.
   if (entering) { if (inside) entering = false; return; }
+  const before = { x: spiderPos.x, y: spiderPos.y };
   spiderPos.x = Math.max(m, Math.min(window.innerWidth - m, spiderPos.x));
   spiderPos.y = Math.max(m, Math.min(window.innerHeight - m, spiderPos.y));
+  /* Al tocar el borde se anula la velocidad que empujaba contra el. Recortar la posicion
+     sin tocar la velocidad deja al cuerpo empujando contra la pared cuadro tras cuadro, y
+     eso se ve como un temblor de alta frecuencia pegado al margen. */
+  if (spiderPos.x !== before.x) spiderVelocity.x = 0;
+  if (spiderPos.y !== before.y) spiderVelocity.y = 0;
 }
 
 let legs = [], spiderPos = { x: 0, y: 0 }, spiderHeading = 0;
@@ -730,13 +736,24 @@ function ik(h, f, L) {
 /* A donde deberia ir un pie nuevo: su posicion comoda, corrida un poco hacia donde va
    el cuerpo. El destino es lo que define la direccion de la pata. */
 function stepTarget(L) {
-  const h = hipOf(L);
+  const hip = hipOf(L);
   const rest = restOf(L);
-  const lead = 26;
-  return {
-    x: rest.x + Math.cos(spiderHeading) * lead,
-    y: rest.y + Math.sin(spiderHeading) * lead,
-  };
+  /* El adelanto del pie sigue a la velocidad real del cuerpo, no a su rumbo. Son
+     distintos: en una curva el rumbo ya apunta al lado nuevo mientras el cuerpo todavia
+     se desplaza hacia el anterior, y adelantar el pie segun el rumbo lo pone donde el
+     cuerpo no va a llegar. */
+  const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
+  const leadLen = Math.min(speed * 0.3, L.reach * 0.3);
+  const lead = speed > 1
+    ? { x: spiderVelocity.x / speed * leadLen, y: spiderVelocity.y / speed * leadLen }
+    : { x: 0, y: 0 };
+  const p = { x: rest.x + lead.x, y: rest.y + lead.y };
+  // Y nunca mas lejos del hip que la fraccion comoda de la pata.
+  const dx = p.x - hip.x, dy = p.y - hip.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const limit = (L.L1 + L.L2) * PLACE_FRAC;
+  if (d > limit) return { x: hip.x + dx / d * limit, y: hip.y + dy / d * limit };
+  return p;
 }
 
 /* El punto de apoyo se busca cerca del DESTINO DEL PASO, no del cuerpo. Buscarlo cerca
@@ -745,8 +762,11 @@ function stepTarget(L) {
    el cuerpo. El destino ya esta en la direccion de la pata, asi que buscando ahi la
    direccion queda resuelta sola. */
 function gripFor(L, target) {
-  let best = null, bestD = (L.L1 + L.L2) * PLACE_FRAC;
-  bestD = bestD * bestD;
+  /* Radio chico, como el original. Buscar hasta el alcance completo deja apoyar el pie
+     lejisimos de su posicion comoda, y en el cuadro siguiente la deriva ya supera el
+     umbral de urgencia: la pata vuelve a levantar de inmediato y se queda vibrando. */
+  const radius = L.palp ? 8 : 18 * Math.sqrt(SCALE);
+  let best = null, bestD = radius * radius;
   for (const node of targets) {
     if (node.taken) continue;
     const dx = node.x - target.x, dy = node.y - target.y;
@@ -762,72 +782,157 @@ function startStep(L, quick) {
   const grip = gripFor(L, target);
   const to = grip ? { x: grip.x, y: grip.y } : target;
   if (grip) grip.taken = true;
-  L.from = L.foot ? { ...L.foot } : rest;
+
+  const hip = hipOf(L);
+  let from = L.foot ? { x: L.foot.x, y: L.foot.y } : rest;
+  // Nunca animar una pata desde mas alla de su propia longitud: el primer cuadro daria
+  // un salto que se ve como un latigazo.
+  const full = L.L1 + L.L2;
+  const dx = from.x - hip.x, dy = from.y - hip.y;
+  const dl = Math.hypot(dx, dy);
+  if (dl > full) from = { x: hip.x + dx / dl * full, y: hip.y + dy / dl * full };
+
+  L.from = from;
   L.next = to;
   L.t = 0;
+  /* Duracion distinta y al azar para cada pata. Con una duracion fija todas recorren su
+     arco en el mismo tiempo y el conjunto se lee como un tiron mecanico; con duraciones
+     propias, cada pata llega cuando llega y el paso se ve suelto. */
+  L.dur = quick ? 0.07 + RND() * 0.04 : (L.palp ? 0.08 : 0.10) + RND() * 0.07;
   L.stepping = true;
-  L.dur = quick ? 0.10 : 0.16;
 }
 
+/* Suavizado exponencial. Un valor que persigue a otro con esto llega rapido y frena
+   solo, sin las discontinuidades de un salto directo: es la diferencia entre un cuerpo
+   que se desplaza y uno que se teletransporta en cada cuadro. */
+const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
+const RND = () => Math.random();
+
+/* Cuantas patas estan levantadas ahora mismo. Es lo que impide que las ocho se muevan a
+   la vez: con ocho en el aire el cuerpo queda sin apoyo y la silueta tiembla. */
+const steppingCount = () => {
+  let n = 0;
+  for (const L of legs) if (L.stepping) n++;
+  return n;
+};
+
+/* Una pata no levanta si su vecina del mismo lado ya esta en el aire. Eso es la
+   coordinacion de la marcha: sin ella cada pata decide por su cuenta y el conjunto se ve
+   nervioso, como si no supiera donde apoyarse. */
+function neighbourStepping(L) {
+  for (const o of legs) {
+    if (o.stepping && o.side === L.side && Math.abs(o.idx - L.idx) === 1 && !o.palp && !L.palp) return true;
+  }
+  return false;
+}
+
+let spiderVelocity = { x: 0, y: 0 }, surgePhase = 0;
+
 function updateSpider(dt) {
-  // El cuerpo avanza hacia la tarjeta elegida y elige otra al llegar.
+  /* El ritmo: el cuerpo acelera y afloja en oleadas en vez de avanzar parejo. Dos senos
+     de periodo distinto sumados dan un pulso que no se repite igual, y de ahi sale esa
+     cadencia de araña que avanza a impulsos. El piso de la oleada evita que se detenga. */
+  surgePhase += dt;
+  const pulse = Math.pow(Math.max(0,
+    Math.sin(surgePhase * 3.1) * 0.6 + Math.sin(surgePhase * 1.27) * 0.5 + 0.35), 0.7);
+  const burst = 0.55 + (1.15 - 0.55) * Math.min(1, pulse);
+
   if (!spiderTarget || Math.hypot(spiderTarget.x - spiderPos.x, spiderTarget.y - spiderPos.y) < 26) {
     spiderTarget = pickTarget();
   }
+
   if (spiderTarget) {
     const dx = spiderTarget.x - spiderPos.x, dy = spiderTarget.y - spiderPos.y;
     const d = Math.hypot(dx, dy) || 1;
-    const step = Math.min(CRUISE * dt, d);
-    spiderPos.x += dx / d * step;
-    spiderPos.y += dy / d * step;
-    // La cabeza mira hacia donde va, y gira sin dar el salto de 180 grados.
-    const want = Math.atan2(dy, dx);
-    let delta = want - spiderHeading;
-    while (delta > Math.PI) delta -= Math.PI * 2;
-    while (delta < -Math.PI) delta += Math.PI * 2;
-    spiderHeading += delta * Math.min(1, dt * 3.2);
+    const wantX = dx / d * CRUISE * burst, wantY = dy / d * CRUISE * burst;
+    // La velocidad persigue a la deseada en vez de igualarla: asi el arranque y la
+    // frenada tienen recorrido, que es lo que se percibe como fluidez.
+    const k = damp(5, dt);
+    spiderVelocity.x += (wantX - spiderVelocity.x) * k;
+    spiderVelocity.y += (wantY - spiderVelocity.y) * k;
+    spiderPos.x += spiderVelocity.x * dt;
+    spiderPos.y += spiderVelocity.y * dt;
+
+    const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
+    if (speed > 6) {
+      const want = Math.atan2(spiderVelocity.y, spiderVelocity.x);
+      let delta = want - spiderHeading;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      spiderHeading += delta * damp(4 + speed * 0.02, dt);
+    }
+    // Un temblor minimo de rumbo: sin el, el cuerpo se ve como un objeto que sigue un
+    // carril en vez de un animal que se orienta.
+    spiderHeading += (RND() - 0.5) * 0.02;
     clampBody();
   }
 
-  // El abdomen sigue al cuerpo con retraso: es lo que le da el andar de cadena.
-  const ax = spiderPos.x - Math.cos(spiderHeading) * 20 * SCALE;
-  const ay = spiderPos.y - Math.sin(spiderHeading) * 20 * SCALE;
-  abdomen.x += (ax - abdomen.x) * Math.min(1, dt * 7);
-  abdomen.y += (ay - abdomen.y) * Math.min(1, dt * 7);
-  spin.x += (abdomen.x - Math.cos(spiderHeading) * 11 * SCALE - spin.x) * Math.min(1, dt * 7);
-  spin.y += (abdomen.y - Math.sin(spiderHeading) * 11 * SCALE - spin.y) * Math.min(1, dt * 7);
+  // El abdomen sigue al cuerpo con retraso, y la hilera al abdomen. La cadena es lo que
+  // le da el andar de cuerpo articulado en vez de bloque rigido.
+  const abdT = { x: spiderPos.x - Math.cos(spiderHeading) * 17 * SCALE,
+                 y: spiderPos.y - Math.sin(spiderHeading) * 17 * SCALE };
+  const abdK = damp(12, dt);
+  abdomen.x += (abdT.x - abdomen.x) * abdK;
+  abdomen.y += (abdT.y - abdomen.y) * abdK;
 
+  const sdx = spin.x - abdomen.x, sdy = spin.y - abdomen.y;
+  const sl = Math.hypot(sdx, sdy) || 1;
+  const spinT = { x: abdomen.x + sdx / sl * 13 * SCALE, y: abdomen.y + sdy / sl * 13 * SCALE };
+  const spinK = damp(14, dt);
+  spin.x += (spinT.x - spin.x) * spinK;
+  spin.y += (spinT.y - spin.y) * spinK;
+
+  // Los puntos de apoyo que ya usa un pie quedan reservados para este cuadro.
   for (const node of targets) node.taken = false;
   for (const L of legs) {
-    if (L.foot) for (const node of targets) {
-      if (Math.hypot(node.x - L.foot.x, node.y - L.foot.y) < 3) node.taken = true;
+    // Se reserva el punto donde la pata esta Y aquel al que va volando: si no, dos patas
+    // pueden elegir el mismo punto durante los cuadros que dura un paso.
+    for (const point of [L.foot, L.stepping ? L.next : null]) {
+      if (!point) continue;
+      for (const node of targets) {
+        if (Math.hypot(node.x - point.x, node.y - point.y) < 3) node.taken = true;
+      }
     }
   }
+
+  const speed = Math.hypot(spiderVelocity.x, spiderVelocity.y);
+  // Con el cuerpo rapido hacen falta mas patas en el aire para no quedarse atras; con el
+  // cuerpo quieto, cuatro alcanzan y el conjunto se ve sereno.
+  // Con el cuerpo rapido hacen falta mas patas en el aire para no quedarse atras; con el
+  // cuerpo quieto, cuatro alcanzan y el conjunto se ve sereno.
+  const maxStepping = speed > 70 ? 6 : 4;
 
   for (const L of legs) {
-    const h = hipOf(L);
     if (L.stepping) {
       L.t += dt / L.dur;
-      if (L.t >= 1) { L.t = 1; L.stepping = false; L.foot = { ...L.next }; }
+      if (L.t >= 1) {
+        L.stepping = false;
+        L.t = 1;
+        L.foot = { x: L.next.x, y: L.next.y };
+        plantFlashes.push({ x: L.foot.x, y: L.foot.y, age: 0 });
+      }
       continue;
     }
-    const rest = restOf(L);
-    const drift = Math.hypot(rest.x - (L.foot ? L.foot.x : rest.x), rest.y - (L.foot ? L.foot.y : rest.y));
-    const reach = L.L1 + L.L2;
-    if (!L.foot || drift > reach * STEP_FRAC) startStep(L, drift > reach * 0.55);
-    // Un pie apoyado sobre algo que se movio se suelta en vez de arrastrarlo.
-    if (L.foot) {
-      const near = targets.find(n => Math.hypot(n.x - L.foot.x, n.y - L.foot.y) < 2);
-      if (near) { L.foot.x = near.x; L.foot.y = near.y; }
-    }
-  }
 
-  // Un hilo de seda cada tanto, desde la hilera hacia un punto lejano.
-  if (Math.random() < dt * 0.35 && silkThreads.length < 2) {
-    const node = targets[Math.floor(Math.random() * targets.length)];
-    if (node) silkThreads.push({ from: { ...spin }, to: { x: node.x, y: node.y }, born: performance.now() / 1000, until: performance.now() / 1000 + 1.1 });
+    const rest = restOf(L);
+    const hip = hipOf(L);
+    const foot = L.foot || rest;
+    const drift = Math.hypot(foot.x - rest.x, foot.y - rest.y);
+    const full = L.L1 + L.L2;
+    // Tres umbrales distintos: estirada de mas, urgencia y paso normal. Un solo umbral
+    // para todo hace que la pata reaccione igual a una deriva minima que a un tiron.
+    const over = Math.hypot(foot.x - hip.x, foot.y - hip.y) > full * 0.92;
+    const urgent = drift > L.reach * 0.5;
+    const threshold = L.reach * (L.palp ? 0.25 : 0.30);
+
+    if (over || urgent) startStep(L, true);
+    // El conteo se lee ACA y no antes del bucle. Cachearlo fuera dejaba levantar hasta
+    // ocho patas en el mismo cuadro: el limite se comparaba contra un numero que ya no
+    // reflejaba lo que el bucle acababa de levantar, y con las ocho en el aire el cuerpo
+    // se queda sin apoyo y la silueta tiembla.
+    else if (drift > threshold && steppingCount() < maxStepping && !neighbourStepping(L)) startStep(L, false);
+    else if (speed < 4 && RND() < dt * 0.3) startStep(L, false);
   }
-  silkThreads = silkThreads.filter(t => t.until > performance.now() / 1000);
 
   for (const f of plantFlashes) f.age += dt;
   plantFlashes = plantFlashes.filter(f => f.age < 0.3);
@@ -940,7 +1045,10 @@ function placeSpider() {
   spin = { x: spiderPos.x - Math.cos(spiderHeading) * 34, y: spiderPos.y - Math.sin(spiderHeading) * 34 };
   entering = true;
   spiderTarget = null;
-  for (const L of legs) { L.foot = null; L.stepping = false; }
+  /* Cada pata arranca APOYADA en su posicion comoda. Con `foot = null` la deriva se mide
+     contra la posicion ideal y da cero, asi que las patas quedan pegadas al cuerpo
+     mientras el cuerpo avanza: es exactamente el "no saben donde ponerse". */
+  for (const L of legs) { L.foot = { ...restOf(L) }; L.stepping = false; L.t = 0; }
 }
 
 /* El bucle. Lee el estado y dibuja; lo unico que escribe del DOM es la clase de la
