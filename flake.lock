@@ -326,11 +326,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791476335,
-        "narHash": "sha256-GaOnnjEGyFkwEvdxW3HJdgM+m/sWUSYTesLz1qZ4ODU=",
+        "lastModified": 1791486007,
+        "narHash": "sha256-4zc2x3w+U7NdxlEB7qtLumLAp39UlD55fLZuZtyFOKw=",
         "ref": "refs/heads/master",
-        "rev": "4925eeeec1a3e2b3f013985b6c97b7c32d03b10b",
-        "revCount": 107,
+        "rev": "dd5bb68904e5c4f54c202f3aced62a585bca8b86",
+        "revCount": 110,
         "type": "git",
         "url": "file:///home/loonbac/Proyectos/port"
       },
