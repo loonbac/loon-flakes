@@ -41,6 +41,7 @@ let
     "npm:pi-btw"
     "npm:pi-mcp-adapter"
     "npm:pi-antigravity"
+    "npm:pi-commandcode-provider"
     "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
   ];
 
@@ -56,6 +57,7 @@ let
     "pi-btw"
     "pi-mcp-adapter"
     "pi-antigravity"
+    "pi-commandcode-provider"
     "pi-cline-free"
   ];
 
@@ -135,7 +137,6 @@ let
     # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
     "@juicesharp/rpiv-ask-user-question"
     "pi-antigravity"
-    "pi-commandcode-provider"
   ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
@@ -1098,7 +1099,6 @@ writeShellApplication {
     retire_package "pi-subagents-j0k3r"
     retire_package "@tintinweb/pi-subagents"
     retire_package "@juicesharp/rpiv-todo"
-    retire_package "pi-commandcode-provider"
     rm -rf "$local_package_root/pi-antigravity-alt"
     rm -f "$agent_dir/commandcode-models.json"
     rm -f "$agent_dir/state/antigravity-quota-fallback.json"
