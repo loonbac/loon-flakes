@@ -100,34 +100,44 @@ let
   # floor, not the ceiling. Judgment Day keeps a different model family per judge, because
   # that independence is the mechanism rather than a style choice.
   subagentModelProfiles = {
-    gentle-ai-explore = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    gentle-ai-worker = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    gentle-ai-verify = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    jd-fix-agent = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    # Different families on purpose: the two judges must not share a bias.
-    jd-judge-a = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    jd-judge-b = { model = "antigravity/gemini-3.1-pro"; effort = "high"; };
-    pi-btw = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    # The four review lenses.
-    review-readability = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    review-reliability = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    review-resilience = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    review-risk = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    review-refuter = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    review-validator = { model = "antigravity/gemini-3.1-pro"; effort = "high"; };
-    sdd-apply = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    sdd-archive = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    sdd-design = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    sdd-explore = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    sdd-init = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    sdd-onboard = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    sdd-proposal = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    sdd-research = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
-    sdd-spec = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    # Cheapest tier first. gemini-3.8-flash costs $0.50 per million tokens against $18 for
+    # Sonnet and $90 for Opus, and since a subscription's request ceiling is its budget over
+    # what one request costs, that is 36 and 180 times more requests for the same money. The
+    # first version of this map used the expensive ones on the reasoning that a subscription
+    # has no marginal cost — true, and beside the point: it still has an allowance, and those
+    # were the models that drained it.
+    #
+    # The router overrides these per delegation anyway, so this is the floor: cheap by default,
+    # and upgraded by evidence rather than by hand.
+    gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    gentle-ai-verify = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    # Different families on purpose: the two judges must not share a bias. Both stay in the
+    # cheap tier, so independence costs three dollars per million instead of ninety.
+    jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    jd-judge-b = { model = "antigravity/gpt-oss-120b"; effort = "medium"; };
+    pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    # The four review lenses, plus the refuter and the validator.
+    review-readability = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    review-reliability = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-risk = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-refuter = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-validator = { model = "antigravity/gpt-oss-120b"; effort = "medium"; };
+    sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    sdd-archive = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    sdd-design = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    sdd-proposal = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    sdd-research = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-status = { model = "antigravity/gemini-3.5-flash"; effort = "low"; };
-    sdd-sync = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
-    sdd-tasks = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
-    sdd-verify = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    sdd-sync = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    sdd-verify = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
   };
 
 
