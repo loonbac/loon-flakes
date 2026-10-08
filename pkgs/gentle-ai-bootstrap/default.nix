@@ -40,6 +40,7 @@ let
     "npm:pi-web-access"
     "npm:pi-btw"
     "npm:pi-mcp-adapter"
+    "npm:pi-antigravity"
   ];
 
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
@@ -53,6 +54,7 @@ let
     "pi-web-access"
     "pi-btw"
     "pi-mcp-adapter"
+    "pi-antigravity"
   ];
 
   piSettings = {
@@ -152,7 +154,6 @@ let
     # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
     "@juicesharp/rpiv-ask-user-question"
     "pi-antigravity"
-    "pi-antigravity-alt"
     "pi-commandcode-provider"
   ];
 
@@ -1116,7 +1117,6 @@ writeShellApplication {
     retire_package "pi-subagents-j0k3r"
     retire_package "@tintinweb/pi-subagents"
     retire_package "@juicesharp/rpiv-todo"
-    retire_package "pi-antigravity"
     retire_package "pi-commandcode-provider"
     rm -rf "$local_package_root/pi-antigravity-alt"
     rm -f "$agent_dir/commandcode-models.json"
@@ -1173,6 +1173,7 @@ writeShellApplication {
     install_missing_package pi-web-access npm:pi-web-access
     install_missing_package pi-btw npm:pi-btw
     install_missing_package pi-mcp-adapter npm:pi-mcp-adapter
+    install_missing_package pi-antigravity npm:pi-antigravity
 
     desired_core_source() {
       node -e '

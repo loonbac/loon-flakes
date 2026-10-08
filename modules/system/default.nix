@@ -24,6 +24,23 @@
 
   # ---- Zona horaria y localización ----
   time.timeZone = "America/Lima";
+
+  # Un proceso resuelve su zona una sola vez al arrancar y la cachea durante
+  # toda su vida. ICU —Chromium, Electron, Node, Java— devuelve literalmente
+  # la cadena "Etc/Unknown" cuando no logra determinarla, y todo servicio que
+  # valide ese campo rechaza la petición aunque el proceso siga vivo horas
+  # después. Sin `TZ`, esa resolución depende de que la cadena de enlaces de
+  # /etc/localtime esté resuelta en ese instante exacto: un cambio de
+  # generación o una recolección de basura la dejan colgando, y el navegador
+  # arranca con "Etc/Unknown" para el resto de su vida. Peor aún, un `TZ`
+  # vacío se considera presente e inválido y provoca el mismo fallo aunque
+  # /etc/localtime esté correcto.
+  #
+  # `TZ` es la única fuente que no depende de los enlaces de /etc. Se deriva
+  # de `time.timeZone`, de modo que cada host sigue declarando su zona una
+  # sola vez y aquí no se fija ninguna zona concreta.
+  environment.sessionVariables.TZ = config.time.timeZone;
+
   i18n.defaultLocale = "es_PE.UTF-8";
   i18n.supportedLocales = [
     "C.UTF-8/UTF-8"
