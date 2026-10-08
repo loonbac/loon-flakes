@@ -659,15 +659,18 @@ function size() {
    original, los diez anclajes caben en una franja de treinta y siete pixeles y las diez
    patas salen de ahi: cerca del cuerpo se superponen y se leen como patas que se
    atraviesan. Agrandando la araña entera se separa todo sin cambiar ninguna proporcion. */
-const SCALE = 2.0;
+const SCALE = 1.25;
 const LW = 1.15 * Math.sqrt(SCALE);
 /* Los anclajes van mas repartidos a lo largo del cuerpo que en el original. Con diez patas
    naciendo de diecisiete pixeles, las rodillas de las delanteras quiebran hacia adentro y
    se cruzan entre si: el cruce se ve como patas que se atraviesan. Repartidos, cada pata
    tiene su tramo de cuerpo y no se pisan. */
+/* Ocho patas. El original suma dos palpos, dos lineas cortas al frente; en una pagina de
+   texto largo se leen como antenas, pero aca caen justo en la zona donde las patas ya se
+   superponen y solo agregaban cruce. La referencia que eligio el dueño del panel tiene
+   ocho. */
 const LEG_DEF = [
   [0.55, 118, 14], [1.15, 106, 6], [1.95, 106, -3], [2.55, 126, -12],
-  [0.22, 38, 20],
 ];
 const STEP_FRAC = 0.30;      // se vuelve a pisar al alejarse esta fraccion del alcance
 const PLACE_FRAC = 0.85;     // un pie nuevo nunca va mas alla de esto
@@ -707,6 +710,7 @@ function buildLegs() {
         side, idx: i, ang: ang * side, reach: r, hip: hip * SCALE,
         L1: r * 0.56, L2: r * 0.64, palp: i === 4,
         foot: null, from: null, next: null, t: 0, dur: 0.16, stepping: false,
+        ext: 0.46 + Math.random() * 0.40,
         // Fijo por pata. La pata trasera y el palpo quiebran hacia afuera; el resto
         // hacia adentro, que es como se doblan las de una araña.
         bend: (i === 3 || i === 4 ? 1 : -1) * side,
@@ -725,7 +729,11 @@ const hipOf = (L) => ({
 });
 
 const restOf = (L) => {
-  const k = L.palp ? 1 : 0.8;
+    /* Cada pata con su propia extension, sorteada una vez. Con todas al mismo porcentaje,
+     las ocho miden lo mismo y el conjunto forma un patron radial simetrico: eso es lo que
+     se lee como postes cruzandose. En la referencia las patas llegan a distancias
+     distintas porque los pies se apoyan en texto de largo variable. */
+  const k = L.ext;
   const h = hipOf(L);
   const rx = Math.cos(L.ang) * L.reach * k, ry = Math.sin(L.ang) * L.reach * k;
   return {
