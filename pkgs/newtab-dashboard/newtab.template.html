@@ -652,11 +652,22 @@ function size() {
    donde estaba comodo, no en un compas fijo. Asi el paso acompana al movimiento en
    vez de pelear con el. */
 
-const SCALE = 1.0;
+/* La escala del original en escritorio, no la de movil. Con la de movil el cuerpo queda
+   chico frente a las patas: los diez anclajes caben en doce pixeles y las patas de un
+   lado y del otro salen casi del mismo punto, asi que se superponen cerca del cuerpo. */
+/* El cuerpo tiene que ser grande frente a las patas. Con la escala de escritorio del
+   original, los diez anclajes caben en una franja de treinta y siete pixeles y las diez
+   patas salen de ahi: cerca del cuerpo se superponen y se leen como patas que se
+   atraviesan. Agrandando la araña entera se separa todo sin cambiar ninguna proporcion. */
+const SCALE = 2.0;
 const LW = 1.15 * Math.sqrt(SCALE);
+/* Los anclajes van mas repartidos a lo largo del cuerpo que en el original. Con diez patas
+   naciendo de diecisiete pixeles, las rodillas de las delanteras quiebran hacia adentro y
+   se cruzan entre si: el cruce se ve como patas que se atraviesan. Repartidos, cada pata
+   tiene su tramo de cuerpo y no se pisan. */
 const LEG_DEF = [
-  [0.55, 118, 7], [1.15, 106, 3], [1.95, 106, -1], [2.55, 126, -5],
-  [0.22, 38, 10],
+  [0.55, 118, 14], [1.15, 106, 6], [1.95, 106, -3], [2.55, 126, -12],
+  [0.22, 38, 20],
 ];
 const STEP_FRAC = 0.30;      // se vuelve a pisar al alejarse esta fraccion del alcance
 const PLACE_FRAC = 0.85;     // un pie nuevo nunca va mas alla de esto
@@ -704,9 +715,13 @@ function buildLegs() {
   }
 }
 
+/* El anclaje se separa del eje del cuerpo mas que en el original. Con los dos lados a tres
+   pixeles, las patas izquierdas y derechas nacen practicamente del mismo punto y se cruzan
+   apenas se abren; separandolas, cada lado tiene su propio origen y el cruce desaparece. */
+const HIP_SIDE = 5;
 const hipOf = (L) => ({
-  x: spiderPos.x + Math.cos(spiderHeading) * L.hip - Math.sin(spiderHeading) * (L.side * 3 * SCALE),
-  y: spiderPos.y + Math.sin(spiderHeading) * L.hip + Math.cos(spiderHeading) * (L.side * 3 * SCALE),
+  x: spiderPos.x + Math.cos(spiderHeading) * L.hip - Math.sin(spiderHeading) * (L.side * HIP_SIDE * SCALE),
+  y: spiderPos.y + Math.sin(spiderHeading) * L.hip + Math.cos(spiderHeading) * (L.side * HIP_SIDE * SCALE),
 });
 
 const restOf = (L) => {
@@ -941,16 +956,7 @@ function updateSpider(dt) {
 function drawSpider(t, color, ink, dotColor) {
   const P = (p) => p;
 
-  for (const thread of silkThreads) {
-    const age = performance.now() / 1000 - thread.born;
-    const e = Math.min(1, Math.max(0, age / 0.12));
-    const tip = { x: thread.from.x + (thread.to.x - thread.from.x) * e,
-                  y: thread.from.y + (thread.to.y - thread.from.y) * e };
-    ctx.beginPath(); ctx.moveTo(P(thread.from).x, P(thread.from).y);
-    ctx.lineTo(P(tip).x, P(tip).y);
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.20; ctx.lineWidth = 1; ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
+
 
   for (const L of legs) {
     const h = hipOf(L);
@@ -995,11 +1001,11 @@ function drawSpider(t, color, ink, dotColor) {
   ctx.lineWidth = LW; ctx.stroke(); ctx.globalAlpha = 1;
 
   ctx.save();
-  ctx.translate(spiderPos.x, spiderPos.y); ctx.rotate(spiderHeading); ctx.scale(SCALE, SCALE);
+  ctx.translate(spiderPos.x, spiderPos.y); ctx.rotate(spiderHeading); ctx.scale(SCALE * 0.72, SCALE * 0.72);
   ctx.fillStyle = dotColor; ctx.globalAlpha = 0.35;
-  ctx.fillRect(-9, -6, 20, 12);
+  ctx.fillRect(-13, -8, 30, 16);
   ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 1.2 / SCALE;
-  ctx.strokeRect(-9, -6, 20, 12);
+  ctx.strokeRect(-13, -8, 30, 16);
   ctx.restore();
 
   for (const [px, py, r] of [[abdomen.x, abdomen.y, 3.2], [spin.x, spin.y, 2.2]]) {
