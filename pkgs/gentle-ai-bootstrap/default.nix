@@ -116,7 +116,14 @@ let
     # Different families on purpose: the two judges must not share a bias. Both stay in the
     # cheap tier, so independence costs three dollars per million instead of ninety.
     jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-b = { model = "antigravity/gpt-oss-120b"; effort = "medium"; };
+    # A free model from a different family than the judge above. gpt-oss-120b was used here
+    # and should not be: it was the cheap end of a family chosen for convenience, not the best
+    # available answer. step-5-preview-free, which opencode-go now gives away, is the intended
+    # replacement and is not resolvable by Pi yet — its catalogue has not caught up with the
+    # provider — so this names a free model that is available now, and the router will take
+    # step-5 the moment it appears, because free detection reads the provider's own naming
+    # instead of a list that would need editing.
+    jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     # The four review lenses, plus the refuter and the validator.
     review-readability = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
@@ -124,7 +131,7 @@ let
     review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     review-risk = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     review-refuter = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-validator = { model = "antigravity/gpt-oss-120b"; effort = "medium"; };
+    review-validator = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-archive = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-design = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
