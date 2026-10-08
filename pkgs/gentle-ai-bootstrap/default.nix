@@ -72,7 +72,8 @@ let
     markdown.mermaid = "streaming";
     quietStartup = true;
     showHardwareCursor = true;
-    # Must name a file that the activation script links into $agent_dir/themes.
+    # Must match the `name` inside the theme the extension package ships as
+    # theme/loon.json, because pi reads themes from every installed package.
     # Pi resolves the theme before any extension loads, so a name with no file
     # behind it is not recoverable at runtime: pi falls back to `system` and
     # prints a load error on every start. The extension can only re-assert the
@@ -1001,25 +1002,10 @@ writeShellApplication {
       ln -s "${betterClaudeCodeUi}" "$better_ui_source"
     fi
 
-    # Pi reads custom themes from $agent_dir/themes/<name>.json, and the settings
-    # above select one by name. Link each theme the package ships next to that
-    # package so the palette pi paints its own UI with cannot drift from the
-    # accent the extension paints its widgets with.
-    themes_dir="$agent_dir/themes"
-    mkdir -p "$themes_dir"
-    if [ -d "${betterClaudeCodeUi}/theme" ]; then
-      for theme_source in "${betterClaudeCodeUi}"/theme/*.json; do
-        [ -e "$theme_source" ] || continue
-        theme_target="$themes_dir/$(basename "$theme_source")"
-        if [ ! -L "$theme_target" ] || [ "$(readlink -f "$theme_target" || true)" != "$theme_source" ]; then
-          if [ -e "$theme_target" ] && [ ! -L "$theme_target" ]; then
-            mkdir -p "$backup_dir/themes"
-            mv "$theme_target" "$backup_dir/themes/"
-          fi
-          ln -sfn "$theme_source" "$theme_target"
-        fi
-      done
-    fi
+    # Deliberately no copy of the package's themes into $agent_dir/themes. Pi
+    # already reads theme/*.json from every installed package, so a second copy
+    # only makes it report a theme-name collision and skip one of the two. The
+    # package stays the single source, and the `theme` setting selects from it.
 
     # Keep the provider hook for /fast immutable too. Its tiny mutable state
     # file remains in ~/.pi/agent/state and is deliberately not Nix-owned.
