@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, helium-browser, ... }:
 
 # Panel de nueva pestaña de Helium.
 #
@@ -20,7 +20,22 @@ let
   pagePath = "${home}/.local/share/newtab/index.html";
 in
 {
-  environment.systemPackages = [ newtabDashboard ];
+  environment.systemPackages = [
+    newtabDashboard
+    # Helium tal como lo lanza el escritorio, con el flag que deja a la pagina leer su
+    # propio archivo de datos. Sin el, el navegador trata cada file:// como un origen
+    # distinto y bloquea la lectura, y el panel solo puede refrescarse recargandose.
+    (pkgs.symlinkJoin {
+      name = "helium";
+      paths = [ helium-browser ];
+      postBuild = ''
+        for desktop in $out/share/applications/*.desktop; do
+          sed -i "s|^Exec=helium|Exec=${helium-browser}/bin/helium --allow-file-access-from-files|" "$desktop"
+          sed -i "s|^TryExec=helium|TryExec=${helium-browser}/bin/helium|" "$desktop"
+        done
+      '';
+    })
+  ];
 
   # La ruta la lee el propio Helium: el binario contiene literalmente
   # "/etc/chromium/policies", así que no hay que adivinar dónde buscar.
@@ -48,7 +63,9 @@ in
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnBootSec = "1min";
-      OnUnitActiveSec = "30s";
+      # Cada cuatro segundos: la cache deja el trabajo en menos de medio segundo, y el
+      # panel tiene que verse moverse para que sirva de algo mirarlo.
+      OnUnitActiveSec = "4s";
       Unit = "newtab-dashboard.service";
     };
   };

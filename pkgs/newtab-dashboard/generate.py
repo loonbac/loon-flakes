@@ -131,11 +131,21 @@ def usage_from_sessions():
     Es la unica fuente honesta de consumo: el registro del router solo guarda las
     corridas que el mismo eligio, mientras que las sesiones guardan todo lo que Pi
     hizo, incluido lo que corrio en modo estatico.
+
+    El escaneo completo tarda segundos, y el panel tiene que refrescarse cada pocos
+    segundos para que se vea vivo. Por eso cada archivo se resume una vez y se guarda
+    con su fecha y su tamano: mientras no cambie, se reusa el resumen y solo se leen
+    los archivos que de verdad se movieron. Un archivo de sesion solo crece, asi que
+    fecha y tamano alcanzan para saber que cambio.
     """
     sessions = PI / "sessions"
     now = datetime.now(timezone.utc)
     today = now.date()
     month = (now.year, now.month)
+
+    cache_path = HOME / ".cache" / "newtab-dashboard" / "sessions.json"
+    cache = read_json(cache_path, {}) or {}
+    fresh = {}
 
     per_model = defaultdict(lambda: {"tokens": 0, "cost": 0.0, "calls": 0,
                                      "todayTokens": 0, "todayCost": 0.0,
@@ -150,59 +160,31 @@ def usage_from_sessions():
         return per_model, totals, per_day
 
     for path in sessions.rglob("*.jsonl"):
-        provider = model = None
+        key = str(path)
         try:
-            handle = open(path, encoding="utf-8", errors="replace")
+            stat = path.stat()
         except OSError:
             continue
-        with handle:
-            for line in handle:
-                if '"usage"' not in line and '"model_change"' not in line:
-                    continue
+        stamp = f"{int(stat.st_mtime)}:{stat.st_size}"
+        summary = cache.get(key)
+        if summary is None or summary.get("stamp") != stamp:
+            summary = {"stamp": stamp, "uses": scan_session(path)}
+        fresh[key] = summary
+
+        for use in summary["uses"]:
+            entry = per_model[use["key"]]
+            tokens, cost = use["tokens"], use["cost"]
+            for bucket in (entry, totals):
+                bucket["tokens"] += tokens
+                bucket["cost"] += cost
+                bucket["calls"] += 1
+            if use["at"]:
                 try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                kind = row.get("type")
-                if kind == "model_change":
-                    provider = row.get("provider") or provider
-                    model = row.get("modelId") or model
-                    continue
-                if kind != "message":
-                    continue
-
-                message = row.get("message") or {}
-                usage = message.get("usage")
-                if not isinstance(usage, dict):
-                    continue
-
-                provider = message.get("provider") or provider
-                model = message.get("model") or model
-                if not model:
-                    continue
-
-                tokens = usage.get("totalTokens") or 0
-                if not tokens:
-                    tokens = sum(usage.get(key) or 0 for key in
-                                 ("input", "output", "cacheRead", "cacheWrite"))
-                cost = (usage.get("cost") or {}).get("total") or 0.0
-
-                stamp = row.get("timestamp")
-                moment = None
-                if isinstance(stamp, str):
-                    try:
-                        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-                    except ValueError:
-                        moment = None
-
-                entry = per_model[f"{provider or '?'}/{model}"]
-                for bucket in (entry, totals):
-                    bucket["tokens"] += tokens
-                    bucket["cost"] += cost
-                    bucket["calls"] += 1
+                    moment = datetime.fromisoformat(use["at"].replace("Z", "+00:00"))
+                except ValueError:
+                    moment = None
                 if moment is not None:
-                    entry["lastSeen"] = max(entry["lastSeen"] or stamp, stamp)
+                    entry["lastSeen"] = max(entry["lastSeen"] or use["at"], use["at"])
                     if moment.date() == today:
                         for bucket in (entry, totals):
                             bucket["todayTokens"] += tokens
@@ -215,7 +197,60 @@ def usage_from_sessions():
                     per_day[day]["tokens"] += tokens
                     per_day[day]["cost"] += cost
 
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(fresh), encoding="utf-8")
+    except OSError:
+        pass
+
     return per_model, totals, per_day
+
+
+def scan_session(path):
+    """Extrae las lineas de uso de un archivo de sesion, sin agregarlas."""
+    uses = []
+    provider = model = None
+    try:
+        handle = open(path, encoding="utf-8", errors="replace")
+    except OSError:
+        return uses
+    with handle:
+        for line in handle:
+            if '"usage"' not in line and '"model_change"' not in line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            kind = row.get("type")
+            if kind == "model_change":
+                provider = row.get("provider") or provider
+                model = row.get("modelId") or model
+                continue
+            if kind != "message":
+                continue
+
+            message = row.get("message") or {}
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                continue
+            provider = message.get("provider") or provider
+            model = message.get("model") or model
+            if not model:
+                continue
+
+            tokens = usage.get("totalTokens") or 0
+            if not tokens:
+                tokens = sum(usage.get(k) or 0 for k in
+                             ("input", "output", "cacheRead", "cacheWrite"))
+            uses.append({
+                "key": f"{provider or '?'}/{model}",
+                "tokens": tokens,
+                "cost": (usage.get("cost") or {}).get("total") or 0.0,
+                "at": row.get("timestamp") if isinstance(row.get("timestamp"), str) else None,
+            })
+    return uses
 
 
 # ----------------------------------------------------------------- router y cuota
@@ -544,7 +579,7 @@ def build_document(palette, per_model, totals, per_day, router, accounts):
                    .replace("__WARNING__", warning) \
                    .replace("__CRITICAL__", critical) \
                    .replace("__ON_ACCENT__", on_accent) \
-                   .replace("__EDGE__", edge)
+                   .replace("__EDGE__", edge), payload
 
 
 TEMPLATE = (Path(__file__).parent / "newtab.template.html").read_text(encoding="utf-8")
@@ -555,10 +590,15 @@ def main():
     palette = wallpaper_palette()
     per_model, totals, per_day = usage_from_sessions()
     router = router_state()
-    document = build_document(palette, per_model, totals, per_day, router,
-                              antigravity_accounts())
+    document, payload = build_document(palette, per_model, totals, per_day, router,
+                                       antigravity_accounts())
     target = OUT / "index.html"
     target.write_text(document, encoding="utf-8")
+    # Los mismos datos, aparte, para que la pagina pueda releerlos sin recargarse: una
+    # recarga reinicia la animacion y corta el reloj, y entonces el panel parpadea cada
+    # pocos segundos en vez de latir. El HTML lleva los datos incrustados para que la
+    # primera pintada no dependa de nada, y el JSON es lo que mantiene vivo al resto.
+    (OUT / "data.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     if "--quiet" not in sys.argv:
         print(f"{target} · {len(document)} bytes · acento {palette.get('accent', 'por defecto')} "
               f"· {totals['tokens']:,} tokens · ${totals['cost']:.2f}")
