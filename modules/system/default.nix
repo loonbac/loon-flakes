@@ -20,6 +20,7 @@
     ./plymouth.nix
     ./brightness.nix
     ./coredump.nix
+    ./newtab-dashboard.nix
   ];
 
   # ---- Zona horaria y localización ----
