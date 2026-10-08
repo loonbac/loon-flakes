@@ -84,21 +84,52 @@ let
   # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
   # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Google y
   # xAI) para preservar la independencia de Judgment Day.
+  # These profiles are required infrastructure, not a preference.
+  #
+  # gentle-pi's native review reads them to know which model each lens runs on, so emptying
+  # this map does not make the selector dynamic — it makes review unrunnable. That was the
+  # mistake: the map was blanked to let the router choose, and the router only overrides at
+  # delegation time, so nothing chose at all.
+  #
+  # So the map stays, and it stays cheap: every entry points at the Antigravity subscription
+  # the user already pays for, whose marginal cost per call is zero, instead of the paid
+  # opencode-go models and the openai-codex routes that are no longer authenticated — the
+  # four review lenses were split across exactly those two.
+  #
+  # The router still decides per delegation and overrides whatever is here; this is the
+  # floor, not the ceiling. Judgment Day keeps a different model family per judge, because
+  # that independence is the mechanism rather than a style choice.
   subagentModelProfiles = {
-    gentle-ai-explore = { model = "opencode-go/glm-5.3-flash"; effort = "medium"; };
-    gentle-ai-worker = { model = "opencode-go/glm-5.3"; effort = "high"; };
-    gentle-ai-verify = { model = "opencode-go/glm-5.3"; effort = "high"; };
-    jd-fix-agent = { model = "opencode-go/glm-5.3"; effort = "high"; };
-    jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-judge-b = { model = "opencode-go/grok-4.7"; effort = "high"; };
-    pi-btw = { model = "opencode-go/mimo-v2.6-flash"; effort = "medium"; };
-    review-readability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "medium"; };
-    review-refuter = { model = "opencode-go/mimo-v2.6-pro"; effort = "high"; };
-    review-reliability = { model = "opencode-go/glm-5.3"; effort = "high"; };
-    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-risk = { model = "opencode-go/grok-4.7"; effort = "high"; };
-    review-validator = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    gentle-ai-explore = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    gentle-ai-worker = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    gentle-ai-verify = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    jd-fix-agent = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    # Different families on purpose: the two judges must not share a bias.
+    jd-judge-a = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    jd-judge-b = { model = "antigravity/gemini-3.1-pro"; effort = "high"; };
+    pi-btw = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    # The four review lenses.
+    review-readability = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    review-reliability = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    review-resilience = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    review-risk = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    review-refuter = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    review-validator = { model = "antigravity/gemini-3.1-pro"; effort = "high"; };
+    sdd-apply = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    sdd-archive = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    sdd-design = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    sdd-explore = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    sdd-init = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    sdd-onboard = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    sdd-proposal = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    sdd-research = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    sdd-spec = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    sdd-status = { model = "antigravity/gemini-3.5-flash"; effort = "low"; };
+    sdd-sync = { model = "antigravity/claude-sonnet-5-5"; effort = "medium"; };
+    sdd-tasks = { model = "antigravity/claude-sonnet-5-5"; effort = "high"; };
+    sdd-verify = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
   };
+
 
   gentleModelProfiles = lib.mapAttrs (_name: profile: {
     inherit (profile) model;
@@ -737,10 +768,15 @@ let
     writeJson(path.join(gentleDir, "banner.json"), manifest.gentlePortableConfig.banner);
     writeJson(path.join(gentleDir, "persona.json"), manifest.gentlePortableConfig.persona);
 
-    for (const [name, profile] of Object.entries(profiles)) {
-      const agentPath = path.join(agentDir, "agents", `''${name}.md`);
-      if (!fs.existsSync(agentPath)) continue;
-
+    // Every agent is visited, not only those with a profile. When the map is empty there are
+    // no entries to iterate, so a model pin left by an earlier activation would survive and
+    // keep routing the agent — the file would look dynamic while the frontmatter still
+    // decided. Stripping unconditionally makes "no entry" mean "no pin", which is what lets
+    // the router be the selector.
+    const agentsDirectory = path.join(agentDir, "agents");
+    for (const entry of fs.readdirSync(agentsDirectory, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+      const agentPath = path.join(agentsDirectory, entry.name);
       const lines = fs.readFileSync(agentPath, "utf8").split("\n");
       const closing = lines.indexOf("---", 1);
       if (lines[0] !== "---" || closing < 0) continue;
@@ -748,14 +784,17 @@ let
       const frontmatter = lines
         .slice(1, closing)
         .filter((line) => !/^(model|thinking):/.test(line));
-      const description = frontmatter.findIndex((line) => line.startsWith("description:"));
-      const insertion = description < 0 ? frontmatter.length : description + 1;
-      frontmatter.splice(
-        insertion,
-        0,
-        `model: ''${profile.model}`,
-        `thinking: ''${profile.effort}`,
-      );
+      const profile = profiles[entry.name.replace(/\.md$/, "")];
+      if (profile) {
+        const description = frontmatter.findIndex((line) => line.startsWith("description:"));
+        const insertion = description < 0 ? frontmatter.length : description + 1;
+        frontmatter.splice(
+          insertion,
+          0,
+          `model: ''${profile.model}`,
+          `thinking: ''${profile.effort}`,
+        );
+      }
 
       const updated = ["---", ...frontmatter, "---", ...lines.slice(closing + 1)].join("\n");
       fs.writeFileSync(agentPath, updated, { mode: 0o644 });
