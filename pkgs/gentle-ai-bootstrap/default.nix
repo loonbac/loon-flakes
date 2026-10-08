@@ -74,49 +74,28 @@ let
     tuiMode = "fullscreen";
   };
 
-  piModelProviders = {
-    "ollama-vast" = {
-      baseUrl = "http://localhost:11434/v1";
-      api = "openai-completions";
-      apiKey = "ollama";
-      compat = {
-        supportsDeveloperRole = false;
-        supportsReasoningEffort = false;
-        maxTokensField = "max_tokens";
-      };
-      models = [
-        {
-          id = "qwen38-27b-q5-32k";
-          name = "Qwen3.8 27B Uncensored Q5";
-          reasoning = false;
-          input = [ "text" ];
-          contextWindow = 32768;
-          maxTokens = 16384;
-          cost = {
-            input = 0;
-            output = 0;
-            cacheRead = 0;
-            cacheWrite = 0;
-          };
-        }
-      ];
-    };
-  };
+  # Vacío a propósito: este attrset se fusiona sobre ~/.pi/agent/models.json con
+  # Object.assign en cada activación, así que toda entrada declarada aquí se
+  # re-inyecta y no puede eliminarse editando el JSON a mano.
+  piModelProviders = { };
 
+  # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
+  # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Google y
+  # xAI) para preservar la independencia de Judgment Day.
   subagentModelProfiles = {
-    gentle-ai-explore = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "medium"; };
-    gentle-ai-worker = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    gentle-ai-verify = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    jd-fix-agent = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    jd-judge-a = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    jd-judge-b = { model = "cpa-claude/claude-opus-4-6-thinking"; effort = "high"; };
-    pi-btw = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "medium"; };
-    review-readability = { model = "cpa-infronai/qwen/qwen3.8-flash:free"; effort = "medium"; };
-    review-refuter = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    review-reliability = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
-    review-resilience = { model = "cpa-infronai/qwen/qwen3.8-27b:free"; effort = "high"; };
-    review-risk = { model = "cpa-commandcode/stealth/space-bunny-alpha"; effort = "high"; };
-    review-validator = { model = "cpa-gemini/gemini-3.8-flash-high"; effort = "high"; };
+    gentle-ai-explore = { model = "opencode-go/glm-5.3-flash"; effort = "medium"; };
+    gentle-ai-worker = { model = "opencode-go/glm-5.3"; effort = "high"; };
+    gentle-ai-verify = { model = "opencode-go/glm-5.3"; effort = "high"; };
+    jd-fix-agent = { model = "opencode-go/glm-5.3"; effort = "high"; };
+    jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    jd-judge-b = { model = "opencode-go/grok-4.7"; effort = "high"; };
+    pi-btw = { model = "opencode-go/mimo-v2.6-flash"; effort = "medium"; };
+    review-readability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "medium"; };
+    review-refuter = { model = "opencode-go/mimo-v2.6-pro"; effort = "high"; };
+    review-reliability = { model = "opencode-go/glm-5.3"; effort = "high"; };
+    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-risk = { model = "opencode-go/grok-4.7"; effort = "high"; };
+    review-validator = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
   };
 
   gentleModelProfiles = lib.mapAttrs (_name: profile: {
