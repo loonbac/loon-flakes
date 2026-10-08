@@ -335,6 +335,7 @@
     <div class="right">
       <span class="date" id="date"></span>
       <span class="clock" id="clock">--:--:--</span>
+      <span class="date" id="liveRead" title="si lee el archivo de datos sin recargar">leyendo</span>
       <span class="date">local</span>
     </div>
   </div>
@@ -1019,30 +1020,40 @@ function markChanges() {
 
 /* ------------------------------------------------------------- datos en vivo ==
 
-   La pagina intenta releer los datos sin recargarse. Si el navegador deja leer archivos
-   locales —depende de un flag de arranque— los numeros se actualizan en su lugar y las
-   animaciones nunca se cortan. Si no lo deja, no queda otra que recargar; en ese caso se
-   recarga, porque datos viejos con animacion viva serian peor que un parpadeo. */
+   La pagina relee los datos sin recargarse. Nunca se recarga sola: una recarga reinicia
+   la telaraña, la araña y el reloj, y el panel se rompe a la vista. Esa fue la falla
+   anterior —el respaldo de la lectura fallida era recargar, y con la lectura fallando
+   siempre el resultado era un bucle de recargas cada pocos segundos, donde la araña
+   nunca terminaba de entrar—.
 
-let liveData = false, reloading = false;
+   Se usa XMLHttpRequest y no fetch() a proposito. Sobre file:// el navegador bloquea
+   fetch() aunque este el flag que habilita leer archivos locales; XHR si lo respeta, y
+   es la via que existe para esto. Si aun asi no se puede leer, la pagina se queda con
+   los datos que trae incrustados —que son los del momento de generarse— y sigue
+   animada. Datos algo viejos con el panel vivo es mejor que un panel que se rompe. */
 
-async function poll() {
-  if (reloading) return;
-  try {
-    const response = await fetch("data.json?t=" + Date.now(), { cache: "no-store" });
-    if (!response.ok) throw new Error("sin datos");
-    const next = await response.json();
-    if (!next || !next.totals) throw new Error("datos incompletos");
-    DATA = next;
-    liveData = true;
-    render();
-    markChanges();
-  } catch {
-    if (!liveData && !reloading) {
-      reloading = true;
-      setTimeout(() => window.location.reload(), 2500);
-    }
-  }
+let liveRead = false;
+
+function poll() {
+  const request = new XMLHttpRequest();
+  request.open("GET", "data.json?t=" + Date.now(), true);
+  try { request.overrideMimeType("application/json"); } catch { /* no critico */ }
+  request.onload = () => {
+    if (request.status !== 0 && (request.status < 200 || request.status >= 300)) return;
+    try {
+      const next = JSON.parse(request.responseText);
+      if (!next || !next.totals) return;
+      DATA = next;
+      liveRead = true;
+      render();
+      markChanges();
+      const badge = document.getElementById("liveRead");
+      if (badge) badge.textContent = "en vivo";
+    } catch { /* se conserva lo que ya hay */ }
+  };
+  // Sin manejo de error que recargue: si no se puede leer, no se toca nada.
+  request.onerror = () => {};
+  try { request.send(); } catch { /* idem */ }
 }
 
 setInterval(poll, 3000);
