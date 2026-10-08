@@ -61,31 +61,20 @@
     position: relative; z-index: 1;
     height: 100vh; padding: 11px 13px;
     display: grid; gap: 8px;
-    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1.08fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.08fr);
   }
 
   /* ------------------------------------------------------------------ cabecera */
 
-  .bar {
-    display: flex; align-items: center; gap: 13px;
-    background: var(--board); border-radius: 9px; padding: 8px 13px;
-    border: 1px solid color-mix(in srgb, var(--background) 60%, #000);
-  }
-  .bar .logo { display: flex; align-items: center; gap: 9px; }
-  .bar .logo b { font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
-  .bar .logo b i { font-style: normal; color: var(--accent); }
-  .bar .logo span { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  .bar .right { margin-left: auto; display: flex; align-items: baseline; gap: 14px; }
-  .bar .clock { font-size: 19px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-  .bar .date { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  .live {
-    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
-    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-    border: 1px solid var(--card-edge); color: var(--muted);
-  }
-  .live.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-  .live .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: p 2s infinite; }
-  @keyframes p { 0%,100%{opacity:.35} 50%{opacity:1} }
+
+
+
+
+
+
+
+
+
 
   /* ---------------------------------------------------------------- mini fichas */
 
@@ -247,7 +236,6 @@
 
 
   /* La barra superior late mas rapido cuando hay trabajo reciente. */
-  .bar { position: relative; overflow: hidden; }
 
 
 
@@ -262,26 +250,6 @@
 <body>
 
 <div class="shell">
-
-  <div class="bar">
-    <div class="logo">
-      <svg width="19" height="19" viewBox="0 0 20 20" aria-hidden="true">
-        <g fill="none" stroke="var(--accent)" stroke-width="1.1" stroke-linecap="round">
-          <path d="M10 10 L4 4 M10 10 L16 4 M10 10 L3 10 M10 10 L17 10 M10 10 L4 16 M10 10 L16 16"/>
-        </g>
-        <ellipse cx="10" cy="11.4" rx="2.5" ry="1.9" fill="var(--accent)"/>
-        <circle cx="10" cy="8.4" r="1.5" fill="var(--foreground)"/>
-      </svg>
-      <b>Router <i>+</i> Jev</b><span>el router elige · Pi ejecuta</span>
-    </div>
-    <div class="live" id="live"><span class="dot"></span><span id="liveText"></span></div>
-    <div class="right">
-      <span class="date" id="date"></span>
-      <span class="clock" id="clock">--:--:--</span>
-      <span class="date" id="liveRead" title="si lee el archivo de datos sin recargar">leyendo</span>
-      <span class="date">local</span>
-    </div>
-  </div>
 
   <div class="tiles" id="tiles"></div>
 
@@ -328,12 +296,6 @@ const lvl = (v) => v === null || v === undefined ? "ok" : v < 0.2 ? "low" : v < 
 
 /* ------------------------------------------------------------------- reloj */
 
-function tick() {
-  const now = new Date();
-  $("clock").textContent = now.toLocaleTimeString("es-PE", { hour12: false });
-  $("date").textContent = now.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
-}
-tick(); setInterval(tick, 1000);
 
 /* ============================================================ el render ======
 
@@ -352,13 +314,7 @@ function changed(key, text) {
   return before !== undefined && before !== text;
 }
 
-function liveBadge() {
-  $("live").classList.toggle("on", DATA.live);
-  $("liveText").textContent = DATA.live ? "enrutando" : "en reposo";
-}
-
 function render() {
-  liveBadge();
   /* ------------------------------------------------------------------- fichas */
 
   const adaptiveShare = Math.round(DATA.counts.adaptive / Math.max(1, DATA.counts.adaptive + DATA.counts.static) * 100);
@@ -575,8 +531,6 @@ function poll() {
       liveRead = true;
       render();
       markChanges();
-      const badge = document.getElementById("liveRead");
-      if (badge) badge.textContent = "en vivo";
     } catch { /* se conserva lo que ya hay */ }
   };
   // Sin manejo de error que recargue: si no se puede leer, no se toca nada.
