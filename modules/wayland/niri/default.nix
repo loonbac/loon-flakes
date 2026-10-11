@@ -118,10 +118,13 @@ in
     # arranca sin XDG_CURRENT_DESKTOP y conserva durante horas un conjunto de
     # backends incompleto, sin ScreenCast. Rechaza esa activación temprana: una
     # vez activo graphical-session.target, niri-session ya importó el entorno y
-    # el portal puede seleccionar niri-portals.conf correctamente.
+    # el portal puede seleccionar niri-portals.conf correctamente. Además, debe
+    # tener acceso a /run/current-system/sw en PATH para que GLib/GDesktopAppInfo
+    # valide y resuelva los ejecutables de los .desktop del sistema (p. ej. Steam).
     systemd.user.services.xdg-desktop-portal = {
       after = [ "graphical-session.target" ];
       requisite = [ "graphical-session.target" ];
+      path = [ "/run/current-system/sw" ];
     };
 
     # Config gestionada por NixOS: niri la lee como fallback desde /etc/niri.
