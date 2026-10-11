@@ -22,11 +22,11 @@ python3.pkgs.buildPythonApplication {
     mkdir -p $out/share/newtab-dashboard $out/bin
     cp generate.py newtab.template.html $out/share/newtab-dashboard/
     cat > $out/bin/newtab-dashboard <<EOF
-    #!${runtime}/bin/python3
-    import runpy, sys
-    sys.argv = ["newtab-dashboard"] + sys.argv[1:]
-    runpy.run_path("$out/share/newtab-dashboard/generate.py", run_name="__main__")
-    EOF
+#!${runtime}/bin/python3
+import runpy, sys
+sys.argv = ["newtab-dashboard"] + sys.argv[1:]
+runpy.run_path("$out/share/newtab-dashboard/generate.py", run_name="__main__")
+EOF
     chmod +x $out/bin/newtab-dashboard
     runHook postInstall
   '';
