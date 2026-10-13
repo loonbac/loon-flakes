@@ -6,9 +6,12 @@
 #   rebuild            # aplica los cambios (nixos-rebuild switch; sobre SSH se aplica desacoplado)
 #   rebuild dry        # prueba sin aplicar
 #   rebuild update     # actualiza y prepara el próximo arranque con boot (conserva boot sin switch)
+#   rebuild update force  # actualiza aunque falten binarios publicados
 { pkgs, lib }:
 
 let
+  nixosUpdates = pkgs.callPackage ../nixos-updates { };
+
   script = pkgs.writeShellScriptBin "rebuild" ''
     set -euo pipefail
 
@@ -39,6 +42,21 @@ let
         sudo nixos-rebuild dry-run --flake ".#$HOST"
         ;;
       update)
+        # Antes de mover el lock se comprueba que lo que trae la actualización
+        # tenga binario publicado: si no, no se aplica y se informa qué falta.
+        # "rebuild update force" saltea esa comprobación.
+        force="''${2:-}"
+        gate_rc=0
+        gate_out="$(${nixosUpdates}/bin/nixos-updates gate 2>&1)" || gate_rc=$?
+        if [ "$gate_rc" -eq 3 ] && [ "$force" != "force" ]; then
+          echo "$gate_out"
+          echo
+          echo "No se aplicó la actualización: hay paquetes sin binario publicado."
+          echo "Si querés forzarla igualmente: 'rebuild update force'."
+          exit 1
+        fi
+        echo "$gate_out"
+
         nix flake update
         # Una actualización de inputs puede cambiar componentes fundamentales
         # (greetd, PAM, systemd, drivers...). Aplicarlos con `switch` mientras

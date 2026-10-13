@@ -115,6 +115,27 @@ las actualizaciones del sistema: `rebuild update` deja de actualizar y el
 indicador horario dice "sin cambios" aunque haya updates. Pasó del 4 al 13 de
 octubre de 2026 y solo se detectó por esa señal, no por ningún error.
 
+### `rebuild update` solo aplica si hay binarios publicados
+
+Antes de mover el lock, `rebuild update` corre `nixos-updates gate`: actualiza los
+inputs en una **copia desechable** (el `flake.lock` del repo no se toca), mide con
+un dry-run cuánto habría que construir y lo separa en tres grupos:
+
+- **lo tuyo**: los paquetes de `pkgs/`, los crates que se vendorizan para
+  compilarlos y las variantes que NixOS fabrica para esta máquina
+  (`_fish-completions`, `etc-*`, `sudoers`, unidades, reglas de polkit). Se
+  compilan aquí siempre, porque nadie más los construye.
+- **con binario**: se descargan.
+- **sin binario publicado**: estos bloquean la actualización.
+
+Si el tercer grupo queda vacío, la actualización se aplica. Si no, **no se
+aplica** y el gate lista qué quedó sin binario; suele ser nixpkgs con pocas horas
+de vida, que Hydra todavía no publicó, y la solución es esperar, no compilar.
+Para forzar igualmente: `rebuild update force`.
+
+La lista de "lo tuyo" se amplía sin tocar el repo: una expresión regular por
+línea en `~/.config/nixos-updates-gate-allow`.
+
 ---
 
 ## Estándares de arquitectura (manifiesto de modularidad)

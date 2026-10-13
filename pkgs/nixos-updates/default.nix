@@ -482,6 +482,178 @@ if __name__ == "__main__":
         fi
         ;;
 
+      gate|--gate|-g)
+        # ¿Se puede aplicar una actualización de inputs sin compilar nada que no
+        # sea propio? Trabaja sobre una copia desechable, así que el flake.lock
+        # del repo no se toca. Salida: 0 = se puede, 3 = faltan binarios.
+        exec 9>"$CACHE_DIR/gate.lock"
+        if ! ${pkgs.util-linux}/bin/flock -n 9; then
+          echo "Ya hay otra comprobación de actualizaciones en curso."
+          exit 0
+        fi
+
+        case "$HOST" in
+          ""|*[!A-Za-z0-9_-]*)
+            echo "Hostname no válido para seleccionar el flake: '$HOST'" >&2
+            exit 2
+            ;;
+        esac
+
+        WORK="$(${pkgs.coreutils}/bin/mktemp -d)"
+        trap '${pkgs.coreutils}/bin/rm -rf "$WORK"' EXIT
+        ${pkgs.rsync}/bin/rsync -a --delete --exclude='.git' --exclude='target' \
+          --exclude='result' "$FLAKE_DIR/" "$WORK/"
+        ${pkgs.git}/bin/git -C "$WORK" init -q
+        ${pkgs.git}/bin/git -C "$WORK" add -A
+
+        echo "Actualizando inputs en la copia desechable..."
+        if ! ${pkgs.nix}/bin/nix flake update --flake "$WORK" >"$WORK/update.log" 2>&1; then
+          echo "No se pudieron actualizar los inputs; no se aplica nada." >&2
+          ${pkgs.coreutils}/bin/tail -n 5 "$WORK/update.log" >&2
+          exit 2
+        fi
+
+        echo "Midiendo qué habría que construir (dry-run)..."
+        /run/current-system/sw/bin/nixos-rebuild dry-run --flake "$WORK#$HOST" \
+          >"$WORK/dry.txt" 2>&1 || true
+
+        ${pkgs.python3}/bin/python3 - "$WORK" "$WORK/dry.txt" "$CACHE_DIR" <<'PYEOF'
+import concurrent.futures
+import json
+import os
+import re
+import subprocess
+import sys
+
+work, dry_path, cache_dir = sys.argv[1:4]
+txt = open(dry_path, errors="replace").read()
+built, fetched, cur = [], [], None
+for line in txt.splitlines():
+    stripped = line.strip()
+    if line.startswith("these ") and ("will be built" in line or "will be fetched" in line):
+        cur = "built" if "will be built" in line else "fetched"
+        continue
+    if cur and stripped.startswith("/nix/store/"):
+        (built if cur == "built" else fetched).append(stripped)
+    elif cur and stripped and not line.startswith("  "):
+        cur = None
+
+
+def name_of(path):
+    """Nombre sin el hash del store: 'hash-port-0.1.10.drv' -> 'port-0.1.10.drv'."""
+    return re.sub(r"^[0-9a-z]{32}-", "", path.rsplit("/", 1)[-1])
+
+
+# Paquetes propios del flake: lo que solo esta maquina construye.
+own = []
+try:
+    probe = subprocess.run(
+        ["nix", "eval", "--raw", "--apply", "builtins.attrNames",
+         work + "#packages.x86_64-linux"],
+        capture_output=True, text=True, timeout=300)
+    if probe.returncode == 0:
+        own = probe.stdout.split()
+except Exception:
+    own = []
+
+allow = []
+allow_file = os.path.expanduser("~/.config/nixos-updates-gate-allow")
+if os.path.exists(allow_file):
+    allow = [l.strip() for l in open(allow_file)
+             if l.strip() and not l.strip().startswith("#")]
+
+# Dos grupos que se compilan aquí y no por un fallo de publicación:
+#   1. lo tuyo: los crates que se vendorizan para compilar tu Rust, el
+#      directorio de vendor y las variantes que NixOS genera por configuración
+#      (completions de fish).
+#   2. lo que NixOS fabrica para ESTA máquina: /etc, sudoers, unidades,
+#      reglas de polkit, ficheros de configuración. No existen en ninguna cache
+#      porque dependen de esta configuración; se construyen siempre.
+third_party = [
+    r"antigravity", r"^loon-", r"^loon$", r"citron", r"millennium", r"^accela",
+    r"sls-steam", r"veadotube-mini", r"^obs-", r"^steamidra", r"newtab-dashboard",
+    r"^gentle-", r"^engram", r"^pi-", r"^pi$", r"cline", r"better-claude",
+    r"zen-browser", r"helium-browser", r"code-insiders", r"vscode",
+    r"equibop", r"pear-desktop", r"cargo-target-cache",
+]
+local_patterns = [
+    r"^cargo-package-", r"^crate-", r"-vendor-dir", r"_fish-completions",
+    r"^Cargo\.", r"^X-",
+    r"^(etc|sudoers|unit-|system-path|user-units|activation|switch-to-configuration)",
+    r"^(zram-generator\.conf|zswap|nvidia-|nixos-system|passwd|group|nixos-)",
+    r"-rules\.drv$", r"(\.conf|\.settings|-conf|-settings)\.drv$", r"-nixos\.rules$",
+] + third_party
+
+
+def is_local(name):
+    for pattern in allow + local_patterns:
+        if re.search(pattern, name):
+            return True
+    for package in own:
+        if name == package or name.startswith(package + "-"):
+            return True
+    return False
+
+
+def store_path(derivation):
+    result = subprocess.run(["nix", "derivation", "show", derivation],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    data = json.loads(result.stdout)
+    node = list(data.get("derivations", data).values())[0]
+    outputs = node.get("outputs") or {}
+    if not outputs:
+        return None
+    path = sorted(outputs.values(), key=lambda o: o.get("path", ""))[0].get("path", "")
+    return path if path.startswith("/nix/store/") else "/nix/store/" + path
+
+
+def published(path):
+    return subprocess.run(
+        ["nix", "path-info", "--store", "https://cache.nixos.org", path],
+        capture_output=True).returncode == 0
+
+
+local, foreign = [], []
+for derivation in built:
+    (local if is_local(name_of(derivation)) else foreign).append(derivation)
+
+missing, available = [], []
+with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+    pending = {pool.submit(published, store_path(d) or d): d for d in foreign}
+    for future in concurrent.futures.as_completed(pending):
+        target = pending[future]
+        try:
+            (available if future.result() else missing).append(target)
+        except Exception:
+            missing.append(target)
+
+report = [
+    "gate: " + ("READY" if not missing else "BLOCKED"),
+    "  a descargar                      : " + str(len(fetched)),
+    "  a construir                      : " + str(len(built)),
+    "    lo tuyo, de tu config o de flakes sin cache : " + str(len(local)),
+    "    con binario (se descarga)      : " + str(len(available)),
+    "    sin binario publicado          : " + str(len(missing)),
+]
+if missing:
+    report.append("  falta binario publicado para:")
+    for derivation in sorted(missing)[:15]:
+        report.append("    " + name_of(derivation))
+    if len(missing) > 15:
+        report.append("    ... y " + str(len(missing) - 15) + " mas")
+
+report_text = "\n".join(report) + "\n"
+with open(os.path.join(cache_dir, "gate.txt"), "w") as handle:
+    handle.write(report_text)
+print(report_text)
+if missing:
+    print("Actualizacion NO aplicada. Forzala con 'rebuild update force'.")
+sys.exit(3 if missing else 0)
+PYEOF
+        ;;
+
       banner)
         ${pkgs.python3}/bin/python3 ${pythonScript} banner
         ;;
