@@ -530,7 +530,7 @@ txt = open(dry_path, errors="replace").read()
 built, fetched, cur = [], [], None
 for line in txt.splitlines():
     stripped = line.strip()
-    if line.startswith("these ") and ("will be built" in line or "will be fetched" in line):
+    if line.startswith(("these ", "this ")) and ("will be built" in line or "will be fetched" in line):
         cur = "built" if "will be built" in line else "fetched"
         continue
     if cur and stripped.startswith("/nix/store/"):
