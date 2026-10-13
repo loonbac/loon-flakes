@@ -22,12 +22,13 @@
 }:
 
 let
-  # `runtimeInputs` fija cargo y rustc al toolchain de nixpkgs para el proceso
-  # y sus hijos: el compilador siempre coincide con el cargo del wrapper, sin
-  # depender del PATH de la sesión.
+  # `runtimeInputs` fija el toolchain de nixpkgs para el proceso y sus hijos:
+  # el compilador siempre coincide con el cargo del wrapper, sin depender del
+  # PATH de la sesión. `coreutils` aporta `tr`, `cut`, `cksum` y `mkdir`, que el
+  # wrapper usa; sin él dependería de herramientas del PATH ambiente.
   cargoWrapper = writeShellApplication {
     name = "cargo";
-    runtimeInputs = [ cargo rustc ];
+    runtimeInputs = [ cargo coreutils rustc ];
     text = builtins.replaceStrings
       [ "@realCargo@" "@cacheRoot@" ]
       [ "${cargo}/bin/cargo" cacheRoot ]

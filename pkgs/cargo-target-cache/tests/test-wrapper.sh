@@ -245,6 +245,32 @@ assert_contains "R12 se avisa del caché no preparable" "aviso: no se pudo prepa
 chmod 0755 "$entry_dir"
 reset_env
 
+# ------------- R13: el marcador existe pero no es escribible (R3, otra forma)
+ro_marker_cache="$tmp/cache-marcador-0444"
+extra_env=("CARGO_TARGET_CACHE_ROOT=$ro_marker_cache")
+run_wrapper "$workspace" build
+ro_marker_entry="$(observed_target_dir)"
+chmod 0444 "$ro_marker_entry/.workspace-path"
+run_wrapper "$workspace" build
+assert_eq "R13 un marcador no escribible no rompe el wrapper" "0" "$status"
+assert_eq "R13 se degrada al comportamiento original" "<unset>" "$(observed_target_dir)"
+chmod 0644 "$ro_marker_entry/.workspace-path"
+reset_env
+
+# ---------- R14: la ruta de la entrada existe como archivo, no como directorio
+file_entry_cache="$tmp/cache-entrada-archivo"
+extra_env=("CARGO_TARGET_CACHE_ROOT=$file_entry_cache")
+run_wrapper "$workspace" build
+file_entry="$(observed_target_dir)"
+rm -rf "$file_entry"
+printf 'no soy un directorio\n' >"$file_entry"
+run_wrapper "$workspace" build
+assert_eq "R14 una entrada que es archivo no rompe el wrapper" "0" "$status"
+assert_eq "R14 se degrada al comportamiento original" "<unset>" "$(observed_target_dir)"
+assert_contains "R14 se avisa del caché no preparable" "aviso: no se pudo preparar" "$err"
+rm -f "$file_entry"
+reset_env
+
 # ---------------------------------------------------------------- resultado
 if [ "$failures" -gt 0 ]; then
   printf '\n%d prueba(s) fallida(s)\n' "$failures" >&2
