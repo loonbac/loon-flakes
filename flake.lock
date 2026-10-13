@@ -326,17 +326,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1791921922,
-        "narHash": "sha256-N0n8a1MTn6viQ7AjxCrnVO4bdtAX1zXb8zsoK38u+98=",
-        "ref": "refs/heads/master",
-        "rev": "06078905842c9515da32f1631f0b0b0c8cab898b",
-        "revCount": 113,
-        "type": "git",
-        "url": "file:///home/loonbac/Proyectos/port"
+        "lastModified": 1791924859,
+        "narHash": "sha256-pCO0a/sRcAdhzfr60PsYopLJc2A3j+6ltnuriDeUIKw=",
+        "owner": "loonbac",
+        "repo": "port",
+        "rev": "abdf5058ea72b79d5ceca978a3a7ab3299054c7a",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:///home/loonbac/Proyectos/port"
+        "owner": "loonbac",
+        "repo": "port",
+        "type": "github"
       }
     },
     "pre-commit": {

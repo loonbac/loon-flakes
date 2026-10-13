@@ -9,10 +9,14 @@
       url = "github:loonbac/citron-nextendo-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # PORT: terminal con GPUI y sistema de plugins. Repositorio local mientras
-    # no haya release estable publicada.
+    # PORT: terminal con GPUI y sistema de plugins. Canal movil: la rama publicada
+    # en GitHub, para que `nix flake update` (y por tanto `rebuild update`) la
+    # avance. Para probar cambios locales sin commitear se sobrescribe el input
+    # con --override-input (ver AGENTS.md): dejar el input apuntando a una copia
+    # local sucia impide que Nix escriba el flake.lock y congela TODAS las
+    # actualizaciones del sistema.
     port = {
-      url = "git+file:///home/loonbac/Proyectos/port";
+      url = "github:loonbac/port";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).

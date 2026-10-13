@@ -97,6 +97,24 @@ Cada módulo de `modules/programs/` sigue el mismo patrón: `default.nix` con la
 configuración y reglas tmpfiles que enlazan `/etc/<app>/` → `~/.config/<app>/`
 (ver gotchas de tmpfiles en Lecciones aprendidas).
 
+### Canal de PORT: remoto, con override para desarrollo local
+
+`port` es un input **remoto** (`github:loonbac/port`), para que `nix flake update`
+y por tanto `rebuild update` puedan avanzarlo. Para probar cambios que todavía no
+están commiteados en `~/Proyectos/port`, se sobrescribe el input solo en esa
+activación (el lock no se modifica):
+
+```bash
+sudo nixos-rebuild switch --flake .#$(hostname) \
+  --override-input port git+file:///home/loonbac/Proyectos/port
+```
+
+**No apuntar el input del `flake.nix` a una copia local sucia.** Nix no puede
+fijar un `dirtyRev`, entonces se niega a escribir `flake.lock` y congela *todas*
+las actualizaciones del sistema: `rebuild update` deja de actualizar y el
+indicador horario dice "sin cambios" aunque haya updates. Pasó del 4 al 13 de
+octubre de 2026 y solo se detectó por esa señal, no por ningún error.
+
 ---
 
 ## Estándares de arquitectura (manifiesto de modularidad)
