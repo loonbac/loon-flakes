@@ -102,6 +102,9 @@
         gentleAiBootstrap = gentleAiBootstrap;
       };
       piSshClipboard = pkgs.callPackage ./pkgs/pi-ssh-clipboard { };
+      # Wrapper de `cargo`: mueve `target/` a un caché por workspace fuera del
+      # repositorio. Lo instala modules/programs/rust.
+      cargoTargetCache = pkgs.callPackage ./pkgs/cargo-target-cache { };
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
       # (version + sha256 + url del tarball actualizado a diario por su CI).
@@ -238,6 +241,8 @@
         gga = pkgs.callPackage ./pkgs/gga { };
         pi = piLauncher;
         pi-ssh-clipboard = piSshClipboard;
+        # `cargo` con el caché de artefactos por workspace (ver modules/programs/rust).
+        cargo-target-cache = cargoTargetCache;
         better-claude-code-ui = betterClaudeCodeUi;
         pi-gpt-fast-mode-shared = gptFastModeShared;
         gentle-ai-bootstrap = gentleAiBootstrap;
@@ -288,8 +293,13 @@
       };
 
       # Un check de evaluación por cada host declarado arriba (una sola
-      # fuente para los nombres). Ver `hostEvalCheck` en el `let`.
+      # fuente para los nombres); más las pruebas enfocadas del wrapper de
+      # `cargo`, que se construyen en segundos y no tocan el sistema.
+      # Ver `hostEvalCheck` en el `let`.
       checks.${system} =
-        lib.genAttrs (builtins.attrNames self.nixosConfigurations) hostEvalCheck;
+        lib.genAttrs (builtins.attrNames self.nixosConfigurations) hostEvalCheck
+        // {
+          cargo-target-cache = cargoTargetCache.tests.focused;
+        };
     };
 }

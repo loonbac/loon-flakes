@@ -56,9 +56,10 @@ exactos y las trampas aprendidas en el camino.
 ├── flake.lock                 # lockfile (versionar, no tocar a mano)
 ├── README.md                  # doc de usuario
 ├── AGENTS.md                  # este archivo
-├── pkgs/                      # 44 piezas propias: una carpeta = un concepto (regla 6)
+├── pkgs/                      # 47 piezas propias: una carpeta = un concepto (regla 6)
 │   ├── rebuild/               # comando custom `rebuild`
 │   ├── loon-launch/           # launcher Rust (GTK4 + libadwaita): Cargo.toml, src/main.rs
+│   ├── cargo-target-cache/    # wrapper de `cargo`: `target/` fuera del repo (desarrollo Rust)
 │   ├── nixos-ssh/ ts-bypass/ laptop-power-profile/ moonlight-power/ ...
 │   │                          #   operación de sistema, energía y red
 │   ├── mpvpaper-wallpaper/ niri-cycle/ accent-wallpaper/ mac-plymouth/ ...
@@ -82,7 +83,7 @@ exactos y las trampas aprendidas en el camino.
     ├── networking/            # networkmanager, firewall
     ├── services/              # openssh, tailscale (+ts-bypass), udisks2, nixos-updates,
     │                          #   moonlight-power
-    ├── programs/              # 21 módulos: fish, ghostty, gtk, hyprlock, nautilus, swaync,
+    ├── programs/              # 22 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
     │                          #   waybar, yazi, wine, virtualbox, waydroid, steam, steamidra,
     │                          #   veadotube-mini, equibop, gentle-ai, obs-studio, obs-pwvideo,
     │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch),
@@ -314,6 +315,27 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `~/Descargas/cl_aesthetic_mix58.jpg` no existe; nunca volver a usar `expect`
   al cargar un recurso externo de presentación.
 
+### Entender dónde viven los artefactos de Rust (`target/`)
+
+- **Qué hace**: el `cargo` del PATH es un wrapper (`pkgs/cargo-target-cache`,
+  instalado por `modules/programs/rust`) que define `CARGO_TARGET_DIR` hacia
+  `/var/cache/rust-target/<workspace>`. Un proyecto en una partición chica
+  guarda solo código; los artefactos viven en el disco raíz.
+- **Clave del caché**: la raíz real del workspace (`cargo locate-project`), no
+  el directorio desde el que invocas: una entrada por workspace, estables para
+  todos sus subdirectorios.
+- **Verla**: `CARGO_TARGET_CACHE_PRINT_TARGET_DIR=1 cargo build` imprime la ruta
+  sin compilar. Cada entrada tiene un `.workspace-path` con la ruta original.
+- **`cargo clean`**: borra el caché de ese workspace, no el de los demás.
+- **Se respeta**: un `CARGO_TARGET_DIR=... cargo ...` propio gana; fuera de un
+  proyecto Cargo el wrapper no define nada; si el caché no se puede crear,
+  avisa y compila como antes.
+- **No añadir `rustup`**: el toolchain es el de nixpkgs y `rust-toolchain.toml`
+  de los proyectos no lo cambia (ver gotchas).
+- **Consecuencia**: un script que asuma `<proyecto>/target/debug` o
+  `/target/release` deja de encontrar el binario; debe preguntar la ruta real
+  (ver gotchas).
+
 ### Editar la config de niri
 
 - **Archivo**: `modules/wayland/niri/config.kdl` — gestionado por NixOS:
@@ -417,6 +439,19 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ## Lecciones aprendidas (gotchas)
 
+- **Rutas `target/` fijas en proyectos con el caché de Rust**: con el wrapper de
+  `cargo` los artefactos ya no están en `<proyecto>/target`. Scripts revisados
+  que lo asumían: `shirley-show/scripts/verify-responsive.sh` y su copia en
+  `shirley-show-responsive/`, `lawa/build.sh` y `port/scripts/package.sh` (este
+  último sí tiene fallback). Patrón correcto:
+  `"${CARGO_TARGET_DIR:-target}/release/<bin>"` o preguntar la ruta con
+  `cargo metadata --format-version 1 | jq -r .target_directory`. Los Dockerfiles
+  no se ven afectados: construyen con su propio filesystem y entorno.
+- **`rust-toolchain.toml` es inerte sin rustup**: los proyectos piden
+  `channel = "1.95.0"` y el cargo de nixpkgs es 1.95.0, así que hoy coinciden.
+  Si un proyecto pide otra versión, cargo no la respeta: el toolchain se cambia
+  en `modules/programs/rust`, o se decide instalar rustup como decisión de
+  política (no como ajuste suelto).
 - **`imports`: el orden importa, y es al revés.** `lib/modules.nix` fusiona las
   definiciones en orden **inverso** al de la lista `imports`, así que reordenarla
   o dividir un módulo en varios cambia el orden final de listas como
@@ -522,6 +557,11 @@ cd ~/.nixos && sudo nixos-rebuild switch --flake .#$(hostname)   # equivalente m
 
 # Verificar config de niri
 niri validate --config ~/.nixos/modules/wayland/niri/config.kdl
+
+# Caché de artefactos de Rust (por qué un proyecto ya no tiene target/)
+CARGO_TARGET_CACHE_PRINT_TARGET_DIR=1 cargo build   # ruta del caché del workspace
+CARGO_TARGET_DIR="./target" cargo build             # compilar en el proyecto
+sudo du -sh /var/cache/rust-target/*                # qué ocupa cada workspace
 
 # Flake
 nix flake show

@@ -6,6 +6,7 @@
   imports = [
     ./fish
     ./ghostty
+    ./rust
     ./waybar
     ./swaync
     ./equibop

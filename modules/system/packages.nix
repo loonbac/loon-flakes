@@ -84,10 +84,8 @@ in
     go
     gnumake            # comando `make`
     gcc
-    cargo              # toolchain Rust: compila loon-launch, loon-bar, etc.
-    rustc
-    rustfmt            # componente fmt (cargo fmt)
-    clippy             # componente clippy (lints)
+    # Toolchain Rust y caché de artefactos: viven en modules/programs/rust,
+    # que instala el `cargo` del PATH (wrapper) y sus componentes.
     pkg-config         # detección de libs nativas (openssl, libpq) en builds Rust
     openssl            # deps de openssl-sys (mdm-gestor usa jsonwebtoken/sqlx)
     openssl.dev        # .pc files de OpenSSL para pkg-config en builds Rust
