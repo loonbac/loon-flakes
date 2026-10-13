@@ -83,11 +83,10 @@ exactos y las trampas aprendidas en el camino.
     ├── networking/            # networkmanager, firewall
     ├── services/              # openssh, tailscale (+ts-bypass), udisks2, nixos-updates,
     │                          #   moonlight-power
-    ├── programs/              # 22 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
+    ├── programs/              # 21 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
     │                          #   waybar, yazi, wine, virtualbox, waydroid, steam, steamidra,
     │                          #   veadotube-mini, equibop, gentle-ai, obs-studio, obs-pwvideo,
-    │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch),
-    │                          #   cisco-packet-tracer (opcional, deshabilitado)
+    │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch)
     ├── wayland/
     │   ├── niri/              # compositor: config.kdl + session-services.nix (unidades sesión)
     │   └── dms-greeter/       # greeter DankMaterialShell
@@ -168,7 +167,7 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 | Organización por capacidad | Cumple | `hosts/nixos-pc/*.nix` y `modules/` por subsistema |
 | Responsabilidad única | Cumple | `modules/system/` separa la configuración del sistema (`default.nix`), la lista de paquetes (`packages.nix`) y lo que hace ver al sistema (`theme.nix`) |
 | Config de host en `hosts/<host>/` | Cumple | `extras-disk.nix` movido a `hosts/loon-laptop/`; ts-bypass/moonlight-power activados solo desde la laptop |
-| Sin branching por hostname | Cumple | `grep -rn "networking.hostName" modules/` sin resultados; sustituido por `hardware.brightness.backend`, `services.ts-bypass.enable`, `services.moonlight-power.enable` y `programs.cisco-packet-tracer.enable` |
+| Sin branching por hostname | Cumple | `grep -rn "networking.hostName" modules/` sin resultados; sustituido por `hardware.brightness.backend`, `services.ts-bypass.enable`, `services.moonlight-power.enable` |
 | Composición explícita | Cumple | `mkHost` + `hosts/<host>/default.nix` (korosoft, host inexistente con import cruzado, fue eliminado el 2026-09-22) |
 | `pkgs/` sin vertederos | Cumple | 43 paquetes con nombre por concepto; sin `utils/` ni `helpers/` |
 | Sin duplicación | Parcial | `fish` unificado (se instalaba por tres vías: `systemPackages`, `programs.fish` y el shell del usuario). `ghostty`/`yazi`/`notepad-next` **no** estaban duplicados: sus módulos solo escriben configuración y referencian el binario. Sigue pendiente el patrón de tmpfiles repetido |
@@ -424,16 +423,6 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   DERP los trata como proxy HTTP, envía `CONNECT` y el SOCKS responde con EOF.
 - Verificar con `ts-bypass status` y
   `tailscale ping --until-direct=false nixos-pc`.
-
-### Habilitar Cisco Packet Tracer (cuando proceda)
-
-- **Activación**: definir `programs.cisco-packet-tracer.enable = true;` en el
-  `default.nix` del host correspondiente y correr `rebuild`.
-- **Instalador propietario**: requiere aportar manualmente el `.deb` propietario
-  que coincida con el hash fijado en `pkgs/cisco-packet-tracer/default.nix`
-  (mediante `nix store add`).
-- Intencionalmente **NO está instalado** en ningún host en este momento (módulo
-  opt-in deshabilitado por defecto hasta que el usuario decida instalarlo).
 
 ---
 

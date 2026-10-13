@@ -20,8 +20,8 @@ let
   archiveName = "veadotube-mini-linux-x64.zip";
 
   # itch.io entrega enlaces de descarga temporales. El ZIP no se versiona ni se
-  # descarga implícitamente: requireFile exige el release exacto por hash,
-  # igual que el paquete propietario de Cisco Packet Tracer.
+  # descarga implícitamente: requireFile exige el release exacto por hash, así que
+  # no hay canal móvil que pueda quedar desfasado.
   unpacked = stdenvNoCC.mkDerivation {
     pname = "veadotube-mini-unpacked";
     inherit version;

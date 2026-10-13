@@ -247,7 +247,6 @@
         pi-gpt-fast-mode-shared = gptFastModeShared;
         gentle-ai-bootstrap = gentleAiBootstrap;
         gentle-stack-update = gentleStackUpdate;
-        cisco-packet-tracer = pkgsUnfree.callPackage ./pkgs/cisco-packet-tracer { };
         accela = accela;
         sls-steam = nix-tools-steam.packages.${system}.sls-steam;
         # SteaMidra (SFF): GUI de setup/manifest de Steam. AppImage oficial

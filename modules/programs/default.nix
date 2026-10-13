@@ -25,6 +25,5 @@
     ./steamidra
     ./veadotube-mini
     ./pear-desktop
-    ./cisco-packet-tracer
   ];
 }

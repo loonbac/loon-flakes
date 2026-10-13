@@ -23,7 +23,6 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 │   ├── pi/                             # assets locales de Pi (skills + UI custom)
 │   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
 │   ├── gentle-stack-update/            # actualiza Pi + extensiones + Gentle AI + Engram
-│   └── cisco-packet-tracer/           # paquete con .deb propietario por hash
 ├── hosts/
 │   ├── loon-laptop/
 │   │   ├── default.nix                # "main.rs" — identidad, solo compone
@@ -422,25 +421,6 @@ componentes ausentes.
 
 La autenticación, sesiones, contenido de `~/.engram/` y cualquier token quedan
 fuera de Git y del store Nix.
-
-### Cisco Packet Tracer
-
-Packet Tracer vuelve a formar parte del perfil del sistema usando el instalador
-propietario que ya tienes. El `.deb` no se guarda en Git: su hash SHA-256 está
-fijado en `pkgs/cisco-packet-tracer/default.nix`. Para repetirlo en otra
-máquina hay que obtener legalmente el mismo instalador y añadirlo al store:
-
-```bash
-nix store add --mode flat --hash-algo sha256 \
-  --name CiscoPacketTracer900_Open_Beta_July_Build680_linux_amd64_Exp20251231.deb \
-  /ruta/al/CiscoPacketTracer900_Open_Beta_July_Build680_linux_amd64_Exp20251231.deb
-rebuild
-packettracer9
-```
-
-El archivo actual es una beta `9.0.0` con vencimiento declarado `2025-12-31`.
-Si Cisco te entrega una versión nueva, cambia el nombre y el hash del paquete
-Nix de forma intencional antes del rebuild.
 
 ### Veadotube Mini
 
@@ -868,7 +848,7 @@ transparente.
   fastfetch, ghostty, nodejs, zen-browser, helium-browser, vscode-insiders,
   equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
   (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
-  Gentle-AI, Engram, Pi, Packet Tracer, `gentle-ai-bootstrap` y
+  Gentle-AI, Engram, Pi, `gentle-ai-bootstrap` y
   `gentle-stack-update`, además de
   utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode, inxi,
   lshw, iw).
@@ -907,7 +887,7 @@ transparente.
 **Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
 `niri-cycle`, `vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
-`cisco-packet-tracer`, `steamidra`, `citron-nextendo`, `citron-nextendo-v3` y
+`steamidra`, `citron-nextendo`, `citron-nextendo-v3` y
 `veadotube-mini`, `obs-pwvideo`.
 
 **VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
@@ -1070,10 +1050,6 @@ nixosConfigurations = {
   `modules/networking/default.nix`.
 - La contraseña de `loonbac` NO se guarda en este repo: se define con
   `passwd` en la máquina.
-- Cisco Packet Tracer ya no se incluye por defecto en `loon-laptop`; ahora es
-  un módulo opt-in (`programs.cisco-packet-tracer.enable = true;`) deshabilitado
-  en todos los hosts hasta que el usuario decida instalarlo. Su `.deb`
-  propietario debe aportarse manualmente y coincidir con el hash fijado.
 
 ## ¿Por qué no hay `configuration.nix` ya?
 
