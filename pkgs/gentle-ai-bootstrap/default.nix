@@ -626,7 +626,7 @@ let
     const relativePath = "lib/agents-protocol.ts";
     const target = path.join(packageRoot, relativePath);
     let text = fs.readFileSync(target, "utf8");
-    const marker = "LOON_EFFECTIVE_ROUTE_PATCH_V3";
+    const marker = "LOON_EFFECTIVE_ROUTE_PATCH_V4";
     if (text.includes(marker)) process.exit(0);
 
     const legacyUiRequest = '\t\tcase "extension_ui_request":\n'
@@ -640,12 +640,40 @@ let
       + '\t\t\treturn DIALOG_METHODS.has(String(event.method)) ? [{ type: TASK_EVENT.ASK, request: askRequest(event) }] : [];\n'
       + '\t\t}';
 
+    const modernUiRequest = '\t\tcase "extension_ui_request":\n'
+      + '\t\t\tif (event.method === "notify" && typeof event.message === "string" && event.message.startsWith(MISSING_TOOLS_NOTE_PREFIX)) return [{ type: TASK_EVENT.NOTE, text: clean(event.message) }];\n'
+      + '\t\t\treturn DIALOG_METHODS.has(String(event.method)) ? [{ type: TASK_EVENT.ASK, request: askRequest(event) }] : [];';
+    const modernRpcStatusRoute = '\t\tcase "extension_ui_request": {\n'
+      + '\t\t\tif (event.method === "setStatus" && event.statusKey === "loon-effective-subagent-route") {\n'
+      + '\t\t\t\tconst model = childMetadata(event.statusText, 161);\n'
+      + '\t\t\t\treturn model.state === "observed" && model.value.includes("/")\n'
+      + '\t\t\t\t\t? [{ type: TASK_EVENT.EFFECTIVE_ROUTE, model: model.value }] : [];\n'
+      + '\t\t\t}\n'
+      + '\t\t\tif (event.method === "notify" && typeof event.message === "string" && event.message.startsWith(MISSING_TOOLS_NOTE_PREFIX)) return [{ type: TASK_EVENT.NOTE, text: clean(event.message) }];\n'
+      + '\t\t\treturn DIALOG_METHODS.has(String(event.method)) ? [{ type: TASK_EVENT.ASK, request: askRequest(event) }] : [];\n'
+      + '\t\t}';
+
+    const v3Marker = "LOON_EFFECTIVE_ROUTE_PATCH_V3";
+    if (text.includes(v3Marker)) {
+      text = text.replace(v3Marker, marker);
+      if (text.includes(legacyUiRequest)) {
+        text = text.replace(legacyUiRequest, rpcStatusRoute);
+      } else if (text.includes(modernUiRequest)) {
+        text = text.replace(modernUiRequest, modernRpcStatusRoute);
+      }
+      fs.writeFileSync(target, text);
+      process.exit(0);
+    }
+
     const v2Marker = "LOON_EFFECTIVE_ROUTE_PATCH_V2";
     if (text.includes(v2Marker)) {
       text = text.replace(v2Marker, marker);
-      const count = text.split(legacyUiRequest).length - 1;
-      if (count !== 1) throw new Error("gentle-pi effective-route V2 migration failed");
-      fs.writeFileSync(target, text.replace(legacyUiRequest, rpcStatusRoute));
+      if (text.includes(legacyUiRequest)) {
+        text = text.replace(legacyUiRequest, rpcStatusRoute);
+      } else if (text.includes(modernUiRequest)) {
+        text = text.replace(modernUiRequest, modernRpcStatusRoute);
+      }
+      fs.writeFileSync(target, text);
       process.exit(0);
     }
 
@@ -659,11 +687,13 @@ let
         + '\t\t\treturn task.result === null && task.error === null\n'
         + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;';
       const count = text.split(legacyThinking).length - 1;
-      if (count !== 1) throw new Error("gentle-pi effective-route V1 migration failed");
-      text = text.replace(legacyThinking, effectiveThinking);
-      const uiCount = text.split(legacyUiRequest).length - 1;
-      if (uiCount !== 1) throw new Error("gentle-pi effective-route V1 UI migration failed");
-      fs.writeFileSync(target, text.replace(legacyUiRequest, rpcStatusRoute));
+      if (count === 1) text = text.replace(legacyThinking, effectiveThinking);
+      if (text.includes(legacyUiRequest)) {
+        text = text.replace(legacyUiRequest, rpcStatusRoute);
+      } else if (text.includes(modernUiRequest)) {
+        text = text.replace(modernUiRequest, modernRpcStatusRoute);
+      }
+      fs.writeFileSync(target, text);
       process.exit(0);
     }
 
@@ -736,7 +766,11 @@ let
         + '\t\t\treturn task.result === null && task.error === null\n'
         + '\t\t\t\t? { ...resumed, thinking: event.thinking } : resumed;',
     );
-    replaceOnce(legacyUiRequest, rpcStatusRoute);
+    if (text.includes(modernUiRequest)) {
+      replaceOnce(modernUiRequest, modernRpcStatusRoute);
+    } else {
+      replaceOnce(legacyUiRequest, rpcStatusRoute);
+    }
 
     fs.writeFileSync(target, text);
   '';
@@ -749,7 +783,7 @@ let
     const [packageRoot] = process.argv.slice(2);
     const source = fs.readFileSync(path.join(packageRoot, "lib", "agents-protocol.ts"), "utf8");
     for (const expected of [
-      "LOON_EFFECTIVE_ROUTE_PATCH_V3",
+      "LOON_EFFECTIVE_ROUTE_PATCH_V4",
       'EFFECTIVE_ROUTE: "effective_route"',
       'EFFECTIVE_THINKING: "effective_thinking"',
       'case "message_start"',
