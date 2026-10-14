@@ -22,21 +22,23 @@ let
   # itch.io entrega enlaces de descarga temporales. El ZIP no se versiona ni se
   # descarga implícitamente: requireFile exige el release exacto por hash, así que
   # no hay canal móvil que pueda quedar desfasado.
+  sourceZip = requireFile {
+    name = archiveName;
+    hash = "sha256-JHgC9nhMTr76zavmj8kzmdTyOwWFdSJ1lEpx26yAnrA=";
+    url = "https://olmewe.itch.io/veadotube-mini";
+    message = ''
+      Add the exact Veadotube Mini ${version} Linux x64 ZIP to the Nix store first:
+
+        nix store add --mode flat --hash-algo sha256 \
+          --name ${archiveName} /path/to/${archiveName}
+    '';
+  };
+
   unpacked = stdenvNoCC.mkDerivation {
     pname = "veadotube-mini-unpacked";
     inherit version;
 
-    src = requireFile {
-      name = archiveName;
-      hash = "sha256-JHgC9nhMTr76zavmj8kzmdTyOwWFdSJ1lEpx26yAnrA=";
-      url = "https://olmewe.itch.io/veadotube-mini";
-      message = ''
-        Add the exact Veadotube Mini ${version} Linux x64 ZIP to the Nix store first:
-
-          nix store add --mode flat --hash-algo sha256 \
-            --name ${archiveName} /path/to/${archiveName}
-      '';
-    };
+    src = sourceZip;
 
     nativeBuildInputs = [ unzip ];
     dontUnpack = true;
@@ -84,6 +86,14 @@ let
       chmod -R u+w "$out"
       install -Dm755 ${funnel}/lib/libfunnel.so "$out/lib/libfunnel.so"
       install -Dm755 ${funnel}/lib/libfunnel-egl.so "$out/lib/libfunnel-egl.so"
+
+      # `requireFile` sources are build-time-only inputs: `unpacked` holds their
+      # extracted contents, so nothing in the installed closure references the
+      # ZIP and GC reclaims it while this package is still installed.  The next
+      # rebuild then fails on veadotube-mini-linux-x64.zip.drv with the
+      # requireFile message.  Referencing the source here keeps it alive.
+      install -d "$out/share"
+      ln -s ${sourceZip} "$out/share/veadotube-mini-linux-x64.zip"
 
       runHook postInstall
     '';
