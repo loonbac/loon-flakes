@@ -337,19 +337,36 @@
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
-        ]
+        ],
+        "port-plugins": "port-plugins"
       },
       "locked": {
-        "lastModified": 1792037568,
-        "narHash": "sha256-eGOszswSPbYpmlyfvuiv6uERaXyj0E1rAkfbbmC9Ohc=",
+        "lastModified": 1792047417,
+        "narHash": "sha256-Ogc2nq0igl1NeEaTlNqoa/gj3UU7asfDoWatSdEMTxE=",
         "owner": "loonbac",
         "repo": "port",
-        "rev": "6efd10cf79cfb4b7f390511e89fbcce38ce03ad4",
+        "rev": "f62104f607f09a30d29ed254c20fd0b51245e012",
         "type": "github"
       },
       "original": {
         "owner": "loonbac",
         "repo": "port",
+        "type": "github"
+      }
+    },
+    "port-plugins": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792047132,
+        "narHash": "sha256-WS9foDcETsLcA2hhUPZJwB3VIkc6RxHhlqe29AYJ3fA=",
+        "owner": "loonbac",
+        "repo": "port-plugins",
+        "rev": "a41de0b6dbcefb40f02d0550f842b37b5fbf5953",
+        "type": "github"
+      },
+      "original": {
+        "owner": "loonbac",
+        "repo": "port-plugins",
         "type": "github"
       }
     },
