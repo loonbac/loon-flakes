@@ -294,7 +294,7 @@ let
 
     const NOTIFY_SEND = "${libnotify}/bin/notify-send";
     const PW_PLAY = "${pipewire}/bin/pw-play";
-    const NOTIFICATION_SOUND = "${../pi/assets/snd_shineselect.wav}";
+    const NOTIFICATION_SOUND = "${../pi/assets/snd_pi_attention.wav}";
     const PROMPT_DEDUP_MS = 2500;
     const IS_GENTLE_SUBAGENT = process.env.GENTLE_PI_AGENTS_CHILD === "1";
     const GENTLE_SUBAGENT_PROMPT_PREFIX = "❀ ";
