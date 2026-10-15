@@ -448,6 +448,63 @@ let
     }
   '';
 
+  # Pi announces when it is waiting for an answer. PORT intercepts that on its
+  # own socket so the sidebar can show "espera tu respuesta" instead of staying
+  # on "working": the notification path already worked, but the state never
+  # reached the terminal. Gated exactly like the activity transport, because
+  # without PORT's socket and panel id there is nobody to report to.
+  piPanelState = writeText "loon-port-panel-state.ts" ''
+    import { execFile } from "node:child_process";
+    import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+    // Name of the balanced attention event the Gentle AI adapter publishes: one
+    // activation when blocking begins and one release after the last source
+    // clears. Renaming it upstream would only dim this signal, never break Pi.
+    const ATTENTION_EVENT = "herdr:blocked";
+    const SOURCE = "port:state";
+    const STATE_TOKEN = "port_state";
+    const TTL_MS = 30000;
+    const REPORT_TIMEOUT_MS = 1500;
+
+    export default function (pi: ExtensionAPI): void {
+      const env = process.env;
+      if (env.GENTLE_PI_AGENTS_CHILD === "1" || env.HERDR_ENV !== "1") return;
+      const pane = env.HERDR_PANE_ID ? env.HERDR_PANE_ID.trim() : "";
+      const socket = env.HERDR_SOCKET_PATH ? env.HERDR_SOCKET_PATH.trim() : "";
+      if (!pane || !socket) return;
+      const configured = env.HERDR_BIN_PATH ? env.HERDR_BIN_PATH.trim() : "";
+      const bin = configured || "herdr";
+
+      // The receiving socket drops a report whose seq does not grow, so it only
+      // ever increases and never repeats between runs of this process.
+      let seq = Date.now();
+
+      const report = (state: string): void => {
+        seq += 1;
+        execFile(bin, [
+          "pane", "report-metadata", pane,
+          "--source", SOURCE,
+          "--agent", "pi",
+          "--seq", String(seq),
+          "--ttl-ms", String(TTL_MS),
+          "--token", STATE_TOKEN + "=" + state,
+        ], { timeout: REPORT_TIMEOUT_MS, maxBuffer: 4096, windowsHide: true }, () => {
+          // Best effort a propósito: un informe que no se puede entregar no
+          // puede frenar ni romper la sesión de Pi.
+        });
+      };
+
+      pi.events.on(ATTENTION_EVENT, (payload: unknown) => {
+        const active = typeof payload === "object" && payload !== null
+          && (payload as { active?: unknown }).active === true;
+        report(active ? "blocked" : "working");
+      });
+
+      pi.on("agent_start", () => { report("working"); });
+      pi.on("agent_settled", () => { report("idle"); });
+    }
+  '';
+
   mergeSettings = writeText "merge-pi-settings.mjs" ''
     import fs from "node:fs";
     import path from "node:path";
@@ -1183,6 +1240,21 @@ writeShellApplication {
       ln -s "$notifications_source" "$notifications_destination"
     else
       ln -s "$notifications_source" "$notifications_destination"
+    fi
+
+    # Extensión que reporta el estado del agente a PORT por su socket. Mismo
+    # tratamiento que las notificaciones: un archivo del usuario se conserva
+    # recuperable, y un enlace previo del store se reemplaza en el lugar.
+    panel_state_source="${piPanelState}"
+    panel_state_destination="$agent_dir/extensions/loon-port-panel-state.ts"
+    if [ -L "$panel_state_destination" ]; then
+      ln -sfn "$panel_state_source" "$panel_state_destination"
+    elif [ -e "$panel_state_destination" ]; then
+      mkdir -p "$backup_dir/extensions"
+      mv "$panel_state_destination" "$backup_dir/extensions/loon-port-panel-state.ts"
+      ln -s "$panel_state_source" "$panel_state_destination"
+    else
+      ln -s "$panel_state_source" "$panel_state_destination"
     fi
 
     rm -f "$agent_dir/extensions/loon-antigravity-quota-fallback.ts"
