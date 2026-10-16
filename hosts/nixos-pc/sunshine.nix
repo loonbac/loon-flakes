@@ -62,10 +62,10 @@ let
   desktopConfig = pkgs.writeText "sunshine-desktop.conf" ''
     sunshine_name=nixos-pc-escritorio
     address_family=ipv4
-    bind_address=100.73.247.39
+    bind_address=0.0.0.0
     port=48189
     origin_web_ui_allowed=wan
-    csrf_allowed_origins=https://100.73.247.39:48190
+    csrf_allowed_origins=https://100.73.247.39:48190,https://192.168.0.10:48190,https://localhost:48190
     capture=kms
     output_name=1
     encoder=vulkan
@@ -150,9 +150,8 @@ in
   # greeter u otra cuenta intente ocupar los mismos puertos.
   systemd.user.services.sunshine.unitConfig.ConditionUser = "loonbac";
 
-  # Solo la tailnet puede alcanzar esta segunda instancia. Tiene claves y
-  # emparejamientos independientes de la instancia compartida con el amigo.
-  networking.firewall.interfaces.tailscale0 = {
+  # Instancia privada del escritorio accesible por LAN / túnel y tailnet.
+  networking.firewall = {
     allowedTCPPorts = [ 48184 48189 48190 48210 ];
     allowedUDPPorts = [ 48198 48199 48200 48202 48210 ];
   };
