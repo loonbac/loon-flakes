@@ -19,6 +19,7 @@ result-*
 
 # Bookkeeping de ODD (no versionado)
 odd/
+.codegraph/
 
 # Node dependencies
 node_modules

@@ -18,9 +18,13 @@
   networking.hostName = "loon-laptop";
   system.stateVersion = "26.05";
 
-  # Bypass de Tailscale supervisado por túnel SSH/SOCKS5 exclusivo de la laptop.
-  services.ts-bypass.enable = true;
+  # Bypass antiguo desfasado; se reemplaza por Cloudflare Tunnel (bypass.loonbac-dev.moe)
+  services.ts-bypass.enable = false;
 
   # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
   loon.devPorts = [ 5173 8080 ];
+
+  environment.systemPackages = [
+    pkgs.cloudflared
+  ];
 }
