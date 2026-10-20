@@ -944,6 +944,38 @@ let
     Choose its model and thinking level from `/gentle:models`; pi-btw reads the resulting route from gentle-pi.
   '';
 
+  # El worker debe terminar con un gate que el router pueda ver.
+  #
+  # El host sólo registra un resultado verificado a partir de un gate que corrió y salió, así que
+  # un worker que edita archivos y reporta sin ejecutar nada no produce evidencia: el router se
+  # queda sin saber qué modelo sirve para qué. Medido en el estado vivo, sólo 7 de 87
+  # observaciones llevaban resultado verificado, y ningún modelo alcanzaba las 8 corridas que le
+  # permitirían ser elegido por mérito en vez de por sorteo.
+  #
+  # El fichero se sobrescribe a sí mismo en cada bootstrap (`cp assets/agents/*.md`), así que la
+  # instrucción vive aquí y se copia después, en vez de editarse a mano en el directorio vivo.
+  workerGate = writeText "gentle-ai-worker-gate.md" ''
+    ## Cierra con un gate que el router pueda ver
+
+    Termina ejecutando al menos un comando de verificación en primer plano, y que sea el último
+    cuyo resultado reportes. Una corrida que termina sin uno no le enseña nada al router adaptativo
+    sobre el modelo que hizo el trabajo: el host registra un resultado verificado sólo a partir de
+    un gate que realmente corrió y salió, así que un worker que edita tres ficheros y reporta sin
+    ejecutar un test no produce evidencia alguna.
+
+    Un gate es un comando que falla ruidosamente ante un árbol roto: un runner de tests
+    (`npm test`, `node --test`, `pnpm vitest`, `pytest`, `cargo test`, `go test`), o un gate
+    estático (`tsc --noEmit`, `eslint`, `cargo clippy`, `nix flake check`). `git status`, `ls`,
+    `cat` y `npm install` no son gates: salen con cero por razones ajenas al trabajo, y el host no
+    los cuenta.
+
+    Esto no amplía tu autorización. Ejecuta un gate sólo cuando el padre haya autorizado ese
+    comando exacto o su clase; si la tarea no autoriza ninguna comprobación ejecutable, o el cambio
+    es documentación o no tiene gate con sentido, dilo explícitamente en `validation` y en `risks`
+    en vez de inventar uno o afirmar una corrida que no observaste. Una ausencia reportada es útil;
+    un aprobado fabricado no lo es.
+  '';
+
   appendSystemExtra = writeText "pi-append-system-extra.md" ''
     ## Investigación web
 
@@ -1455,6 +1487,8 @@ NODE
           "$agent_dir/chains/"sdd-*.chain.md \
           "$agent_dir/gentle-ai/support/"sdd-*.md
     cp "$gentle_pi_root/assets/agents/"*.md "$agent_dir/agents/"
+    # Después del cp de assets, para que el gate del worker no lo pise el paquete.
+    cat ${workerGate} >> "$agent_dir/agents/gentle-ai-worker.md"
     cp "$gentle_pi_root/assets/chains/"*.md "$agent_dir/chains/"
     cp "$gentle_pi_root/assets/support/"*.md "$agent_dir/gentle-ai/support/"
     cp ${piBtwAgent} "$agent_dir/agents/pi-btw.md"
