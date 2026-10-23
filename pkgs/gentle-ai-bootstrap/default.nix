@@ -293,12 +293,17 @@ let
     jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     # The four review lenses, plus the refuter and the validator.
-    review-readability = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    review-reliability = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-risk = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-refuter = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-validator = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    # TEMPORAL (2026-10-23): las cuentas de Antigravity están en cooldown semanal
+    # (59 h) y el pool free de infronai agotó su tope diario, así que las lentes
+    # no podían completarse. Se apuntan a deepseek-v4.1-flash de opencode-go
+    # mientras dure la clave prestada. Revertir a antigravity/infronai cuando
+    # esa cuota vuelva, o moverlas a alibaba-token-plan/deepseek-v4.1-flash-1017.
+    review-readability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "medium"; };
+    review-reliability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-resilience = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-risk = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-refuter = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    review-validator = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-archive = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-design = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
