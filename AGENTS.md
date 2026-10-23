@@ -585,9 +585,21 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   proyectado: 55 % del coste.
   - **No conviene tocar el caché**: en los logs el *cache read* era 15,45 B tokens (24 % del gasto)
     mientras el *input miss* eran 0,805 B (62 %). El caché es el aliado; lo caro es el token nuevo.
-  - Medir el consumo real: los `.jsonl` de `~/.pi/agent/sessions/**` guardan `usage` por respuesta
-    (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `cost`). Un script sobre esos
-    campos da el gasto exacto sin depender del panel del proveedor.
+  - Medir el consumo real: `~/.local/bin/pi-usage` (script propio, sin dependencias). Lee los
+    `.jsonl` de `~/.pi/agent/sessions/**`, que guardan `usage` por respuesta (`input`, `output`,
+    `cacheRead`, `cacheWrite`, `totalTokens`), y separa tokens **nuevos** de **caché**. Opciones:
+    `--today`, `--days N`, `--models`. Da el gasto exacto sin depender del panel del proveedor y
+    revela la señal que importa: el ratio caché/nuevo y el reparto de niveles de *thinking*.
+  - **Regla para añadir un modelo**: todo modelo con `contextWindow ≥ 300k` necesita entrada en
+    `modelOverrides` con `reserveTokens = contextWindow - 150000`. Hoy son 36 entradas. Peor aún es
+    un modelo **sin** `contextWindow` en `models.json`: Pi no sabe cuándo compactar. Se corrigieron
+    los 7 de `infronai` consultando `/v1/models` del propio gateway.
+  - **`defaultThinkingLevel` = `medium`** (antes `high`): en los logs el 82,9 % de las llamadas
+    corrían en `high`, y el razonamiento se factura como *output*, el token más caro. Subir a `high`
+    solo para diseño y arquitectura.
+  - **Ojo al reescribir `settings.json`**: la sesión viva de Pi lo reescribe desde memoria y puede
+    perder entradas añadidas a mano (ocurrió con 15 overrides). Aplicar, comprobar, y cerrar sesión
+    antes de editar a mano si hace falta. Verificado que persiste tras `pi -p`.
 - **MCP `dataimpulse`** (proxy residencial para páginas que bloquean o cambian por región).
   Server propio en `~/mcp/dataimpulse` (Node ESM, stdio, `@modelcontextprotocol/sdk` + `undici`
   + `zod`): `fetch_page(url, country?, city?, session?, raw?)` y
