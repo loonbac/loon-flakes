@@ -444,6 +444,35 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   evaluación o el paquete AppImage ya publicado; el build C++ puede consumir
   decenas de GiB de RAM.
 
+### Editar AnyDesk (escritorio remoto)
+
+- **Módulo**: `modules/programs/anydesk/default.nix`. nixpkgs no trae módulo
+  NixOS para AnyDesk: el paquete deja la unidad en `$out/lib/systemd/system`,
+  y el módulo la importa con `systemd.packages` + `wantedBy` en vez de
+  reescribirla.
+- **Dos piezas**: la app (`anydesk`, GUI) y `anydesk.service` (`--service`,
+  User=root). El servicio es lo que habilita conexiones entrantes y la pantalla
+  de login; sin él solo funciona con la GUI abierta.
+- **PATH del servicio**: la unidad ejecuta el binario del store sin el wrapper
+  del paquete, así que su PATH es el mínimo de systemd y `ip`, `lsblk` y
+  `domainname` fallaban en el journal. Se corrige con
+  `systemd.services.anydesk.path = [ "/run/current-system/sw" ]`.
+- **Límite real en Wayland**: el wrapper fija `GDK_BACKEND=x11`, así que
+  AnyDesk corre sobre XWayland (niri lo aporta con `xwayland-satellite`). Puede
+  ver y controlar ventanas X11, pero **no** ventanas Wayland nativas ni la
+  sesión de niri. Para controlar todo el escritorio hace falta
+  `org.freedesktop.portal.RemoteDesktop` (libei), que AnyDesk todavía no
+  implementa; no se resuelve desde Nix. Alternativas que sí lo cubren:
+  `rustdesk` (nixpkgs, soporte Wayland vía portal) o
+  `krdp`/`wayvnc` (VNC con `wlr-screencopy` en wlroots; niri soporta
+  `wlr-screencopy` y `wlr-virtual-pointer`).
+- **Verificar**: `systemctl status anydesk`, `anydesk --get-id` y que el
+  journal no repita los errores de `ip`/`lsblk`.
+- **Aviso cosmético conocido**: el journal muestra `domainname: invalid option
+  -- 'A'`. AnyDesk pide el FQDN con una opción que el applet `domainname` de
+  NixOS (parte de `hostname`) no acepta; cae al nombre corto y no afecta al
+  funcionamiento. No se parchea el binario por esto.
+
 ### Editar TS-Bypass de loon-laptop
 
 - **Módulo/servicio**: `modules/services/tailscale/default.nix` define
@@ -583,6 +612,30 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   modelo de 1M de contexto (`alibaba-token-plan/*`, `opencode-go/deepseek-v4.1-flash`,
   `workbuddy/*`, `commandcode/*`, `intern-ai/*`, `river*/*`). Eso compacta a ~150k. Ahorro
   proyectado: 55 % del coste.
+- **Compactación de Pi: el ajuste que más ahorra** (`~/.pi/agent/settings.json`, no en Nix).
+  Por defecto `reserveTokens = 16384`, así que con un modelo de 1M de contexto Pi compacta recién
+  a **983 616 tokens**. Los logs del 2026-10 mostraron compactaciones con `tokensBefore` mediano de
+  469 418 y p90 de 770 073: arrastrar ese contexto costaba el 62 % del gasto en *input miss*.
+  Configuración aplicada: `compaction.reserveTokens = 16384` global (los modelos pequeños, 65k y
+  262k, no toleran un reserve alto) y **`modelOverrides` que fijan un umbral de 250 000 tokens**
+  para cada modelo del catálogo. Ahorro proyectado: 55 % del coste.
+  - **El umbral se calcula, no se escribe a mano**: `pi-compaction-threshold`
+    (`pkgs/pi-compaction-threshold`, en PATH y como `runtimeInputs` de
+    `gentle-ai-bootstrap`) lee `pi --list-models` y deriva un `reserveTokens` igual a
+    `contextWindow − 250000` (piso `65536`) para cada modelo que supere el umbral. Escribe con
+    merge **aditivo**: nunca borra una entrada, así un catálogo parcial (auth caída, proveedor sin
+    red) no destruye la configuración. Corre en cada activación, después de `pi install`, que
+    también reescribe `settings.json`. Verificar: `pi-compaction-threshold` (dry run) y `--apply`
+    para escribir.
+  - **Por qué 250 000 y no 150 000**: el modelo de coste con las tasas reales (input
+    `$0,0601/1M`, output `$0,4219/1M`, cacheRead `$0,0032/1M`, 44 503 llamadas, crecimiento
+    13 382 tok/llamada, piso post-compactación 24 100 tok) da un óptimo entre 190k y 290k, estable
+    en 6 escenarios de sensibilidad. A 250k el gasto es `$67,40/mes` con **2 636 compactaciones**;
+    a 150k es `$69,87/mes` con **4 730** (una cada 9,4 llamadas, "a cada rato"). 250k compacta 44 %
+    menos al mismo coste. 636k sube a `$87,26` y 983 616 a `$110,39`.
+  - **No hay comodines**: el schema es `TRecord<"^.*$", …>` con claves exactas `provider/model`,
+    así que la enumeración es obligatoria. Los 36 overrides manuales previos cubrían solo 58,2 % de
+    los tokens; el catálogo vivo cubre ahora **99,95 %** (155 entradas para 200 modelos).
   - **No conviene tocar el caché**: en los logs el *cache read* era 15,45 B tokens (24 % del gasto)
     mientras el *input miss* eran 0,805 B (62 %). El caché es el aliado; lo caro es el token nuevo.
   - Medir el consumo real: `~/.local/bin/pi-usage` (script propio, sin dependencias). Lee los
@@ -590,13 +643,13 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `cacheRead`, `cacheWrite`, `totalTokens`), y separa tokens **nuevos** de **caché**. Opciones:
     `--today`, `--days N`, `--models`. Da el gasto exacto sin depender del panel del proveedor y
     revela la señal que importa: el ratio caché/nuevo y el reparto de niveles de *thinking*.
-  - **Regla para añadir un modelo**: todo modelo con `contextWindow ≥ 300k` necesita entrada en
-    `modelOverrides` con `reserveTokens = contextWindow - 150000`. Hoy son 36 entradas. Peor aún es
-    un modelo **sin** `contextWindow` en `models.json`: Pi no sabe cuándo compactar. Se corrigieron
-    los 7 de `infronai` consultando `/v1/models` del propio gateway.
+  - **Al añadir un modelo** ya no hay paso manual: si el modelo aparece en `pi --list-models` con
+    `contextWindow` suficiente, la siguiente activación le pone el override. Peor que un umbral
+    tarde es un modelo **sin** `contextWindow` en `models.json`: Pi no sabe cuándo compactar. Se
+    corrigieron los 7 de `infronai` consultando `/v1/models` del propio gateway.
   - **`defaultThinkingLevel` = `high`** por decisión del usuario (2026-10-23): hace sobre todo
     diseño y arquitectura, y ahí el razonamiento de calidad compensa. El coste se controla con la
-    compactación a 150k, no bajando el nivel. En los logs el 82,9 % de las llamadas ya corrían en
+    compactación, no bajando el nivel. En los logs el 82,9 % de las llamadas ya corrían en
     `high`, y el razonamiento se factura como *output* (el token más caro): si el gasto se dispara,
     el primer ajuste es bajar a `medium` antes que tocar la compactación.
   - **Ojo al reescribir `settings.json`**: la sesión viva de Pi lo reescribe desde memoria y puede

@@ -91,9 +91,11 @@
       };
       betterClaudeCodeUi = loon.packages.${system}.default;
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
+      piCompactionThreshold = pkgs.callPackage ./pkgs/pi-compaction-threshold { };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
         inherit
           piLauncher
+          piCompactionThreshold
           gentleAiLauncher
           gentleAiRuntimeUpdater
           engramLauncher

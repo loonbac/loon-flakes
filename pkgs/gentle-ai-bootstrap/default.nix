@@ -9,6 +9,7 @@
 , nodejs
 , libnotify
 , pipewire
+, piCompactionThreshold
 , piLauncher
 , gentleAiLauncher
 , gentleAiRuntimeUpdater
@@ -1324,6 +1325,7 @@ writeShellApplication {
     fd
     gzip
     nodejs
+    piCompactionThreshold
     piLauncher
     gentleAiLauncher
     gentleAiRuntimeUpdater
@@ -1671,6 +1673,18 @@ writeShellApplication {
     # pi install may append its source. Normalize the list without touching
     # packages that neither the Gentle core nor the local loon layer owns.
     node "${mergeSettings}" "$settings_path" "${manifest}" "$core_sources_state"
+
+    # Pi compacts at `contextWindow - reserveTokens`, and the override has to
+    # name each model exactly: the catalogue is discovered at runtime, so a
+    # hand-written list ages into the very problem it was meant to solve.
+    # Recomputing here keeps the threshold fixed across every model while the
+    # catalogue changes. It runs after `pi install` because that command also
+    # rewrites settings.json. A missing catalogue never fails the activation:
+    # the launcher exits without touching settings, so the previous overrides
+    # survive and the next switch retries.
+    if ! pi-compaction-threshold --apply; then
+      echo "gentle-ai-bootstrap: could not refresh compaction thresholds; keeping the previous ones" >&2
+    fi
 
     verify_gentle_ai_runtime() {
       node --input-type=module - "$gentle_pi_root" <<'NODE' >/dev/null 2>&1
