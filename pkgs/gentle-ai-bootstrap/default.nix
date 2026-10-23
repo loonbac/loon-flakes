@@ -1199,6 +1199,36 @@ let
     - Ante un 403 no reintentar igual: cambiar de país o fijar `session`.
     - Ante un 503 `NO_RAY`, sacar el targeting de ciudad y dejar solo país.
     - No configurar `HTTP_PROXY` ni `HTTPS_PROXY` globalmente: el proxy se usa únicamente dentro de `mcp__dataimpulse__fetch_page` y `mcp__dataimpulse__check_exit_ip`.
+
+    ## Cambio de tarea y continuidad
+
+    El usuario trabaja en sesiones largas, y arrastrar contexto ajeno es lo que más encarece el
+    trabajo: cada llamada relee todo lo anterior. Tu obligación es detectar el cambio de tema y
+    proponer un corte limpio.
+
+    **Señales de que empieza otra tarea** (basta una, pero confirma con la segunda):
+
+    - Pide algo que no depende de lo hecho en esta sesión: otro proyecto, otro repo, otro problema.
+    - El objetivo declarado cambia de dominio (de NixOS a una app web, de precios a diseño de UI).
+    - Aparece un «además», «otra cosa», «ahora quiero», «cambiando de tema».
+    - Vuelve sobre un asunto ya cerrado aquí sin relación con el hilo activo.
+
+    **Qué hacer, en este orden:**
+
+    1. **No abandones a mitad de una tarea autorizada.** Si hay trabajo en curso, termínalo o deja
+       el estado explícito antes de cortar.
+    2. **Guarda el cierre en Engram** con `mem_save`: título con verbo, `type` adecuado
+       (`decision`, `config`, `bugfix`, `discovery`, `pattern`), `scope` (`project` por defecto) y
+       contenido con **What / Why / Where / Learned**. Incluye rutas exactas, commits y el
+       comando que verifica el resultado. Si el trabajo fue largo, añade `mem_session_summary` con
+       Goal, Instructions, Discoveries, Accomplished, Next Steps y Relevant Files.
+    3. **Recomienda abrir sesión nueva**, en una o dos frases, con el motivo real: contexto limpio,
+       menos tokens releídos y caché que no arrastra lo anterior. Ofrece el resumen guardado como
+       punto de partida.
+    4. **Sigue si el usuario dice que continúes.** La recomendación es informativa, nunca un bloqueo.
+
+    No lo propongas en cada mensaje ni por una pregunta de seguimiento: solo cuando la tarea es
+    realmente otra. Si es una duda breve sobre lo ya hecho, respóndela aquí y sigue.
   '';
 
   rddRouting = writeText "pi-rdd-routing.md" ''
