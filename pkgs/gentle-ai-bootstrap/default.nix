@@ -39,7 +39,6 @@ let
     "npm:pi-discord-activity"
     "npm:pi-web-access"
     "npm:pi-btw"
-    "npm:pi-mcp-adapter"
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
     "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
@@ -55,7 +54,6 @@ let
     "gentle-engram"
     "pi-web-access"
     "pi-btw"
-    "pi-mcp-adapter"
     "pi-antigravity"
     "pi-commandcode-provider"
     "pi-cline-free"
@@ -64,10 +62,12 @@ let
   piSettings = {
     defaultProjectTrust = "always";
     defaultThinkingLevel = "high";
-    extensions = [
-      "-builtin:codemode"
-      "-builtin:mcp"
-    ];
+    # Aquí solo se declaran los built-in que este repo quiere apagar; vacío
+    # significa que Pi carga los suyos por defecto. `mcp` queda encendido
+    # porque reemplaza al adaptador retirado, y `codemode` también, porque es
+    # lo que mantiene las tools de MCP fuera del contexto: las llama desde un
+    # script en vez de declararlas al modelo.
+    extensions = [ ];
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
     quietStartup = true;
@@ -82,10 +82,168 @@ let
     tuiMode = "fullscreen";
   };
 
-  # Vacío a propósito: este attrset se fusiona sobre ~/.pi/agent/models.json con
-  # Object.assign en cada activación, así que toda entrada declarada aquí se
-  # re-inyecta y no puede eliminarse editando el JSON a mano.
-  piModelProviders = { };
+  # Este attrset se fusiona sobre ~/.pi/agent/models.json con Object.assign en
+  # cada activación, así que toda entrada declarada aquí se re-inyecta y no
+  # puede eliminarse editando el JSON a mano.
+  #
+  # Ningún valor secreto va aquí: el repo es público. `apiKey` se resuelve con
+  # `!command` contra un archivo 0600 del home, así que la credencial vive solo
+  # en ~/.config/inception/api-key y nunca entra al repo ni al store.
+  piModelProviders = {
+    inception = {
+      name = "Inception Labs";
+      baseUrl = "https://api.inceptionlabs.ai/v1";
+      api = "openai-completions";
+      apiKey = "!cat /home/loonbac/.config/inception/api-key";
+      compat = {
+        maxTokensField = "max_completion_tokens";
+        supportsDeveloperRole = false;
+        supportsReasoningEffort = true;
+        thinkingFormat = "openai";
+      };
+      models = [
+        {
+          id = "mercury-3";
+          name = "Mercury 3";
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "instant";
+            minimal = "low";
+            low = "low";
+            medium = "medium";
+            high = "high";
+            xhigh = null;
+            max = null;
+          };
+          input = [ "text" ];
+          cost = {
+            input = 0.10;
+            output = 0.35;
+            cacheRead = 0.01;
+            cacheWrite = 0;
+          };
+          contextWindow = 1000000;
+          maxTokens = 131072;
+        }
+      ];
+    };
+
+    # Alibaba Token Plan (Personal Edition, región Singapur). La clave vive en
+    # ~/.config/alibaba-token-plan/api-key (0600) y empieza por `sk-sp-`: no es
+    # intercambiable con la clave de pago por uso (`sk-`) ni con Coding Plan.
+    # El endpoint y la clave deben ser del mismo par; con la clave de pago por
+    # uso la llamada se factura aparte del plan y no se puede descontar.
+    # Nota: el plan aplica 50 % de descuento en créditos entre 22:00 y 08:00
+    # UTC+8, que en Perú (UTC-5) corresponde a 09:00–19:00.
+    alibaba-token-plan = {
+      name = "Alibaba Token Plan";
+      baseUrl = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
+      api = "openai-completions";
+      apiKey = "!cat /home/loonbac/.config/alibaba-token-plan/api-key";
+      compat = {
+        # El gateway acepta enable_thinking (convención DashScope) además de
+        # thinking.type; se usa `qwen` para no enviar un campo que rechace.
+        thinkingFormat = "qwen";
+        supportsReasoningEffort = true;
+        supportsDeveloperRole = false;
+        maxTokensField = "max_tokens";
+      };
+      models = [
+        {
+          id = "deepseek-v4.1-flash-1017";
+          name = "DeepSeek V4.1 Flash 1017";
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "off";
+            minimal = "low";
+            low = "low";
+            medium = "high";
+            high = "high";
+            xhigh = "high";
+            max = "max";
+          };
+          input = [ "text" "image" ];
+          cost = {
+            input = 0.15;
+            output = 0.60;
+            cacheRead = 0.015;
+            cacheWrite = 0;
+          };
+          contextWindow = 1000000;
+          maxTokens = 393216;
+        }
+        {
+          id = "deepseek-v4.1-flash";
+          name = "DeepSeek V4.1 Flash";
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "off";
+            minimal = "low";
+            low = "low";
+            medium = "high";
+            high = "high";
+            xhigh = "high";
+            max = "max";
+          };
+          input = [ "text" "image" ];
+          cost = {
+            input = 0.15;
+            output = 0.60;
+            cacheRead = 0.015;
+            cacheWrite = 0;
+          };
+          contextWindow = 1000000;
+          maxTokens = 393216;
+        }
+        {
+          id = "glm-5.3";
+          name = "GLM 5.3";
+          reasoning = true;
+          thinkingLevelMap = {
+            off = null;
+            minimal = "low";
+            low = "low";
+            medium = "high";
+            high = "high";
+            xhigh = "high";
+            max = "max";
+          };
+          input = [ "text" ];
+          cost = {
+            input = 1.10;
+            output = 3.85;
+            cacheRead = 0.275;
+            cacheWrite = 0;
+          };
+          contextWindow = 1000000;
+          maxTokens = 131072;
+        }
+        {
+          id = "qwen3.8-max";
+          name = "Qwen 3.8 Max";
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "off";
+            minimal = "low";
+            low = "low";
+            medium = "medium";
+            high = "xhigh";
+            xhigh = "xhigh";
+            max = "xhigh";
+          };
+          input = [ "text" "image" ];
+          cost = {
+            input = 1.65;
+            output = 4.95;
+            cacheRead = 0.21;
+            cacheWrite = 0;
+          };
+          contextWindow = 1000000;
+          maxTokens = 131072;
+        }
+      ];
+    };
+  };
 
   # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
   # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Google y
@@ -191,6 +349,27 @@ let
     # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
     "@juicesharp/rpiv-ask-user-question"
     "pi-antigravity"
+    # gentle-ai ≥ 4.2.0 retira pi-mcp-adapter: Pi ≥ 0.99 trae MCP propio y el
+    # adaptador apagaba el MCP interno mientras estuvo instalado. Se mantiene en
+    # esta lista para que la fusión borre la entrada vieja de settings.json en
+    # la próxima activación.
+    "pi-mcp-adapter"
+  ];
+
+  # Entradas de `extensions` que este repo escribió y ya no quiere. La fusión
+  # solo une listas, así que retirar una entrada exige filtrarla: sin esto,
+  # `-builtin:mcp` sobreviviría en el settings.json existente y Pi seguiría sin
+  # cargar su MCP interno.
+  #
+  # `-builtin:codemode` NO se retira aquí a propósito. gentle-pi sustituye el
+  # codemode builtin por su renderer compacto (extensions/quiet-tools.ts
+  # registra el codemode compacto) y, solo si el usuario acepta un prompt de una
+  # vez, escribe esa entrada para silenciar el aviso de Pi. Es una decisión del
+  # usuario sobre su propio settings.json: filtrarla la revierte en cada
+  # activación y hace que gentle-pi vuelva a preguntar. Codemode sigue activo
+  # igual, porque lo aporta gentle-pi.
+  retiredPiExtensions = [
+    "-builtin:mcp"
   ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
@@ -199,6 +378,7 @@ let
       localPiPackages
       piPackages
       piPackageNames
+      retiredPiExtensions
       piSettings
       piModelProviders
       subagentModelProfiles
@@ -261,24 +441,43 @@ let
     fs.chmodSync(outputPath, 0o600);
   '';
 
-  # Config que el bootstrap symlinka en ~/.pi/agent/{mcp.json,mcp-adapter.json}:
-  # es la única que Pi lee a nivel de usuario, así que los servers declarados
-  # aquí tienen acceso en todas las sesiones. `lida` (asistente Discord) vive
-  # en el home porque sus bytes son mutables del usuario: wrapper, binario
-  # compilado y token (.env) quedan fuera de la store. Los campos `lifecycle` y
-  # `directTools` del fichero original no son del formato de Pi: `exposure`
-  # por defecto (codemode) ya cubre el segundo, y Pi conecta al arranque.
+  # Config que el bootstrap symlinka en ~/.pi/agent/mcp.json. Es el único
+  # fichero de MCP que Pi lee a nivel de usuario, así que los servers
+  # declarados aquí tienen acceso en todas las sesiones. `lida` (asistente
+  # Discord) y `google-flow` (automatización de flow.google.com sobre Chrome ya
+  # autenticado) viven en el home porque sus bytes son mutables del usuario:
+  # wrapper, dependencias npm, build y config quedan fuera de la store.
+  #
+  # `engram` no se declara a propósito: la extensión gentle-engram registra los
+  # tools `mem_*` nativos y habla con Engram por HTTP, y su propio README pide
+  # quitar `mcpServers.engram` para que las escrituras de memoria salgan solo
+  # por esa vía. Los campos `lifecycle`/`directTools` del formato del adaptador
+  # no son de Pi: `exposure` por defecto (codemode) deja las tools fuera del
+  # contexto, y Pi activa codemode cuando un server con esa exposición conecta.
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers = {
-      engram = {
-        command = "${engramLauncher}/bin/engram";
-        args = [ "mcp" "--tools=agent" ];
-      };
       lida = {
         command = "/home/loonbac/.local/share/loon-pi-mcp/run-lida-mcp";
         args = [ ];
         cwd = "/home/loonbac/.local/share/loon-pi-mcp/lida";
         description = "Discord guild assistant: plans, guilds and messaging";
+      };
+      google-flow = {
+        command = "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp";
+        args = [ ];
+        cwd = "/home/loonbac/.local/share/loon-pi-mcp/google-flow";
+        description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
+      };
+      # Residential proxy for pages that block this host or change by region.
+      # The proxy is used ONLY inside this server: the store holds no
+      # credentials and no HTTP(S)_PROXY is exported anywhere. The wrapper
+      # reads DI_USER/DI_PASS from ~/mcp/dataimpulse/.env (0600) and exports
+      # them into that single child process.
+      dataimpulse = {
+        command = "/home/loonbac/mcp/dataimpulse/run.sh";
+        args = [ ];
+        cwd = "/home/loonbac/mcp/dataimpulse";
+        description = "DataImpulse residential proxy: fetch_page (clean text/raw HTML, country/city/session) and check_exit_ip";
       };
     };
   });
@@ -518,10 +717,15 @@ let
     // La configuración portable del flake es autoritativa. Credenciales,
     // modelos descubiertos y sesiones viven en archivos separados.
     const existingExtensions = Array.isArray(settings.extensions) ? settings.extensions : [];
+    const retiredExtensions = new Set(manifest.retiredPiExtensions ?? []);
     Object.assign(settings, manifest.piSettings);
-    if (Array.isArray(manifest.piSettings?.extensions)) {
-      settings.extensions = Array.from(new Set([...existingExtensions, ...manifest.piSettings.extensions]));
-    }
+    // Una entrada retirada tiene que desaparecer, no solo dejar de declararse:
+    // la unión conserva lo que escribió una activación anterior, así que se
+    // filtra después de unir.
+    settings.extensions = Array.from(new Set([
+      ...existingExtensions,
+      ...(Array.isArray(manifest.piSettings?.extensions) ? manifest.piSettings.extensions : []),
+    ])).filter((entry) => !retiredExtensions.has(entry));
 
     function packageName(spec) {
       const value = String(spec).replace(/^npm:/, "");
@@ -979,13 +1183,14 @@ let
   appendSystemExtra = writeText "pi-append-system-extra.md" ''
     ## Investigación web
 
-    - Para leer cualquier página pública, usar `dataimpulse_fetch_page` (la tool MCP `fetch_page`) en vez de WebFetch/fetch_content.
+    - Para leer cualquier página pública, usar `mcp__dataimpulse__fetch_page` (la tool MCP
+      `fetch_page` del server `dataimpulse`) en vez de WebFetch/fetch_content.
     - Excepción: si es documentación pública que no bloquea, WebFetch/fetch_content es más rápido y no consume gigas. El proxy es para lo que bloquea o lo que cambia por región.
     - Si el contenido depende del país (precios, stock, disponibilidad, búsquedas), pasar `country` explícito siempre. Nunca asumir el país por defecto.
     - Si hay más de un request al mismo sitio (paginado, login, flujo de 2 pasos), usar el mismo `session` en todos. Una IP por tarea, no una IP por request.
     - Ante un 403 no reintentar igual: cambiar de país o fijar `session`.
     - Ante un 503 `NO_RAY`, sacar el targeting de ciudad y dejar solo país.
-    - No configurar `HTTP_PROXY` ni `HTTPS_PROXY` globalmente: el proxy se usa únicamente dentro de `dataimpulse_fetch_page` y `dataimpulse_check_exit_ip`.
+    - No configurar `HTTP_PROXY` ni `HTTPS_PROXY` globalmente: el proxy se usa únicamente dentro de `mcp__dataimpulse__fetch_page` y `mcp__dataimpulse__check_exit_ip`.
   '';
 
   rddRouting = writeText "pi-rdd-routing.md" ''
@@ -1304,6 +1509,10 @@ writeShellApplication {
     retire_package "pi-subagents-j0k3r"
     retire_package "@tintinweb/pi-subagents"
     retire_package "@juicesharp/rpiv-todo"
+    # Pi ≥ 0.99 trae MCP propio y gentle-ai retira el adaptador, así que su
+    # árbol deja de declararse y sale del camino mutable (recuperable desde el
+    # backup de esta activación si algún día se reinstala a mano).
+    retire_package "pi-mcp-adapter"
     rm -rf "$local_package_root/pi-antigravity-alt"
     rm -f "$agent_dir/commandcode-models.json"
     rm -f "$agent_dir/state/antigravity-quota-fallback.json"
@@ -1358,7 +1567,6 @@ writeShellApplication {
     install_missing_package pi-discord-activity npm:pi-discord-activity
     install_missing_package pi-web-access npm:pi-web-access
     install_missing_package pi-btw npm:pi-btw
-    install_missing_package pi-mcp-adapter npm:pi-mcp-adapter
     install_missing_package pi-antigravity npm:pi-antigravity
 
     desired_core_source() {
@@ -1506,23 +1714,31 @@ NODE
 
     node "${normalizeHostPeerDependencies}" "$npm_node_modules"
 
-    for config_name in mcp-adapter.json mcp.json; do
-      target_path="$agent_dir/$config_name"
-      if ! [ -L "$target_path" ] && [ -e "$target_path" ]; then
-        mkdir -p "$(dirname "$backup_dir/$config_name")"
-        mv "$target_path" "$backup_dir/$config_name"
-      elif [ -L "$target_path" ]; then
-        if [ "$(readlink -f "$target_path" || true)" = "${mcpConfig}" ]; then
-          target_path=""
-        else
-          mkdir -p "$(dirname "$backup_dir/$config_name")"
-          mv "$target_path" "$backup_dir/$config_name"
-        fi
-      fi
-      if [ -n "$target_path" ]; then
-        ln -s "${mcpConfig}" "$target_path"
+    # El estado propio de pi-mcp-adapter se retira: Pi no lee mcp-adapter.json,
+    # mcp-cache.json ni mcp-project-approvals.json, y la extensión ya no se
+    # declara. Se mueve al backup (nunca se borra) para poder restaurarlo si
+    # algún día se reinstala el adaptador a mano.
+    for retired_state_name in mcp-adapter.json mcp-cache.json mcp-project-approvals.json; do
+      retired_state_path="$agent_dir/$retired_state_name"
+      if [ -e "$retired_state_path" ] || [ -L "$retired_state_path" ]; then
+        mkdir -p "$backup_dir/pi-mcp-adapter"
+        mv "$retired_state_path" "$backup_dir/pi-mcp-adapter/$retired_state_name"
       fi
     done
+
+    # mcp.json es el único config de MCP de usuario que Pi lee por sí mismo.
+    config_name=mcp.json
+    target_path="$agent_dir/$config_name"
+    if ! [ -L "$target_path" ] && [ -e "$target_path" ]; then
+      mkdir -p "$(dirname "$backup_dir/$config_name")"
+      mv "$target_path" "$backup_dir/$config_name"
+    elif [ -L "$target_path" ] && [ "$(readlink -f "$target_path" || true)" != "${mcpConfig}" ]; then
+      mkdir -p "$(dirname "$backup_dir/$config_name")"
+      mv "$target_path" "$backup_dir/$config_name"
+    fi
+    if [ ! -L "$target_path" ]; then
+      ln -s "${mcpConfig}" "$target_path"
+    fi
 
     node "${mergeState}" "$state_path"
 

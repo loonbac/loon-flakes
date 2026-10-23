@@ -73,7 +73,7 @@ exactos y las trampas aprendidas en el camino.
 │   │                          #   hardware-configuration.nix (autogenerado, NO tocar)
 │   └── nixos-pc/              # PC: default.nix, platform.nix (NVIDIA/lanzaboote), hardware...
 │                              #   y por capacidad: games-disk, projects-disk, gaming,
-│                              #   streaming, sunshine (*.nix)
+│                              #   streaming, sunshine, cloudflared, cross-toolchain (*.nix)
 └── modules/                   # módulos compartidos por ambos hosts
     ├── default.nix            # mod raíz: registra todo + aserción de tmpfiles
     ├── system/                # boot, locale, fuentes, systemPackages
@@ -463,6 +463,149 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - Verificar con `ts-bypass status` y
   `tailscale ping --until-direct=false nixos-pc`.
 
+### MCP de Pi (built-in) y codemode
+
+- **Dueño**: `pkgs/gentle-ai-bootstrap/default.nix`. Pi ≥ 0.99 trae MCP propio, así que
+  `pi-mcp-adapter` **no se declara ni se instala**: gentle-ai ≥ 4.2.0 lo retira, y mientras
+  estuvo instalado apagaba el MCP interno. Volver a declararlo reproduce el vaivén (Nix lo
+  instala en el rebuild, gentle-ai lo retira en el siguiente sync).
+- **MCP**: `piSettings.extensions = [ ]` deja que Pi cargue sus defaults, `builtin:mcp`
+  incluido. Con la exposición por defecto (`codemode`) las tools del servidor no se declaran
+  al modelo: las llama la tool `codemode` desde un script.
+- **`-builtin:codemode` es del usuario, no del repo**: gentle-pi sustituye el codemode
+  builtin por su renderer compacto y, si el usuario acepta el prompt una vez, escribe esa
+  entrada para silenciar el aviso de Pi. El repo la deja en paz a propósito:
+  `retiredPiExtensions` solo retira `-builtin:mcp`, porque filtrar la de codemode la revierte
+  en cada activación y gentle-pi vuelve a preguntar. Codemode funciona igual (lo aporta
+  gentle-pi).
+- **Ficheros**: el único config de usuario que Pi lee es `~/.pi/agent/mcp.json` (symlink a
+  `mcpConfig`). `mcp-adapter.json`, `mcp-cache.json` y `mcp-project-approvals.json` eran del
+  adaptador: la activación los mueve a `backups/nix-gentle-ai/<fecha>/pi-mcp-adapter/`.
+- **`engram` no se declara** en `mcpServers`: la extensión gentle-engram registra los `mem_*`
+  nativos por HTTP y su README pide quitar esa clave para evitar doble escritura. Queda `lida`.
+- **Configs de proyecto**: Pi lee `.pi/mcp.json`, no `.mcp.json` (eso lo leía el adaptador).
+  Un `.mcp.json` existente se **copia** a `.pi/mcp.json` para no romper otros clientes.
+- **Retirar entradas ya escritas**: `mergeSettings` solo une listas, así que una entrada que
+  deja de declararse se filtra con `retiredPiExtensions` (o `retiredPiPackageNames` para
+  paquetes). Sin ese filtro sobrevive en `settings.json` y el built-in sigue apagado. Retirar
+  es para entradas que el repo declaró y ya no quiere, no para las que el usuario eligió.
+- **Verificar**: `pi mcp list` (conecta y muestra exposure/tools) y que `settings.json` no
+  conserve `-builtin:mcp`; `-builtin:codemode` sí puede estar ahí.
+- **MCP `google-flow`**: automatiza `flow.google.com` desde un Chrome ya autenticado (33 tools
+  `flow_*`). Nix solo declara el server; los bytes mutables viven en el home:
+  `~/.local/share/loon-pi-mcp/google-flow` (clone + `npm install` + `npm run build`) y el
+  wrapper `run-google-flow-mcp`. Actualizar: `git pull --rebase && npm install && npm run build`
+  (rama `development`; con `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` al instalar: el server solo
+  se conecta por CDP).
+  Config editable: `google-flow/config/flow.config.json` (`expectedAccount`, perfil y puerto).
+  Lanzar el navegador: `npm run start-browser` desde esa carpeta, o `flow_connect` si ya corre.
+- **Chrome 155 rechaza CDP en el directorio por defecto**: con
+  `DevTools remote debugging requires a non-default data directory` el flag
+  `--remote-debugging-port` se ignora en silencio (sin `DevToolsActivePort` y sin puerto).
+  Por eso el MCP usa `~/.config/google-chrome-flow` (perfil propio, copia del de siempre) y
+  `cdpPort: 9333`, no el 9222 que ocupan los chromium de pruebas. Si se pierde el login, se
+  copia el perfil autenticado con Chrome cerrado:
+  `cp -a ~/.config/google-chrome/{Default,"Local State"} ~/.config/google-chrome-flow/`.
+  Verificar la cuenta con `flow_account_check` (`verified: true`, `method: ui-chip`).
+- **`google-flow`: rama `development`, no `master`** (estado 2026-10-21). El clone corre
+  `development` (7e86e05) porque `master` todavía tiene la sumisión remota deshabilitada
+  (`Gate A`, solo `local-fixture`). `development` añade `executionMode: live-browser`
+  (`src/domain/live-submission.js`), `freeCharacterImages`, `flow_rename_image`, presupuesto
+  de créditos por proyecto (`projectCreditCap`, 50 por defecto) y arreglos de subida de
+  referencias/menciones. Verificado en vivo:
+  - Imagen: `flow_generate_image {auto_confirm: true}` → `executionMode: live-browser`,
+    `quote.total: 0` (Nano Banana 2.1) y clic real. Una sola imagen con `quantity: 1`.
+  - Subida + mención: `reference_images: ["/ruta/local.png"]` sube el archivo (aparece en
+    `flow_list_mention_options`), pero **la sumisión en vivo con `reference_images` se
+    rechaza** (`POLICY_DENIED: local-reference-identity-unavailable`): una ruta local no
+    identifica el asset remoto. El camino bueno es subir una vez y luego referenciar por
+    nombre con `ingredients: ["archivo.png"]`; el binding resuelve el `assetId` del chip
+    (`{"assetId": "...", "title": "...", "role": "ingredient"}`) y el clic procede.
+  - Video: `flow_generate_video {model: "Omni 1.1 Flash", duration: "8s", quality: "360p",
+    ingredients: ["archivo.png"], confirm_generate: true, max_credits: 6}` → cotizó
+    **6 créditos** en el panel y generó. Veo (Fast/Lite/Quality) ~20.
+  - La cola de trabajos es **en memoria**: `flow_generate_video` (prepare) y
+    `flow_generate_confirm` deben ocurrir en el mismo proceso MCP; reiniciar el server pierde
+    el `jobId`. Lo mismo vale para el ledger de créditos, que persiste en
+    `project-credit-budgets/` (estado de runtime, ignorado por git).
+  - `flow_download_latest` sin `assetId` sigue ambiguo (tiles duplicados sin identidad); con
+    `assetId` funciona. Hay un PR abierto (#4) que baja el asset por red cuando CDP no emite
+    evento de descarga.
+- **`google-flow`: dos parches locales commiteados en `development`** (`e0ba62c`, `38941a3`).
+  **Idioma**: manda el de la cuenta (`es-419`) y los selectores del upstream son ingleses;
+  ni `intl.accept_languages` ni la cookie `PREF=hl=en` lo cambian, `?hl=en` sí. `src/utils/flow-locale.js`
+  (`withFlowLocale`) lo fija en cada navegación. **Chip de configuración**: el
+  `Settings trigger` viejo puede quedar oculto mientras el visible es icon-only con
+  `aria-label="Settings"`; `openBarSettings` ahora lo acepta antes de la heurística de texto.
+  **Modo agente**: si está activo no hay chips de modelo/ratio (solo el panel "Agent
+  settings" con defaults por proyecto); `development` lo apaga y verifica en cada corrida de
+  imagen, pero conviene dejarlo apagado en el composer (pill `Agent`).
+  Al hacer `git pull` sobre `development`, resolver estos dos commits locales con rebase.
+- **Provider `inception` (Mercury 3)**: declarado en `piModelProviders` de
+  `pkgs/gentle-ai-bootstrap/default.nix`, no en `models.json` a mano, para que se re-inyecte en
+  cada activación (`Object.assign`, aditivo: no borra providers del usuario). Es un endpoint
+  OpenAI-compatible (`https://api.inceptionlabs.ai/v1`, `api: openai-completions`), así que
+  **no usa el puente LiteLLM** que la doc de Inception propone para Claude Code: Pi habla el
+  protocolo directo. Detalles: `mercury-3`, 1M de contexto, 131 072 de salida, `reasoning: true`
+  con `thinkingLevelMap` (`off→instant`, `low→low`, `medium→medium`, `high→high`, `xhigh/max`
+  sin soporte) y `compat` con `maxTokensField: max_completion_tokens` +
+  `supportsDeveloperRole: false`.
+  - **La API key no está en el repo ni en el store**: `apiKey` se resuelve con
+    `!cat /home/loonbac/.config/inception/api-key` (archivo 0600) en tiempo de request. Nunca
+    escribir la clave en `models.json` versionado, en Nix, ni en `AGENTS.md`; el repo es público.
+  - Verificado: `GET /v1/models` lista `mercury-2, mercury-2.5, mercury-3, mercury-decide`;
+    `pi -p --provider inception --model mercury-3` responde exacto y usa tools (leyó
+    `/etc/hostname`); el provider sobrevive al rebuild.
+  - Rotar la key = editar ese único archivo; no hay que rebuildear.
+- **Provider `alibaba-token-plan` (plan Starter/Essential comprado)**: declarado en
+  `piModelProviders` de `pkgs/gentle-ai-bootstrap/default.nix`. Endpoint OpenAI-compatible
+  `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` (región Singapur,
+  única disponible). La clave vive en `~/.config/alibaba-token-plan/api-key` (0600) y **empieza
+  por `sk-sp-`**: no es intercambiable con la de pago por uso (`sk-`) ni con Coding Plan, y el
+  endpoint debe ser el par correcto — usar la clave genérica factura aparte del plan y no se
+  puede descontar. Modelos declarados: `deepseek-v4.1-flash-1017`, `deepseek-v4.1-flash`,
+  `glm-5.3`, `qwen3.8-max` (todos 1M contexto). `compat.thinkingFormat = "qwen"` porque el
+  gateway usa `enable_thinking` (convención DashScope); acepta además `thinking.type` y
+  `reasoning_effort` (`low`/`high`/`max`). Máx salida 393 216 en DeepSeek, 131 072 en GLM/Qwen.
+  - **Descuento nocturno 50 %** para `deepseek-v4.1-flash*`, `deepseek-v4-pro-0813` y
+    `deepseek-v4-flash-0731` entre 22:00 y 08:00 UTC+8, que en Perú (UTC-5) es **09:00–19:00**:
+    toda la jornada laboral paga la mitad de créditos.
+  - Verificado: `pi -p --provider alibaba-token-plan --model deepseek-v4.1-flash-1017` responde
+    exacto y usa tools; streaming SSE con `stream_options.include_usage` funciona.
+  - Límite real del plan: no es la cuota de créditos sino la **concurrencia** (Essential 2–3
+    agentes). Si se agotan los créditos, las llamadas se bloquean y **no** pasan a pago por uso.
+- **Compactación de Pi: el ajuste que más ahorra** (`~/.pi/agent/settings.json`, no en Nix).
+  Por defecto `reserveTokens = 16384`, así que con un modelo de 1M de contexto Pi compacta recién
+  a **983 616 tokens**. Los logs del 2026-10 mostraron compactaciones con `tokensBefore` mediano de
+  469 418 y p90 de 770 073: arrastrar ese contexto costaba el 62 % del gasto en *input miss*.
+  Configuración aplicada: `compaction.reserveTokens = 16384` global (los modelos pequeños, 65k y
+  262k, no toleran un reserve alto) y **`modelOverrides` con `reserveTokens: 850000`** para cada
+  modelo de 1M de contexto (`alibaba-token-plan/*`, `opencode-go/deepseek-v4.1-flash`,
+  `workbuddy/*`, `commandcode/*`, `intern-ai/*`, `river*/*`). Eso compacta a ~150k. Ahorro
+  proyectado: 55 % del coste.
+  - **No conviene tocar el caché**: en los logs el *cache read* era 15,45 B tokens (24 % del gasto)
+    mientras el *input miss* eran 0,805 B (62 %). El caché es el aliado; lo caro es el token nuevo.
+  - Medir el consumo real: los `.jsonl` de `~/.pi/agent/sessions/**` guardan `usage` por respuesta
+    (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `cost`). Un script sobre esos
+    campos da el gasto exacto sin depender del panel del proveedor.
+- **MCP `dataimpulse`** (proxy residencial para páginas que bloquean o cambian por región).
+  Server propio en `~/mcp/dataimpulse` (Node ESM, stdio, `@modelcontextprotocol/sdk` + `undici`
+  + `zod`): `fetch_page(url, country?, city?, session?, raw?)` y
+  `check_exit_ip(country?, session?)`. Nix declara solo el wrapper
+  `~/mcp/dataimpulse/run.sh` en `mcpConfig`; las credenciales viven en
+  `~/mcp/dataimpulse/.env` (0600) y el wrapper las exporta **solo a ese proceso hijo**.
+  Regla dura: nunca `HTTP_PROXY`/`HTTPS_PROXY` globales (shell, config de agente, archivo):
+  ruteaban todo el tráfico de API por una IP residencial y quemaban el plan.
+  - DataImpulse: `gw.dataimpulse.com`, rotating HTTP 823 (SOCKS5 824), sticky 10000-20000;
+    targeting en el username: `login__cr.ar`, `;city.madrid`, `;sessid.etiqueta`
+    (`sessid` fija la IP 30 min). `city` cobra doble tarifa: usar solo país por defecto.
+  - Errores mapeados a pista accionable: 407 `TRAFFIC_EXHAUSTED` (sin gigas),
+    407 `THREADS_EXHAUSTED` (>2000 conexiones), 503 `NO_RAY` (targeting de ciudad demasiado
+    fino: sacar `city`), 403 (el sitio bloqueó igual: cambiar país o `session`).
+  - Verificado 2026-10-22: tres salidas distintas (`sin país` 187.95.17.122, `ar`
+    207.191.167.135, `es` 154.60.231.34), `api.country.is` devuelve AR/ES acorde, dos
+    llamadas con el mismo `sessid` repiten IP, y `pi mcp list` reporta `dataimpulse:
+    connected, 2 tools`. Actualizar dependencias: `cd ~/mcp/dataimpulse && npm install`.
 ---
 
 ## Lecciones aprendidas (gotchas)
@@ -606,5 +749,16 @@ scp -i ~/.ssh/id_ed25519 <archivo> loonbac@192.168.0.2:/home/loonbac/.nixos/<rut
 - SSH: solo claves (`PasswordAuthentication = false`), root no entra.
 - Firewall activo por defecto; abrir puertos en `modules/networking/default.nix`.
 - La contraseña de `loonbac` y el sudo se gestionan en la máquina, NO en el repo.
+- El token del túnel de Cloudflare (`hosts/nixos-pc/cloudflared.nix`) vive en
+  `/var/lib/cloudflared/token` (0400 root) y **no** en el repo: el repositorio es público. Se
+  aprovisiona a mano en cada máquina y se rota desde el panel de Zero Trust; el módulo no
+  declara ni el archivo ni su contenido (acabaría en el store).
+- **El túnel es una vía de acceso remoto** (`bypass.loonbac-dev.moe` → `ssh://localhost:22`):
+  hay gente que entra a esta máquina por ahí. No detengas ni reinicies `cloudflared-tunnel`
+  sin confirmarlo primero: un `stop` corta la sesión de quien lo esté usando. Lo mismo aplica
+  a `ts-bypass`/Tailscale. Si hay que cambiarlo, avisa y elige el momento.
+- **Nunca pases el token en la línea de comandos** (`--token <valor>`): acaba en el journal
+  persistente y en la unidad transitoria. Usa siempre `--token-file`, y para aprovisionarlo
+  `read -rsp` + `tee` (nunca `systemd-run ... --token`).
 - `loon-launch` tiene acciones de poder (`>` → apagar/reiniciar/hibernar/...);
   al editar, no romper la ejecución vía `sh -c`.

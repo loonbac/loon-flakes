@@ -63,6 +63,15 @@ in
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
     git
     gh
+    # Google Cloud CLI. Da `gcloud` (con `gsutil` y `bq`), que es lo que hace
+    # falta para `gcloud auth application-default login`: el archivo
+    # application_default_credentials.json que genera (tipo authorized_user) es
+    # el que consumen los MCP de Google, como gsc-korosoft. La derivación base
+    # no instala componentes opcionales; si algún día hacen falta (kubectl,
+    # alpha/beta, gcloud-crc32c) se añaden con `withExtraComponents`, no con un
+    # pin de versión. El wrapper del paquete no fija CLOUDSDK_CONFIG, así que
+    # las credenciales quedan en ~/.config/gcloud (ruta que google-auth busca).
+    google-cloud-sdk
     btop
     bat                # alternativa moderna a cat con resaltado de sintaxis
     libsecret          # secret-tool CLI para apps que usan Secret Service (ej. andes CLI)
@@ -94,6 +103,8 @@ in
     zen-browser
     helium-browser
     chromium           # para E2E (Playwright/Puppeteer) en esta máquina
+    google-chrome      # Chrome real (con claves de Google): login de Google y
+                       # MCP google-flow, que se conecta a Flow por CDP
     vscode-insiders
     antigravity
     antigravity-cli

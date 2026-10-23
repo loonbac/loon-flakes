@@ -10,6 +10,9 @@
     ./gaming.nix
     ./streaming.nix
     ./sunshine.nix
+    ./cross-toolchain.nix
+    ./cloudflared.nix
+    ./creator.nix
   ];
 
   networking.hostName = "nixos-pc";

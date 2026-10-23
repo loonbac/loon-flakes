@@ -12,8 +12,28 @@
 # por portales, que en esta sesión ya funcionan, así que no se amplía el
 # sandbox; si el selector de archivos resultara incómodo, el arreglo es un
 # override con `filesystems = [ "home" ]`, como el de PokeMMO en gaming.nix.
-{ ... }:
+{ config, lib, ... }:
+
+let
+  # La extensión GL de NVIDIA para Flatpak coloca sus bibliotecas bajo una ruta
+  # que lleva la versión del driver (…/GL/nvidia-<driver>/lib) y el runtime no la
+  # añade al camino de búsqueda del cargador. Consecuencia medida en esta
+  # máquina: OpenGL sí funciona (GLVND apunta ahí de forma explícita), pero
+  # `dlopen("libcuda.so.1")` falla — y por eso NVENC no se puede abrir al
+  # exportar, aunque el informe de la app liste `h264_nvenc` como soportado.
+  #
+  # El id de la extensión codifica la versión del driver con guiones, así que la
+  # ruta se deriva del paquete del driver en vez de fijarla como texto: subir el
+  # driver rompería la cadena en silencio si esto fuera una constante.
+  nvidiaExtensionLibs = "/usr/lib/x86_64-linux-gnu/GL/nvidia-${lib.replaceStrings [ "." ] [ "-" ] config.hardware.nvidia.package.version}/lib";
+in
 
 {
   services.flatpak.packages = [ "org.cutwire.Drift" ];
+
+  # Solo para esta app: `LD_LIBRARY_PATH` antepone rutas al cargador y hacerlo
+  # global podría ensombrecer bibliotecas de otras aplicaciones. Se usa
+  # `overrides.settings`, la forma vigente de nix-flatpak: la forma corta que
+  # usa `gaming.nix` está deprecada y emite aviso al activar.
+  services.flatpak.overrides.settings."org.cutwire.Drift".Environment.LD_LIBRARY_PATH = nvidiaExtensionLibs;
 }
