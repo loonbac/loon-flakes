@@ -196,6 +196,9 @@ let
           maxTokens = 393216;
         }
         {
+          # El gateway rechaza enable_thinking=false en GLM 5.3
+          # ("The value of the enable_thinking parameter is restricted to True"),
+          # así que `off` se mapea a null: Pi nunca manda ese nivel.
           id = "glm-5.3";
           name = "GLM 5.3";
           reasoning = true;
