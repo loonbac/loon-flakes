@@ -104,6 +104,20 @@ function scriptSnippet(toolName: string, input: Record<string, unknown>): string
 export default function (pi: ExtensionAPI) {
 	if (process.env.PI_CODEMODE_FORCE === "0") return;
 
+	/**
+	 * Enforcement is only fair when the compliant path exists. A subagent session
+	 * (and any session whose toolset lacks `codemode`) would otherwise be blocked
+	 * from every read and write with no way to comply: it cannot call the script
+	 * tool because the tool is not in its inventory.
+	 */
+	const canUseCodemode = (): boolean => {
+		try {
+			return pi.getActiveTools().includes("codemode");
+		} catch {
+			return false;
+		}
+	};
+
 	pi.on("tool_call", (event) => {
 		const fromScript = typeof event.parentToolCallId === "string";
 		const name = event.toolName;
@@ -123,6 +137,10 @@ export default function (pi: ExtensionAPI) {
 
 		// Rule 1: execution tool called natively.
 		if (!fromScript && SCRIPT_ONLY.has(name)) {
+			if (!canUseCodemode()) {
+				trace("no-codemode-tool", name, false);
+				return;
+			}
 			trace("native-execution", name, false);
 			return {
 				block: true,
