@@ -68,7 +68,18 @@ let
     # porque reemplaza al adaptador retirado, y `codemode` también, porque es
     # lo que mantiene las tools de MCP fuera del contexto: las llama desde un
     # script en vez de declararlas al modelo.
-    extensions = [ ];
+    #
+    # `pi-codemode-forcer` convierte codemode en la única vía para el trabajo
+    # de ejecución (bash, read, edit, write, grep, find, ls): si el modelo lo
+    # llama de forma nativa, el hook `tool_call` lo bloquea antes de ejecutar y
+    # devuelve el script listo para pegar. A la inversa, bloquea dentro de un
+    # script las tools que necesitan el host (ask_user_*, request_secret,
+    # gentle_review*, subagent_run), porque un sandbox no puede abrir la UI ni
+    # completar un consentimiento. Ambas reglas son chequeos de nombre sobre
+    # `parentToolCallId`: deterministas, sin juicio del modelo y sin trabajo
+    # rehecho. Escape: PI_CODEMODE_FORCE=0 desactiva la exigencia; los bloqueos
+    # se registran en ~/.pi/agent/codemode-forcer.log.
+    extensions = [ "${../pi-codemode-forcer/codemode-forcer.ts}" ];
     hideThinkingBlock = false;
     markdown.mermaid = "streaming";
     quietStartup = true;
