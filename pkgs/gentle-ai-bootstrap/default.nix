@@ -742,10 +742,31 @@ let
     // Una entrada retirada tiene que desaparecer, no solo dejar de declararse:
     // la unión conserva lo que escribió una activación anterior, así que se
     // filtra después de unir.
+    const declaredExtensions = Array.isArray(manifest.piSettings?.extensions)
+      ? manifest.piSettings.extensions
+      : [];
+    // Una extensión declarada como archivo obtiene un store path nuevo cada vez
+    // que su contenido cambia, y la unión conservaría el anterior para siempre:
+    // la extensión se cargaría dos veces y el JSON crecería en cada activación.
+    // La identidad de una extensión gestionada es su nombre de archivo, no su hash.
+    // En el store el nombre lleva el hash delante (`<hash32>-file.ts`), así que se
+    // quita antes de comparar; sin eso, dos versiones nunca coinciden.
+    const managedName = (entry) => {
+      const base = String(entry).split("/").pop() ?? "";
+      return base.replace(/^[a-z0-9]{32}-/, "");
+    };
+    const declaredByBasename = new Map(
+      declaredExtensions.map((entry) => [managedName(entry), entry]),
+    );
     settings.extensions = Array.from(new Set([
       ...existingExtensions,
-      ...(Array.isArray(manifest.piSettings?.extensions) ? manifest.piSettings.extensions : []),
-    ])).filter((entry) => !retiredExtensions.has(entry));
+      ...declaredExtensions,
+    ]))
+      .filter((entry) => !retiredExtensions.has(entry))
+      .filter((entry) => {
+        const managed = declaredByBasename.get(managedName(entry));
+        return managed === undefined || managed === entry;
+      });
 
     function packageName(spec) {
       const value = String(spec).replace(/^npm:/, "");

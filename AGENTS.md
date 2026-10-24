@@ -527,6 +527,16 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   - Verificado: `bash` nativo bloqueado y reintentado por codemode; `ask_user_question`
     bloqueado con `fromScript: true`. La extensión se enlaza desde `piSettings.extensions`
     y `mergeSettings` une listas, así que no pisa el `-builtin:codemode` del usuario.
+  - **La lista `HOST_ONLY` no se escribe de memoria**: se saca de `getAllTools()` (75 tools
+    configurados, 72 activos en esta sesión). Fuera de la lista quedan a propósito las
+    lecturas puras (`get_goal`, `subagent_status`, `subagent_result`, `subagent_list_*`,
+    `job_list`, `orchestrator_list`): bloquearlas costaría un turno sin ganar nada. Solo
+    `ask_user_question` está verificado empíricamente; el resto se clasificó por contrato.
+  - **Gotcha del merge de extensiones**: una extensión declarada como archivo cambia de
+    store path en cada activación, y la unión conservaba el anterior para siempre, así que
+    la extensión se cargaba dos veces y el JSON crecía. `mergeSettings` ahora compara por
+    nombre **quitando el prefijo `<hash32>-` del store**: comparar por basename no sirve
+    porque el basename incluye el hash.
 - **Ficheros**: el único config de usuario que Pi lee es `~/.pi/agent/mcp.json` (symlink a
   `mcpConfig`). `mcp-adapter.json`, `mcp-cache.json` y `mcp-project-approvals.json` eran del
   adaptador: la activación los mueve a `backups/nix-gentle-ai/<fecha>/pi-mcp-adapter/`.

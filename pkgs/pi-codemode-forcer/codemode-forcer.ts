@@ -49,18 +49,46 @@ const SCRIPT_ONLY = new Set([
 
 /**
  * Tools that need the Pi host and cannot work from inside a sandboxed script:
- * they prompt the user, open a consent dialog, or rely on a host relay.
+ * they prompt the user, open a consent dialog, drive the session or prompt UI,
+ * own a child-process registry, or publish cross-session state.
+ *
+ * The rule is about the contract, not about a guess: these tools talk to the
+ * host process or to a human. Pure reads that only return data (get_goal,
+ * subagent_status, subagent_result, subagent_list_*, job_list, mem_*, todo,
+ * typesafe_*, codegraph, web_*) stay callable from scripts on purpose —
+ * blocking them would cost a turn and buy nothing.
+ *
+ * Inventory taken from `getAllTools()` in this session (75 tools configured,
+ * 72 active), not from memory.
  */
 const HOST_ONLY = new Set([
+	// Human interaction and consent.
 	"ask_user_choice",
 	"ask_user_question",
 	"request_secret",
+	// Native review authority: the host relays every capture.
 	"gentle_review",
 	"gentle_review_capture",
 	"gentle_review_capture_group",
 	"gentle_review_scope",
+	// Session and prompt-chrome state owned by Pi.
+	"gentle_odd_phase",
+	"create_goal",
+	"update_goal",
+	"session_worktree_register",
+	"web_enable",
+	// Child-process registry and background jobs spawned by the host.
 	"subagent_run",
 	"subagent_continue",
+	"subagent_cancel",
+	"subagent_send_message",
+	"subagent_reply",
+	"monitor",
+	"job_stop",
+	// Cross-session coordination through the host profile.
+	"orchestrator_session_id",
+	"orchestrator_send_message",
+	"orchestrator_consult",
 ]);
 
 /** Render the tool call the model just attempted as a script line. */
