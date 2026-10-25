@@ -1242,6 +1242,12 @@ let
 
     ## Cambio de tarea y continuidad
 
+    **Codemode: backticks en scripts.** El sandbox de codemode (QuickJS) parsea el script como
+    módulo JavaScript. Si necesitas backticks en un string de shell, usa el hex escape
+    backslash-x-6-0 (que representa el caracter backtick). Un backtick sin escapar dentro de
+    un string rompe el parsing. El forcer genera snippets con este escape automáticamente.
+    Si generas código manualmente, sigue el mismo patrón.
+
     El usuario trabaja en sesiones largas, y arrastrar contexto ajeno es lo que más encarece el
     trabajo: cada llamada relee todo lo anterior. Tu obligación es detectar el cambio de tema y
     proponer un corte limpio.

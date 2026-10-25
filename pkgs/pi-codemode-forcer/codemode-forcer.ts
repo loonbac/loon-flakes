@@ -91,9 +91,18 @@ const HOST_ONLY = new Set([
 	"orchestrator_consult",
 ]);
 
-/** Render the tool call the model just attempted as a script line. */
+/**
+ * Render the tool call the model just attempted as a script line.
+ *
+ * Backticks are escaped because the codemode sandbox (QuickJS) parses the
+ * generated script as a JavaScript module, and a bare backtick inside a
+ * double-quoted string terminates the template literal the model is building.
+ * The snippet therefore uses `\`x60` (the hex escape for backtick) inside
+ * double-quoted strings, which QuickJS resolves before evaluation.
+ */
 function scriptSnippet(toolName: string, input: Record<string, unknown>): string {
 	const args = JSON.stringify(input ?? {}, null, 2)
+		.replace(/`/g, "\\`x60")  // escape backticks for QuickJS
 		.split("\n")
 		.map((line, index) => (index === 0 ? line : `  ${line}`))
 		.join("\n");
