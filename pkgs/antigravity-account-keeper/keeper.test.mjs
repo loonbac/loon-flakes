@@ -1059,6 +1059,37 @@ test("(REG-002) without a requirement the compatibility check stays inert", asyn
   assert.equal(result.result, "no-active-account");
 });
 
+test("(R1-001) a rotation is persisted when the account became active mid-refresh", async () => {
+  const { server, requestSeen, release } = await gatedTokenServer({
+    access_token: "keeper-rotated-access",
+    refresh_token: "keeper-rotated-refresh",
+    expires_in: 3600,
+  });
+  const s = scenario("keeper-adopt-rotated-", 60 * 1000);
+  try {
+    const running = runKeeper({ ...s.env, ANTIGRAVITY_TOKEN_URL: server.url });
+    await requestSeen;
+    // A quota failover makes the account active while our exchange is in flight, but it
+    // does not touch the token we already consumed. Google may have rotated that refresh
+    // token, so discarding our result would leave the account unable to renew at all.
+    const concurrent = JSON.parse(fs.readFileSync(s.accountsFile, "utf8"));
+    concurrent.activeAccountId = "preferred@example.com";
+    concurrent.accounts["preferred@example.com"].expires = Date.now() + 55 * 60 * 1000;
+    fs.writeFileSync(s.accountsFile, JSON.stringify(concurrent, null, 2), { mode: 0o600 });
+    release();
+    const proc = await running;
+
+    assert.equal(proc.status, 0, proc.stderr);
+    const final = JSON.parse(fs.readFileSync(s.accountsFile, "utf8"));
+    assert.equal(final.activeAccountId, "preferred@example.com", "leadership is still the plugin's");
+    assert.equal(final.accounts["preferred@example.com"].refresh, "keeper-rotated-refresh");
+    assert.equal(final.accounts["preferred@example.com"].access, "keeper-rotated-access");
+    const log = fs.readFileSync(s.logFile, "utf8");
+    assert.match(log, /email=preferred@example\.com result=ok-active/);
+    assert.doesNotMatch(log, /result=skip-now-active/);
+  } finally { await server.close(); s.cleanup(); }
+});
+
 test("(auto) keeps the active account when it already serves the models", async (t) => {
   const s = scenario("keeper-auto-ok-"); t.after(() => s.cleanup());
   const server = await createMockServer((req, body, res) => {
@@ -1075,7 +1106,11 @@ test("(auto) keeps the active account when it already serves the models", async 
 
   assert.equal(p.status, 0, p.stderr);
   assert.equal(JSON.parse(fs.readFileSync(s.accountsFile, "utf8")).activeAccountId, "other@example.com");
-  assert.equal(fs.existsSync(s.authFile), false, "nothing moved, so no credential is written");
+  assert.equal(
+    JSON.parse(fs.readFileSync(s.authFile, "utf8")).antigravity.email,
+    "other@example.com",
+    "(R4-004) the credential mirror is (re)written even when nothing moved",
+  );
 });
 
 test("(auto) moves off an account that cannot serve a required model", async (t) => {

@@ -12,6 +12,14 @@ let
     "PATH=/run/current-system/sw/bin"
   ];
 
+  # Pinned empty on purpose: user units inherit the manager environment, and a stray
+  # value here would turn the renewal timer into the compatibility path and let it
+  # rewrite activeAccountId and auth.json, undoing a quota failover.
+  renewalEnvironment = baseEnvironment ++ [
+    "ANTIGRAVITY_PREFERRED_ACCOUNT="
+    "ANTIGRAVITY_REQUIRED_MODELS="
+  ];
+
   sessionEnvironment = baseEnvironment
     ++ lib.optional (cfg.requiredModels != [ ])
       "ANTIGRAVITY_REQUIRED_MODELS=${lib.concatStringsSep "," cfg.requiredModels}";
@@ -48,7 +56,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${keeper}/bin/antigravity-account-keeper";
-        Environment = baseEnvironment;
+        Environment = renewalEnvironment;
         Nice = 19;
         IOSchedulingClass = "idle";
         IOSchedulingPriority = 7;

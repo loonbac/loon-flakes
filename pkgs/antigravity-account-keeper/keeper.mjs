@@ -445,13 +445,17 @@ export async function withStoreRetry(accountsPath, apply) {
 /** Healing auth.json from the store at start is what makes a partial state converge. */
 function selfHealCredential({ accountsPath, authPath, logPath }) {
   try {
-    if (!fs.existsSync(authPath)) return;
     const { exists, store } = parseAccountsFile(accountsPath);
     const entry =
       exists && store.activeAccountId ? findAccountEntry(store, store.activeAccountId) : null;
-    const current = entry ? readAuthFile(authPath).antigravity : null;
-    if (!current || findAccountEntry(store, current.email)?.key === entry.key) return;
+    if (!entry) return;
+    const current = readAuthFile(authPath).antigravity;
+    if (current && findAccountEntry(store, current.email)?.key === entry.key) return;
 
+    // A missing file is healed too: the store pointer only exists because Pi logged in,
+    // so an absent mirror means an interrupted activation, not a fresh install. Returning
+    // early here would leave the session on an account whose credential was never written
+    // while systemd reported success.
     writeActiveCredential(authPath, entry.account);
     writeAccountLog(logPath, accountEmail(entry.account, entry.key), "healed", 0);
   } catch {
@@ -563,6 +567,9 @@ export async function renewAccounts(options = {}) {
   for (const { key, account } of accountsToRenew) {
     const minutesUntilExpiry = minutesUntil(account.expires, now);
     const email = accountEmail(account);
+    // Kept so the persistence step can tell our rotation apart from one made by the
+    // plugin while the exchange was in flight.
+    const previousRefresh = account.refresh;
 
     try {
       const token = await requestAccessToken({
@@ -583,9 +590,12 @@ export async function renewAccounts(options = {}) {
         access: account.access,
         expires: account.expires,
         refresh: account.refresh,
+        previousRefresh,
+        minutesUntilExpiry,
       });
 
-      writeAccountLog(logPath, email, "ok", minutesUntilExpiry);
+      // Logged only after the token is persisted: a success line for a rotation that was
+      // never stored is exactly the misleading observability this guards against.
       renewedCount++;
     } catch {
       writeAccountLog(logPath, email, "failed", minutesUntilExpiry);
@@ -597,15 +607,22 @@ export async function renewAccounts(options = {}) {
   if (renewed.size > 0) {
     const result = await withStoreRetry(accountsPath, (target) => {
       const skipped = [];
+      const adopted = [];
       const written = new Map();
       for (const [key, values] of renewed) {
         const targetAccount = target.accounts[key];
         if (!targetAccount || typeof targetAccount !== "object") continue;
-        // This account may have become active while the refresh was in flight;
-        // pi-antigravity then owns its token, so our older result must not win.
+        // The account may have become active while the refresh was in flight. If the
+        // stored token is no longer the one we exchanged, pi-antigravity rotated it as
+        // well and its value is the newer one, so ours must not win. If it is still the
+        // one we exchanged, we hold the only valid replacement: dropping it now leaves
+        // the account unable to renew at all, which is the failure this block prevents.
         if (isActiveAccount(target, key)) {
-          skipped.push(values.email || key);
-          continue;
+          if (targetAccount.refresh !== values.previousRefresh) {
+            skipped.push(values);
+            continue;
+          }
+          adopted.push(values);
         }
         targetAccount.access = values.access;
         targetAccount.expires = values.expires;
@@ -615,6 +632,8 @@ export async function renewAccounts(options = {}) {
       return {
         dirty: written.size > 0,
         skipped,
+        adopted,
+        writtenKeys: [...written.keys()],
         verified: (after) => {
           for (const [key, values] of written) {
             const account = after.accounts?.[key];
@@ -628,12 +647,26 @@ export async function renewAccounts(options = {}) {
       };
     });
 
-    for (const who of result.outcome.skipped) {
-      writeAccountLog(logPath, who, "skip-now-active", 0);
+    for (const values of result.outcome.skipped ?? []) {
+      writeAccountLog(logPath, values.email, "skip-now-active", values.minutesUntilExpiry ?? 0);
     }
     if (!result.ok) {
       writeAccountLog(logPath, "keeper", "store-write-unverified", 0);
       persistFailed = true;
+    } else {
+      // One line per account whose rotated token is now on disk. This is the only place
+      // a renewal may claim success, so it can never describe a token that was dropped.
+      const adoptedKeys = new Set((result.outcome.adopted ?? []).map((values) => values.email));
+      for (const key of result.outcome.writtenKeys ?? []) {
+        const values = renewed.get(key);
+        if (!values) continue;
+        writeAccountLog(
+          logPath,
+          values.email,
+          adoptedKeys.has(values.email) ? "ok-active" : "ok",
+          values.minutesUntilExpiry ?? 0,
+        );
+      }
     }
   }
 
@@ -1019,7 +1052,7 @@ export async function runKeeper(options = {}) {
   }
 
   if (requiredModels.length > 0) {
-    return ensureCompatibleAccount({
+    const result = await ensureCompatibleAccount({
       env,
       requiredModels,
       accountsPath,
@@ -1029,6 +1062,12 @@ export async function runKeeper(options = {}) {
       oauthPath: options.oauthPath,
       fetchImpl: options.fetchImpl,
     });
+    // Same convergence as the preferred branch, and for the same reason: this branch is
+    // the one the session unit runs, so a crash between the store commit and the
+    // credential mirror would otherwise leave Pi on the previous account while systemd
+    // reported success. Only after success, so a failed run never moves the credential.
+    if (result.exitCode === 0) selfHealCredential({ accountsPath, authPath, logPath });
+    return result;
   }
 
   const renewal = await renewAccounts({ env, accountsPath, logPath, oauthPath: options.oauthPath });
