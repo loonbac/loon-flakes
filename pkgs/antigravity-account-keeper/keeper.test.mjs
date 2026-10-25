@@ -20,7 +20,7 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { extractModelIds, findMissingModels, withStoreRetry } from "./keeper.mjs";
+import { ensureCompatibleAccount, extractModelIds, findMissingModels, resolveOAuthConstants, withStoreRetry } from "./keeper.mjs";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -949,25 +949,114 @@ test("(i) an unavailable catalog does not fail prefer or active verification", a
   }
 });
 
-test("(R3-001) an active account with a stale token reports instead of failing", async (t) => {
+test("(R1-002) a stale token on the active account is never reported as verified success", async (t) => {
   const s = scenario("keeper-active-stale-"); t.after(() => s.cleanup());
   const store = JSON.parse(fs.readFileSync(s.accountsFile, "utf8"));
   store.accounts["other@example.com"].expires = Date.now() - 60 * 1000;
   fs.writeFileSync(s.accountsFile, JSON.stringify(store, null, 2), { mode: 0o600 });
 
-  // Already on the preferred account: nothing to assert, and the plugin owns the
-  // expired token. Failing here would mean a permanently red unit that fixes itself
-  // on first use, so the keeper reports the state and succeeds.
+  // The stored token is expired, so the catalogue is never queried, and the other
+  // account cannot be verified either: the honest answer is failure, not success.
   const p = await runKeeper({
     ...s.env,
     ANTIGRAVITY_PREFERRED_ACCOUNT: "other@example.com",
     ANTIGRAVITY_REQUIRED_MODELS: "claude-opus-5-5",
+    ANTIGRAVITY_TOKEN_URL: "http://127.0.0.1:9/token",
     ANTIGRAVITY_MODELS_URL: "http://127.0.0.1:9/unreachable",
   });
 
-  assert.equal(p.status, 0, p.stderr);
+  assert.equal(p.status, 3, p.stderr);
   assert.match(fs.readFileSync(s.logFile, "utf8"), /result=active-token-stale/);
-  assert.doesNotMatch(fs.readFileSync(s.logFile, "utf8"), /result=model-check-unavailable/);
+  assert.doesNotMatch(fs.readFileSync(s.logFile, "utf8"), /result=activated/);
+});
+
+test("(R1-002) a stale active token moves the session to an account that can be verified", async (t) => {
+  const s = scenario("keeper-stale-move-"); t.after(() => s.cleanup());
+  const store = JSON.parse(fs.readFileSync(s.accountsFile, "utf8"));
+  store.accounts["other@example.com"].expires = Date.now() - 60 * 1000;
+  fs.writeFileSync(s.accountsFile, JSON.stringify(store, null, 2), { mode: 0o600 });
+  const server = await createMockServer((req, body, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(modelsPayload(["claude-opus-5-5-high", "claude-sonnet-5-5-high"]));
+  });
+  t.after(() => server.close());
+
+  const p = await runKeeper({
+    ...s.env,
+    ANTIGRAVITY_MODELS_URL: `${server.base}/models`,
+    ANTIGRAVITY_REQUIRED_MODELS: "claude-opus-5-5",
+  });
+
+  assert.equal(p.status, 0, p.stderr);
+  assert.equal(
+    JSON.parse(fs.readFileSync(s.accountsFile, "utf8")).activeAccountId,
+    "preferred@example.com",
+    "the only account whose capability can be proven is now active",
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(s.authFile, "utf8")).antigravity.email,
+    "preferred@example.com",
+  );
+});
+
+test("(R3-001) nothing compatible and no active account fails instead of reporting success", async (t) => {
+  const s = scenario("keeper-no-active-"); t.after(() => s.cleanup());
+  const store = JSON.parse(fs.readFileSync(s.accountsFile, "utf8"));
+  delete store.activeAccountId;
+  fs.writeFileSync(s.accountsFile, JSON.stringify(store, null, 2), { mode: 0o600 });
+  const server = await createMockServer((req, body, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(modelsPayload(["claude-opus-4-6-high"]));
+  });
+  t.after(() => server.close());
+
+  const p = await runKeeper({
+    ...s.env,
+    ANTIGRAVITY_MODELS_URL: `${server.base}/models`,
+    ANTIGRAVITY_REQUIRED_MODELS: "claude-opus-5-5",
+  });
+
+  assert.equal(p.status, 2, p.stderr);
+  assert.match(fs.readFileSync(s.logFile, "utf8"), /result=missing-model:claude-opus-5-5/);
+});
+
+test("(R1-001) unprefixed OAuth variables cannot redirect the exchange", () => {
+  // Inherited bare names are ignored, so with no prefixed values and no oauth file the
+  // resolver refuses to build a request at all instead of posting the refresh token to
+  // whatever URL the environment happens to carry.
+  assert.throws(
+    () => resolveOAuthConstants({
+      TOKEN_URL: "https://attacker.invalid/token",
+      CLIENT_ID: "attacker-id",
+      CLIENT_SECRET: "attacker-secret",
+    }, "/nonexistent/.config/pi-antigravity/oauth.ts"),
+    /missing TOKEN_URL, CLIENT_ID, CLIENT_SECRET/,
+  );
+});
+
+test("(REG-002) an empty store with a requirement names the model it cannot serve", async (t) => {
+  const s = scenario("keeper-empty-store-"); t.after(() => s.cleanup());
+  fs.writeFileSync(s.accountsFile, JSON.stringify({ version: 1, accounts: {} }, null, 2), { mode: 0o600 });
+
+  const p = await runKeeper({
+    ...s.env,
+    ANTIGRAVITY_REQUIRED_MODELS: "claude-opus-5-5",
+    ANTIGRAVITY_MODELS_URL: "http://127.0.0.1:9/unreachable",
+  });
+
+  assert.equal(p.status, 2, p.stderr);
+  assert.match(p.stderr, /no account serves claude-opus-5-5/);
+});
+
+test("(REG-002) without a requirement the compatibility check stays inert", async (t) => {
+  const s = scenario("keeper-no-requirement-"); t.after(() => s.cleanup());
+  const result = await ensureCompatibleAccount({
+    ...s.env,
+    accountsPath: s.accountsFile,
+    requiredModels: [],
+  });
+  assert.equal(result.exitCode, 0, "renewal mode owns this case");
+  assert.equal(result.result, "no-active-account");
 });
 
 test("(auto) keeps the active account when it already serves the models", async (t) => {

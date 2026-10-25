@@ -111,9 +111,12 @@ function parseConst(content, constName) {
 }
 
 export function resolveOAuthConstants(env = process.env, customOauthPath = null) {
-  let tokenUrl = env.ANTIGRAVITY_TOKEN_URL || env.TOKEN_URL;
-  let clientId = env.ANTIGRAVITY_CLIENT_ID || env.CLIENT_ID;
-  let clientSecret = env.ANTIGRAVITY_CLIENT_SECRET || env.CLIENT_SECRET;
+  // Only prefixed names are trusted. A bare TOKEN_URL in the inherited environment
+  // would let any process that can set it redirect this exchange and receive the
+  // Antigravity refresh token, so the unprefixed variants are ignored on purpose.
+  let tokenUrl = env.ANTIGRAVITY_TOKEN_URL;
+  let clientId = env.ANTIGRAVITY_CLIENT_ID;
+  let clientSecret = env.ANTIGRAVITY_CLIENT_SECRET;
 
   if (tokenUrl && clientId && clientSecret) {
     return { tokenUrl, clientId, clientSecret };
@@ -342,7 +345,7 @@ function appendAccountLog(logPath, email, result, minutesUntilExpiry) {
   }
 }
 
-export function writeAtomicJson(filePath, data) {
+export function writeAtomicJson(filePath, data, expectedHash = null) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -353,8 +356,16 @@ export function writeAtomicJson(filePath, data) {
     mode: 0o600,
   });
   fs.chmodSync(tempPath, 0o600);
+  // Last-moment compare-and-swap: the caller's hash was taken before it applied its
+  // fields, so a foreign write since then would be dropped by this rename. Checking
+  // here shrinks the loss window to a single syscall instead of the whole apply.
+  if (expectedHash !== null && storeHash(filePath) !== expectedHash) {
+    try { fs.unlinkSync(tempPath); } catch {}
+    return false;
+  }
   fs.renameSync(tempPath, filePath);
   fs.chmodSync(filePath, 0o600);
+  return true;
 }
 
 /**
@@ -409,15 +420,20 @@ export async function withStoreRetry(accountsPath, apply) {
       continue;
     }
 
+    let committed = false;
     try {
-      writeAtomicJson(accountsPath, target);
+      committed = writeAtomicJson(accountsPath, target, beforeHash);
     } catch {
       // Verification below decides whether to retry.
     }
 
     const after = parseAccountsFile(accountsPath);
     const afterStore = after.exists ? after.store : { version: 1, accounts: {} };
-    if (outcome.verified(afterStore)) return { ok: true, outcome };
+    // A store that no longer matches the copy we wrote means the commit was partial or
+    // a foreign writer landed in between. Neither is success, so retry instead of
+    // reporting a write this keeper cannot stand behind.
+    const matchesCommit = committed && JSON.stringify(afterStore) === JSON.stringify(target);
+    if (matchesCommit && outcome.verified(afterStore)) return { ok: true, outcome };
 
     if (attempt < STORE_WRITE_ATTEMPTS - 1) {
       await new Promise((resolve) => setTimeout(resolve, STORE_WRITE_BACKOFF_MS));
@@ -785,8 +801,15 @@ export async function preferAccount(options = {}) {
       // There is no leadership left to assert (we are already on this account) and no
       // usable credential to verify with, so report the situation plainly instead of
       // failing a unit that resolves itself as soon as the account is used.
+      // A stale token is not a verified capability: the catalogue was never queried, so
+      // the requirement is unproven. No caller may read this as success;
+      // `ensureCompatibleAccount` uses the result string to look for a verifiable one.
       writeAccountLog(logPath, email, "active-token-stale", minutesUntilExpiry);
-      return { status: "already-active-unverified", exitCode: 0, result: "active-token-stale" };
+      return {
+        status: "unverifiable",
+        exitCode: 3,
+        result: "model-check-unavailable:active-token-stale",
+      };
     }
 
     let availableIds;
@@ -899,27 +922,60 @@ export async function preferAccount(options = {}) {
  */
 export async function ensureCompatibleAccount(options = {}) {
   const { accountsPath } = options;
+  const requiredModels = options.requiredModels || [];
+  // Without a requirement there is nothing to prove and nothing to move: renewal mode
+  // owns that case, so stay inert instead of inventing a model id to report.
+  if (requiredModels.length === 0) {
+    return { status: "noop", exitCode: 0, result: "no-active-account" };
+  }
   const { exists, store } = parseAccountsFile(accountsPath);
   const keys = exists && store.accounts && typeof store.accounts === "object" ? Object.keys(store.accounts) : [];
   const activeEntry = exists && store.activeAccountId ? findAccountEntry(store, store.activeAccountId) : null;
   const activeKey = activeEntry ? activeEntry.key : null;
 
+  const STALE = "model-check-unavailable:active-token-stale";
   let current = null;
+  let staleActive = false;
+
   if (activeKey) {
     current = await preferAccount({ ...options, preferred: activeKey });
     if (current.exitCode === 0) return current;
-    // Only a capability gap justifies moving. An unreachable catalogue or an
-    // unusable token has to stay a failure, so nothing is silently hidden.
-    if (!String(current.result || "").startsWith("missing-model")) return current;
+    // Two findings justify trying another account: the active one lacks a required
+    // model, or its own token is stale so its capability cannot be checked at all. Any
+    // other failure (missing account, unreachable catalogue) stays the answer, because
+    // moving would hide it.
+    staleActive = current.result === STALE;
+    if (!staleActive && !String(current.result || "").startsWith("missing-model")) return current;
   }
 
+  // Preferring a stale account above never reached the catalogue, so a different
+  // account with a usable token is both verifiable and a better place for the session.
   for (const key of keys) {
     if (key === activeKey) continue;
     const other = await preferAccount({ ...options, preferred: key });
     if (other.exitCode === 0) return other;
+    if (other.result === STALE) staleActive = true;
+    else current = other;
   }
 
-  return current || { status: "noop", exitCode: 0, result: "no-active-account" };
+  if (current && current.exitCode !== 0) return current;
+
+  // Nothing was activated and nothing verified: success here would let a oneshot report
+  // a requirement it never checked, so fail with the most precise reason available.
+  if (staleActive) {
+    process.stderr.write(
+      "antigravity-account-keeper: no account could be verified; the active token is stale\n",
+    );
+    return { status: "unverifiable", exitCode: 3, result: STALE };
+  }
+  process.stderr.write(
+    `antigravity-account-keeper: no account serves ${requiredModels.join(",")}\n`,
+  );
+  return {
+    status: "unverifiable",
+    exitCode: 2,
+    result: `missing-model:${requiredModels[0]}`,
+  };
 }
 
 /**
