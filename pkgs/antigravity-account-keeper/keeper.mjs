@@ -443,7 +443,7 @@ export async function withStoreRetry(accountsPath, apply) {
 }
 
 /** Healing auth.json from the store at start is what makes a partial state converge. */
-function selfHealCredential({ accountsPath, authPath, logPath }) {
+function selfHealCredential({ accountsPath, authPath, logPath }, { activated = true } = {}) {
   try {
     const { exists, store } = parseAccountsFile(accountsPath);
     const entry =
@@ -452,10 +452,13 @@ function selfHealCredential({ accountsPath, authPath, logPath }) {
     const current = readAuthFile(authPath).antigravity;
     if (current && findAccountEntry(store, current.email)?.key === entry.key) return;
 
-    // A missing file is healed too: the store pointer only exists because Pi logged in,
-    // so an absent mirror means an interrupted activation, not a fresh install. Returning
-    // early here would leave the session on an account whose credential was never written
-    // while systemd reported success.
+    // An existing credential naming a different account may be a quota failover the plugin
+    // made without touching activeAccountId. Only an activation this run performed may
+    // move it; otherwise healing would pin the session back to the failing account.
+    if (current && !activated) return;
+
+    // A missing file is healed regardless: the store pointer only exists because Pi
+    // logged in, so an absent mirror means an interrupted activation, not a fresh install.
     writeActiveCredential(authPath, entry.account);
     writeAccountLog(logPath, accountEmail(entry.account, entry.key), "healed", 0);
   } catch {
@@ -770,6 +773,9 @@ export async function preferAccount(options = {}) {
   // preferred account we must have a usable token, so refresh it when needed.
   let access = typeof account.access === "string" ? account.access : "";
   let refreshed = null;
+  // Kept so the persistence block can tell our rotation apart from one the plugin made
+  // while the exchange was in flight.
+  const previousRefresh = account.refresh;
   const tokenStale = !access || typeof account.expires !== "number" || account.expires <= now + skewMs;
   if (!isActive && tokenStale) {
     if (typeof account.refresh !== "string" || !account.refresh.trim()) {
@@ -792,23 +798,29 @@ export async function preferAccount(options = {}) {
       return { status: "error", exitCode: 1, result: "refresh-failed" };
     }
 
-    // Google may rotate the refresh token; persist it before any early return,
-    // unless this account became active mid-flight (the plugin then owns it).
+    // Google may rotate the refresh token; persist it before any early return. The
+    // account may also have become active mid-flight, and the plugin then owns its token
+    // fields, so tell the two cases apart the same way the renewal batch does: if the
+    // stored token is no longer the one we exchanged, the plugin rotated it too and wins;
+    // if it is still ours, dropping it would leave the account unable to renew at all.
     const early = await withStoreRetry(accountsPath, (target) => {
       const fresh = target.accounts[key];
       if (!fresh || typeof fresh !== "object") {
         return { dirty: false, skipped: [], verified: () => true };
       }
-      if (isActiveAccount(target, key)) {
-        return { dirty: false, skipped: [email], verified: () => true };
+      const nowActive = isActiveAccount(target, key);
+      const foreign = nowActive && fresh.refresh !== previousRefresh;
+      if (!foreign) {
+        fresh.access = refreshed.access;
+        fresh.expires = refreshed.expires;
+        if (refreshed.refresh) fresh.refresh = refreshed.refresh;
       }
-      fresh.access = refreshed.access;
-      fresh.expires = refreshed.expires;
-      if (refreshed.refresh) fresh.refresh = refreshed.refresh;
       return {
-        dirty: true,
-        skipped: [],
+        dirty: !foreign,
+        skipped: foreign ? [email] : [],
+        adopted: nowActive && !foreign ? [email] : [],
         verified: (after) => {
+          if (foreign) return true;
           const account = after.accounts?.[key];
           if (!account || account.access !== refreshed.access || account.expires !== refreshed.expires) {
             return false;
@@ -819,6 +831,9 @@ export async function preferAccount(options = {}) {
     });
     for (const who of early.outcome.skipped) {
       writeAccountLog(logPath, who, "skip-now-active", minutesUntilExpiry);
+    }
+    for (const who of early.outcome.adopted ?? []) {
+      writeAccountLog(logPath, who, "ok-active", minutesUntilExpiry);
     }
     if (!early.ok) {
       writeAccountLog(logPath, email, "store-write-unverified", minutesUntilExpiry);
@@ -883,10 +898,26 @@ export async function preferAccount(options = {}) {
   }
 
   let previousActiveId = null, snapshot = null;
+  // The pointer as we saw it when we decided to activate. If it moves before the commit,
+  // pi-antigravity already chose another account (quota failover) and undoing that is
+  // exactly what this keeper must never do.
+  const activeAtDecision = store.activeAccountId ?? null;
   const activation = await withStoreRetry(accountsPath, (target) => {
     const freshEntry = findAccountEntry(target, key);
     if (!freshEntry || typeof freshEntry.account !== "object") {
       return { dirty: false, skipped: [], verified: () => true, error: "preferred-account-missing" };
+    }
+    if ((target.activeAccountId ?? null) !== activeAtDecision) {
+      // pi-antigravity moved the pointer while we worked — and it landed on our
+      // preferred account (the early write already skipped for that reason). The
+      // desired end state is asserted by someone else, so adopting it is success,
+      // not a failure: the keeper must exit 0 and leave the plugin's snapshot alone.
+      if (isActiveAccount(target, key)) {
+        return { dirty: false, skipped: [email], verified: () => true, error: null };
+      }
+      // It moved to a *different* account: that is a real failover away from the
+      // preference, and forcing it back would undo a quota decision. Report it.
+      return { dirty: false, skipped: [email], verified: () => true, error: "active-moved" };
     }
     const targetAccount = freshEntry.account;
     previousActiveId = target.activeAccountId ?? null;
@@ -902,7 +933,7 @@ export async function preferAccount(options = {}) {
       wroteTokens = true;
     }
 
-    targetAccount.lastUsedAt = now;
+    targetAccount.lastUsedAt = Date.now();
     target.activeAccountId = key;
     snapshot = { ...targetAccount };
     return {
@@ -928,6 +959,14 @@ export async function preferAccount(options = {}) {
       writeAccountLog(logPath, email, "store-write-unverified", minutesUntilExpiry);
     }
     return { status: "error", exitCode: 1, result: activation.error || "store-write-unverified" };
+  }
+
+  // The plugin already asserted the preferred account (active-moved landed on us):
+  // its snapshot is the source of truth and there is no snapshot of ours to mirror.
+  // Leaving without writing keeps its credential intact — writing `null` would throw.
+  if (activation.ok && snapshot === null) {
+    writeAccountLog(logPath, email, "skip-now-active", minutesUntilExpiry);
+    return { status: "skipped", exitCode: 0, result: "skip-now-active" };
   }
 
   try {
