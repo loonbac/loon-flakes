@@ -305,17 +305,24 @@ let
     jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     # The four review lenses, plus the refuter and the validator.
-    # TEMPORAL (2026-10-23): las cuentas de Antigravity están en cooldown semanal
-    # (59 h) y el pool free de infronai agotó su tope diario, así que las lentes
-    # no podían completarse. Se apuntan a deepseek-v4.1-flash de opencode-go
-    # mientras dure la clave prestada. Revertir a antigravity/infronai cuando
-    # esa cuota vuelva, o moverlas a alibaba-token-plan/deepseek-v4.1-flash-1017.
-    review-readability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "medium"; };
-    review-reliability = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
-    review-resilience = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
-    review-risk = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
-    review-refuter = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
-    review-validator = { model = "opencode-go/deepseek-v4.1-flash"; effort = "high"; };
+    # These must not depend on which Antigravity account is active. Google marks Claude Sonnet
+    # 4.6 / Opus 4.6 as removed on 2 Nov 2026, the keeper's preferred account no longer
+    # advertises them at all, and no published pi-antigravity release exposes the 5.5
+    # placeholder ids — so every Antigravity choice here dies either on 2 Nov or on an account
+    # switch. The review relay resolves model ids against the catalog of the pi process that
+    # dispatches it, which is loaded at session start and cannot follow a live account change,
+    # so an Antigravity lens fails closed with reviewer-model-not-found right after a switch.
+    # alibaba-token-plan/deepseek-v4.1-flash-1017 is billed from a prepaid balance, carries a 1M
+    # window, and is the model this machine already trusts for orchestration (intelligence 45,
+    # AA-LCR 84.0). Review runs a handful of times a month, so its cost is negligible here.
+    # Do not point these at a model the interactive pi's model list cannot resolve: the reviewer
+    # resolver fails closed with reviewer-model-not-found and the review never reaches a lens.
+    review-readability = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "medium"; };
+    review-reliability = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
+    review-resilience = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
+    review-risk = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
+    review-refuter = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
+    review-validator = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
     sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     sdd-archive = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     sdd-design = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
