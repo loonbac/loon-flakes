@@ -39,6 +39,7 @@ export async function askJev(
 ): Promise<AskResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const closed = () => controller.signal.aborted;
   const forward = () => controller.abort();
   signal?.addEventListener("abort", forward, { once: true });
   try {
@@ -186,6 +187,39 @@ export interface Decisions {
   saveReason: string;
   sessionAdvice: string;
   taskState: string;
+}
+
+export function retryDelayMs(): number {
+  const n = Number(process.env.PI_JEV_GUARD_RETRY_DELAY_MS || "750");
+  return Number.isFinite(n) && n >= 0 ? n : 750;
+}
+
+export async function askJevWithRetry(
+  apiKey: string,
+  state: unknown,
+  questions: Record<string, Question>,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+  onAttempt?: (attempt: number, err?: Error) => void,
+): Promise<AskResponse> {
+  let lastErr: Error = new Error("Jev unavailable");
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      if (signal?.aborted === true) throw new Error("aborted before attempt");
+      const res = await askJev(apiKey, state, questions, signal, timeoutMs);
+      onAttempt?.(attempt);
+      return res;
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      onAttempt?.(attempt, lastErr);
+      // Retry once unless the caller aborted (user/turn cancelled).
+      if (attempt < 2 && signal?.aborted !== true) {
+        const delay = retryDelayMs();
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 export function decide(answers: Answers): Decisions {
@@ -377,7 +411,10 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
 
     try {
       const timeoutMs = Number(process.env.PI_JEV_GUARD_TIMEOUT_MS || "4000");
-      const response = await askJev(key, state, QUESTIONS, ctx.signal, timeoutMs);
+      const response = await askJevWithRetry(key, state, QUESTIONS, ctx.signal, timeoutMs, (attempt, err) => {
+        if (err && attempt < 2) void trace({ event: "jev_retry", attempt, error: err.message.slice(0, 200) });
+        else if (err && attempt === 2) void trace({ event: "jev_retry_exhausted", attempt, error: err.message.slice(0, 200) });
+      });
       const d = decide(response.answers);
       lastAdvice = { at: now, session: d.sessionAdvice };
 
@@ -479,12 +516,16 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
 
     try {
       const timeoutMs = Number(process.env.PI_JEV_GUARD_TIMEOUT_MS || "4000");
-      const response = await askJev(
+      const response = await askJevWithRetry(
         key,
         state,
         { mid_task: QUESTIONS.mid_task, session_fresh: QUESTIONS.session_fresh },
         event.signal,
         timeoutMs,
+        (attempt, err) => {
+          if (err && attempt < 2) void trace({ event: "before_compact_retry", attempt, error: err.message.slice(0, 200) });
+          else if (err && attempt === 2) void trace({ event: "before_compact_retry_exhausted", attempt, error: err.message.slice(0, 200) });
+        },
       );
       const d = decide({ ...response.answers, worth_memory: { type: "noul", noul: 0 }, heavy_context: { type: "choice", choice: "keep-going", probabilities: {}, confidence: 0 } });
 

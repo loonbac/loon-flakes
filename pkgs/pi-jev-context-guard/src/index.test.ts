@@ -7,6 +7,8 @@ import {
   buildCompactionInstructions,
   QUESTIONS,
   askJev,
+  askJevWithRetry,
+  retryDelayMs,
   saveToEngramDirect,
   buildEngramTitle,
   buildEngramContent,
@@ -288,6 +290,108 @@ test("buildEngramContent joins transcript and reason", () => {
   assert.ok(content.includes("fix the bug"), content);
   assert.ok(content.includes("done"), content);
   assert.ok(content.includes("do X"), content);
+});
+// --- askJevWithRetry --------------------------------------------------------
+
+test("askJevWithRetry: succeeds on first attempt without retry", async () => {
+  const fake = makeEngramFetch([{ status: 200, body: { answers: {}, usage: { input_tokens: 1, output_tokens: 1 } } }]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  const prevDelay = process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+  process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "0";
+  try {
+    const res = await askJevWithRetry("k", {}, QUESTIONS, undefined, 1000);
+    assert.ok(res);
+    assert.equal(fake.calls.length, 1);
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+    if (prevDelay === undefined) delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    else process.env.PI_JEV_GUARD_RETRY_DELAY_MS = prevDelay;
+  }
+});
+
+test("askJevWithRetry: retries once after failure then succeeds", async () => {
+  const fake = makeEngramFetch([
+    { status: 500, body: { error: "boom" } },
+    { status: 200, body: { answers: {}, usage: { input_tokens: 1, output_tokens: 1 } } },
+  ]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  const prevDelay = process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+  process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "0";
+  try {
+    const res = await askJevWithRetry("k", {}, QUESTIONS, undefined, 1000);
+    assert.ok(res);
+    assert.equal(fake.calls.length, 2);
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+    if (prevDelay === undefined) delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    else process.env.PI_JEV_GUARD_RETRY_DELAY_MS = prevDelay;
+  }
+});
+
+test("askJevWithRetry: throws after two failed attempts, tracing both", async () => {
+  const fake = makeEngramFetch([
+    { status: 500, body: {} },
+    { status: 500, body: {} },
+  ]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  const prevDelay = process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+  process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "0";
+  const attempts: number[] = [];
+  const errors: string[] = [];
+  try {
+    await assert.rejects(
+      () => askJevWithRetry("k", {}, QUESTIONS, undefined, 1000, (a, e) => { attempts.push(a); if (e) errors.push(e.message); }),
+      /Jev HTTP 500/,
+    );
+    assert.deepEqual(attempts, [1, 2]);
+    assert.equal(fake.calls.length, 2);
+    assert.equal(errors.length, 2);
+    assert.ok(errors.every((m) => m.length <= 200));
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+    if (prevDelay === undefined) delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    else process.env.PI_JEV_GUARD_RETRY_DELAY_MS = prevDelay;
+  }
+});
+
+test("askJevWithRetry: caller abort during the call stops the retry", async () => {
+  // Abort the outer signal while the first fetch is in flight: the retry must not run.
+  const controller = new AbortController();
+  let calls = 0;
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = (async () => {
+    calls += 1;
+    if (calls === 1) controller.abort();
+    throw new Error("aborted");
+  }) as unknown as typeof fetch;
+  const prevDelay = process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+  process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "0";
+  try {
+    await assert.rejects(() => askJevWithRetry("k", {}, QUESTIONS, controller.signal, 1000));
+    assert.equal(calls, 1);
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+    if (prevDelay === undefined) delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    else process.env.PI_JEV_GUARD_RETRY_DELAY_MS = prevDelay;
+  }
+});
+
+test("retryDelayMs reads env and falls back", () => {
+  const prev = process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+  try {
+    delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    assert.equal(retryDelayMs(), 750);
+    process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "0";
+    assert.equal(retryDelayMs(), 0);
+    process.env.PI_JEV_GUARD_RETRY_DELAY_MS = "abc";
+    assert.equal(retryDelayMs(), 750);
+  } finally {
+    if (prev === undefined) delete process.env.PI_JEV_GUARD_RETRY_DELAY_MS;
+    else process.env.PI_JEV_GUARD_RETRY_DELAY_MS = prev;
+  }
 });
 // --- askJev -----------------------------------------------------------------
 
