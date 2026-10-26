@@ -4,6 +4,7 @@ import {
   decide,
   extractText,
   recentMessagesFrom,
+  buildCompactionInstructions,
   QUESTIONS,
   askJev,
 } from "./index.ts";
@@ -92,15 +93,13 @@ test("QUESTIONS choice criteria match decision strings", () => {
 const noul = (n: number) => ({ type: "noul" as const, noul: n });
 const choice = (c: string) => ({ type: "choice" as const, choice: c, probabilities: {}, confidence: 0.9 });
 
-test("decide: mid-task cancels compaction", () => {
+test("decide: mid-task detected", () => {
   const d = decide({ mid_task: noul(0.8), worth_memory: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
-  assert.equal(d.compactionAllowed, false);
   assert.equal(d.taskState, "mid-task");
 });
 
-test("decide: settled allows compaction", () => {
+test("decide: settled detected", () => {
   const d = decide({ mid_task: noul(0.2), worth_memory: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
-  assert.equal(d.compactionAllowed, true);
   assert.equal(d.taskState, "settled");
 });
 
@@ -123,11 +122,52 @@ test("decide: session_fresh passes through", () => {
 
 test("decide: missing answers fail safe", () => {
   const d = decide({});
-  assert.equal(d.compactionAllowed, true);
   assert.equal(d.saveToEngram, false);
   assert.equal(d.compactionUrgency, "unknown");
   assert.equal(d.sessionAdvice, "unknown");
+  assert.equal(d.taskState, "settled");
 });
+
+test("decide: compactionUrgency passes through", () => {
+  const d1 = decide({ heavy_context: choice("compact-now") });
+  assert.equal(d1.compactionUrgency, "compact-now");
+  const d2 = decide({ heavy_context: choice("soon") });
+  assert.equal(d2.compactionUrgency, "soon");
+  const d3 = decide({ heavy_context: choice("keep-going") });
+  assert.equal(d3.compactionUrgency, "keep-going");
+});
+
+// --- buildCompactionInstructions -------------------------------------------
+
+test("buildCompactionInstructions: mid-task preserves live state", () => {
+  const d = decide({ mid_task: noul(0.8), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
+  const instr = buildCompactionInstructions(d);
+  assert.ok(instr.includes("mid-flight"), instr);
+  assert.ok(instr.includes("failing tests"), instr);
+  assert.ok(instr.includes("next concrete step"), instr);
+});
+
+test("buildCompactionInstructions: new-session adds handoff block", () => {
+  const d = decide({ mid_task: noul(0.2), heavy_context: choice("compact-now"), session_fresh: choice("new-session") });
+  const instr = buildCompactionInstructions(d);
+  assert.ok(instr.includes("fresh session"), instr);
+  assert.ok(instr.includes("handoff block"), instr);
+});
+
+test("buildCompactionInstructions: both mid-task and new-session", () => {
+  const d = decide({ mid_task: noul(0.7), heavy_context: choice("compact-now"), session_fresh: choice("new-session") });
+  const instr = buildCompactionInstructions(d);
+  assert.ok(instr.includes("mid-flight"), instr);
+  assert.ok(instr.includes("handoff block"), instr);
+});
+
+test("buildCompactionInstructions: settled + continue gives empty string", () => {
+  const d = decide({ mid_task: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
+  const instr = buildCompactionInstructions(d);
+  assert.equal(instr, "");
+});
+
+// --- askJev -----------------------------------------------------------------
 
 test("askJev sends state, model, and questions to the wire", async () => {
   const calls: unknown[] = [];

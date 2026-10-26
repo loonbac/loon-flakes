@@ -181,7 +181,6 @@ export const QUESTIONS: Record<string, Question> = {
 };
 
 export interface Decisions {
-  compactionAllowed: boolean;
   compactionUrgency: string;
   saveToEngram: boolean;
   saveReason: string;
@@ -207,13 +206,27 @@ export function decide(answers: Answers): Decisions {
       : "A durable lesson/decision looks present in the recent exchange.";
 
   return {
-    compactionAllowed: !midTask,
     compactionUrgency: urgency,
     saveToEngram: memWorth,
     saveReason,
     sessionAdvice: session,
     taskState: midTask ? "mid-task" : "settled",
   };
+}
+
+export function buildCompactionInstructions(d: Decisions): string {
+  const parts: string[] = [];
+  if (d.taskState === "mid-task") {
+    parts.push(
+      "The task is mid-flight: preserve live state - files being edited, failing tests, open questions, partial implementations, and the next concrete step."
+    );
+  }
+  if (d.sessionAdvice === "new-session") {
+    parts.push(
+      "The user will start a fresh session: end the summary with a clear handoff block that a new session can pick up without reading the full transcript."
+    );
+  }
+  return parts.join(" ");
 }
 
 export async function trace(entry: Record<string, unknown>): Promise<void> {
@@ -227,6 +240,7 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
 
   let apiKey: string | undefined;
   let lastAdvice = { at: 0, session: "" };
+  let lastAutoCompact = 0;
 
   const agentDir = join(homedir(), ".pi", "agent");
 
@@ -239,6 +253,8 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
   const notify = (ctx: ExtensionContext, message: string, type: "info" | "warning" | "error"): void => {
     try { ctx.ui.notify(message, type); } catch { /* best-effort */ }
   };
+
+  const AUTO_COMPACT_COOLDOWN_MS = 5 * 60 * 1000;
 
   // Every user message: one batched Jev request.
   pi.on("input", async (event: { text: string; streamingBehavior?: string }, ctx: ExtensionContext) => {
@@ -263,19 +279,33 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
         percent: state.context.percent,
         task: d.taskState,
         compaction: d.compactionUrgency,
-        compactionAllowed: d.compactionAllowed,
         session: d.sessionAdvice,
         saveToEngram: d.saveToEngram,
         usage: response.usage,
       });
 
-      if (d.compactionUrgency === "compact-now" && d.compactionAllowed) {
-        notify(ctx, "Jev: context is heavy (" + (state.context.percent ?? "?") + "%) and the task looks settled - compaction is due.", "info");
+      // Auto-compact when Jev says it is due and we are not mid-task.
+      if (d.compactionUrgency === "compact-now" && d.taskState === "settled") {
+        if (now - lastAutoCompact > AUTO_COMPACT_COOLDOWN_MS) {
+          lastAutoCompact = now;
+          const instructions = buildCompactionInstructions(d);
+          ctx.compact({
+            customInstructions: instructions || undefined,
+            onComplete: () => trace({ event: "auto_compacted", reason: "jev_compact_now" }),
+            onError: (err) => trace({ event: "auto_compact_error", error: err.message.slice(0, 200) }),
+          });
+          notify(ctx, "Jev: context is heavy and the task is settled - compacting now.", "info");
+        } else {
+          notify(ctx, "Jev: compact-now (cooldown active) - manual /compact is available.", "info");
+        }
+      } else if (d.compactionUrgency === "compact-now" && d.taskState === "mid-task") {
+        notify(ctx, "Jev: context is heavy but the task is mid-flight - waiting for a settled moment.", "info");
       }
+
       if (d.saveToEngram) {
         notify(ctx, "Jev: this looks worth saving to Engram - " + d.saveReason, "info");
       }
-      if (d.sessionAdvice === "new-session" && d.compactionUrgency !== "keep-going") {
+      if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now") {
         notify(ctx, "Jev: a fresh session may be cleaner than continuing compacted. Your call.", "info");
       }
     } catch (error) {
@@ -285,7 +315,8 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
     return { action: "continue" as const };
   });
 
-  // Compaction veto: never compact mid-task.
+  // Compaction veto: only cancel when Jev says mid-task AND we just compacted (threshold < 50k).
+  // Otherwise: allow the compaction but pass customInstructions so the summary preserves mid-flight state.
   pi.on("session_before_compact", async (event: SessionBeforeCompactEvent, ctx: ExtensionContext): Promise<SessionBeforeCompactResult> => {
     const key = await getKey();
     if (!key) return {};
@@ -312,27 +343,33 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
       const response = await askJev(
         key,
         state,
-        { mid_task: QUESTIONS.mid_task, heavy_context: QUESTIONS.heavy_context, session_fresh: QUESTIONS.session_fresh },
+        { mid_task: QUESTIONS.mid_task, session_fresh: QUESTIONS.session_fresh },
         event.signal,
         timeoutMs,
       );
-      const d = decide({ ...response.answers, worth_memory: { type: "noul", noul: 0 } });
+      const d = decide({ ...response.answers, worth_memory: { type: "noul", noul: 0 }, heavy_context: { type: "choice", choice: "keep-going", probabilities: {}, confidence: 0 } });
 
       await trace({
         event: "before_compact",
         trigger: event.reason,
         tokensBefore: event.preparation.tokensBefore,
         task: d.taskState,
-        compactionAllowed: d.compactionAllowed,
         session: d.sessionAdvice,
         willRetry: event.willRetry,
         usage: response.usage,
       });
 
-      if (!d.compactionAllowed && !event.willRetry) {
-        notify(ctx, "Jev: cancelling compaction - the task is mid-flight. It will retry when the task settles.", "warning");
+      // Only veto when: threshold trigger AND mid-task AND we just compacted (<50k tokens).
+      // This prevents compacting twice in a row but does not block the normal auto-compaction flow.
+      if (d.taskState === "mid-task" && event.reason === "threshold" && event.preparation.tokensBefore < 50_000 && !event.willRetry) {
+        notify(ctx, "Jev: vetoing threshold compaction - just compacted and still mid-task.", "warning");
         return { cancel: true };
       }
+
+      // For manual or overflow compaction: allow it. For threshold: also allow it (the veto
+      // above is the only blocker). The auto-compact from the input hook already passes
+      // customInstructions via ctx.compact({customInstructions}); the threshold auto-compaction
+      // from pi uses the default summary, which is acceptable.
     } catch (error) {
       await trace({ event: "before_compact_error", error: String(error instanceof Error ? error.message : error).slice(0, 200) });
     }
