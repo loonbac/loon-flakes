@@ -235,6 +235,114 @@ export async function trace(entry: Record<string, unknown>): Promise<void> {
   await appendFile(file, line, { mode: 0o600 }).catch(() => {});
 }
 
+// ---------------------------------------------------------------------------
+// Engram persistence: a real HTTP save against the running local server.
+// The input/session hooks have no executeTool, so we talk to Engram directly
+// (same flow gentle-engram uses: resolve project -> ensure session -> save).
+// ---------------------------------------------------------------------------
+
+const ENGRAM_URL = process.env.ENGRAM_URL || "http://127.0.0.1:" + (process.env.ENGRAM_PORT || "7437");
+
+export interface EngramSaveOptions {
+  sessionId: string;
+  cwd: string;
+  title: string;
+  content: string;
+  type?: string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+async function engramJson(
+  path: string,
+  init: { method: string; body?: unknown },
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const forward = () => controller.abort();
+  signal?.addEventListener("abort", forward, { once: true });
+  try {
+    const res = await fetch(ENGRAM_URL + path, {
+      method: init.method,
+      headers: init.body !== undefined ? { "content-type": "application/json" } : undefined,
+      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      signal: controller.signal,
+    });
+    let body: unknown = null;
+    try { body = await res.json(); } catch { body = null; }
+    return { ok: res.ok, status: res.status, body };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", forward);
+  }
+}
+
+export async function saveToEngramDirect(opts: EngramSaveOptions): Promise<{ saved: boolean; observationId?: number; project?: string; reason?: string }> {
+  const timeoutMs = opts.timeoutMs ?? 5000;
+  // 1. Resolve the project from the cwd (server-side git detection).
+  const projectRes = await engramJson(
+    "/project/current?" + new URLSearchParams({ cwd: opts.cwd }).toString(),
+    { method: "GET" },
+    opts.signal,
+    timeoutMs,
+  );
+  if (!projectRes.ok) return { saved: false, reason: "project_resolve_http_" + projectRes.status };
+  const projectBody = projectRes.body as { project?: string } | null;
+  const project = projectBody?.project;
+  if (!project || typeof project !== "string") {
+    return { saved: false, reason: "project_unresolved" };
+  }
+  // 2. Ensure the runtime session exists in Engram (idempotent-ish).
+  const sessionRes = await engramJson(
+    "/sessions",
+    { method: "POST", body: { id: opts.sessionId, project, directory: opts.cwd, ownership_mode: "project_owned" } },
+    opts.signal,
+    timeoutMs,
+  );
+  if (!sessionRes.ok && sessionRes.status !== 409) {
+    return { saved: false, project, reason: "session_register_http_" + sessionRes.status };
+  }
+  // 3. Save the observation (capture_prompt false: this is a judgement, not a transcript).
+  const saveRes = await engramJson(
+    "/observations",
+    {
+      method: "POST",
+      body: {
+        session_id: opts.sessionId,
+        title: opts.title,
+        content: opts.content,
+        type: opts.type || "jev_guard",
+        project,
+        scope: "project",
+        capture_prompt: false,
+      },
+    },
+    opts.signal,
+    timeoutMs,
+  );
+  if (!saveRes.ok) return { saved: false, project, reason: "observation_http_" + saveRes.status };
+  const receipt = saveRes.body as { id?: number } | null;
+  return { saved: true, project, observationId: typeof receipt?.id === "number" ? receipt.id : undefined };
+}
+
+export function buildEngramTitle(state: GuardState, reason: string): string {
+  const input = state.currentInput.replace(/\s+/g, " ").trim().slice(0, 80);
+  return "Jev guard: " + (input || "(no input)") + (reason ? " - " + reason.slice(0, 60) : "");
+}
+
+export function buildEngramContent(state: GuardState, reason: string): string {
+  const transcript = state.recentMessages
+    .map((m) => m.role + ": " + m.text)
+    .join("\n");
+  return [
+    "Why Jev flagged this: " + reason,
+    "Current input: " + state.currentInput,
+    "Recent messages:",
+    transcript,
+  ].join("\n\n").slice(0, 8000);
+}
 export default function jevContextGuard(pi: ExtensionAPI): void {
   if (process.env.PI_JEV_GUARD === "0") return;
 
@@ -303,7 +411,38 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
       }
 
       if (d.saveToEngram) {
-        notify(ctx, "Jev: this looks worth saving to Engram - " + d.saveReason, "info");
+        // Real persistence: resolve project, register session, save observation.
+        const sessionId = (() => {
+          try { return ctx.sessionManager.getSessionId(); } catch { return ""; }
+        })();
+        const cwd = ctx.cwd;
+        if (sessionId) {
+          const savePromise = saveToEngramDirect({
+            sessionId,
+            cwd,
+            title: buildEngramTitle(state, d.saveReason),
+            content: buildEngramContent(state, d.saveReason),
+            signal: ctx.signal,
+          }).then((res) => {
+            if (res.saved) {
+              trace({
+                event: "engram_saved",
+                project: res.project,
+                observationId: res.observationId,
+                reason: d.saveReason,
+              });
+              notify(ctx, "Jev: saved to Engram (" + (res.project ?? "unknown") + "#" + (res.observationId ?? "?") + ").", "info");
+            } else {
+              trace({ event: "engram_save_failed", reason: res.reason, project: res.project });
+              notify(ctx, "Jev: Engram save failed (" + (res.reason ?? "unknown") + ").", "warning");
+            }
+          });
+          // Fire-and-forget; the input hook must not block on Engram.
+          void savePromise.catch(() => {});
+        } else {
+          await trace({ event: "engram_save_skipped", reason: "no_session_id" });
+          notify(ctx, "Jev: Engram save skipped (no runtime session id).", "warning");
+        }
       }
       if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now") {
         notify(ctx, "Jev: a fresh session may be cleaner than continuing compacted. Your call.", "info");

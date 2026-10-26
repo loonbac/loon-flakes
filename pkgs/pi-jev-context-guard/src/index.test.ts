@@ -7,6 +7,9 @@ import {
   buildCompactionInstructions,
   QUESTIONS,
   askJev,
+  saveToEngramDirect,
+  buildEngramTitle,
+  buildEngramContent,
 } from "./index.ts";
 
 // --- extractText -----------------------------------------------------------
@@ -167,6 +170,125 @@ test("buildCompactionInstructions: settled + continue gives empty string", () =>
   assert.equal(instr, "");
 });
 
+// --- saveToEngramDirect -----------------------------------------------------
+
+const makeEngramFetch = (responses: { status: number; body: unknown }[]) => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  let i = 0;
+  const fn = async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    const r = responses[Math.min(i, responses.length - 1)];
+    i += 1;
+    return new Response(JSON.stringify(r.body), { status: r.status });
+  };
+  return { fn, calls };
+};
+
+test("saveToEngramDirect: resolves project, registers session, saves observation", async () => {
+  const fake = makeEngramFetch([
+    { status: 200, body: { project: "loon-flakes" } },
+    { status: 201, body: { status: "created" } },
+    { status: 201, body: { id: 42, status: "saved" } },
+  ]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  try {
+    const res = await saveToEngramDirect({
+      sessionId: "sess-1",
+      cwd: "/home/loonbac/.nixos",
+      title: "t",
+      content: "c",
+    });
+    assert.equal(res.saved, true);
+    assert.equal(res.project, "loon-flakes");
+    assert.equal(res.observationId, 42);
+    assert.equal(fake.calls.length, 3);
+    assert.ok(fake.calls[0].url.includes("/project/current"));
+    assert.ok(fake.calls[1].url.endsWith("/sessions"));
+    assert.ok(fake.calls[2].url.endsWith("/observations"));
+    const obsBody = JSON.parse(fake.calls[2].init.body as string);
+    assert.equal(obsBody.session_id, "sess-1");
+    assert.equal(obsBody.project, "loon-flakes");
+    assert.equal(obsBody.capture_prompt, false);
+    assert.equal(obsBody.type, "jev_guard");
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+  }
+});
+
+test("saveToEngramDirect: tolerates 409 on session (already registered)", async () => {
+  const fake = makeEngramFetch([
+    { status: 200, body: { project: "p" } },
+    { status: 409, body: { error: "exists" } },
+    { status: 201, body: { id: 7 } },
+  ]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  try {
+    const res = await saveToEngramDirect({ sessionId: "s", cwd: "/tmp", title: "t", content: "c" });
+    assert.equal(res.saved, true);
+    assert.equal(res.observationId, 7);
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+  }
+});
+
+test("saveToEngramDirect: fails without saving when project unresolved", async () => {
+  const fake = makeEngramFetch([{ status: 200, body: { project_source: "ambiguous" } }]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  try {
+    const res = await saveToEngramDirect({ sessionId: "s", cwd: "/tmp", title: "t", content: "c" });
+    assert.equal(res.saved, false);
+    assert.equal(res.reason, "project_unresolved");
+    assert.equal(fake.calls.length, 1); // no session/observation attempt
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+  }
+});
+
+test("saveToEngramDirect: reports observation HTTP failure", async () => {
+  const fake = makeEngramFetch([
+    { status: 200, body: { project: "p" } },
+    { status: 201, body: { status: "created" } },
+    { status: 500, body: { error: "boom" } },
+  ]);
+  const orig = globalThis.fetch;
+  (globalThis as { fetch: unknown }).fetch = fake.fn;
+  try {
+    const res = await saveToEngramDirect({ sessionId: "s", cwd: "/tmp", title: "t", content: "c" });
+    assert.equal(res.saved, false);
+    assert.equal(res.reason, "observation_http_500");
+  } finally {
+    (globalThis as { fetch: unknown }).fetch = orig;
+  }
+});
+
+test("buildEngramTitle includes a snippet of the current input", () => {
+  const title = buildEngramTitle(
+    { currentInput: "fix the nix module", recentMessages: [] } as never,
+    "A durable lesson looks present",
+  );
+  assert.ok(title.includes("fix the nix module"), title);
+  assert.ok(title.includes("A durable lesson"), title);
+});
+
+test("buildEngramContent joins transcript and reason", () => {
+  const content = buildEngramContent(
+    {
+      currentInput: "do X",
+      recentMessages: [
+        { role: "user", text: "fix the bug" },
+        { role: "assistant", text: "done" },
+      ],
+    } as never,
+    "root cause found",
+  );
+  assert.ok(content.includes("root cause found"), content);
+  assert.ok(content.includes("fix the bug"), content);
+  assert.ok(content.includes("done"), content);
+  assert.ok(content.includes("do X"), content);
+});
 // --- askJev -----------------------------------------------------------------
 
 test("askJev sends state, model, and questions to the wire", async () => {
