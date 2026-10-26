@@ -1,0 +1,15 @@
+{
+  "name": "pi-jev-context-guard",
+  "version": "0.1.0",
+  "description": "pi extension: Jev judges every user message to decide when to compact, whether to start a new session, and whether to save a memory",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["pi-package", "pi-extension", "pi-coding-agent", "typesafe", "jev", "compaction"],
+  "engines": { "node": ">=22.19.0" },
+  "files": ["src"],
+  "pi": { "extensions": ["./src/index.ts"] },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

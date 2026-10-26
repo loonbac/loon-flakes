@@ -43,6 +43,7 @@ let
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
     "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
+    "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
   ];
 
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
@@ -58,6 +59,7 @@ let
     "pi-antigravity"
     "pi-commandcode-provider"
     "pi-cline-free"
+    "pi-jev-context-guard"
   ];
 
   piSettings = {
