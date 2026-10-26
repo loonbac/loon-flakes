@@ -1,0 +1,15 @@
+{
+  "name": "pi-ghost-tools",
+  "version": "0.1.0",
+  "description": "pi extension: stubs for hallucinated tool names so a wrong name returns an actionable error instead of pi's generic 'Tool X not found'",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["pi-package", "pi-extension", "pi-coding-agent"],
+  "engines": { "node": ">=22.19.0" },
+  "files": ["src"],
+  "pi": { "extensions": ["./src/index.ts"] },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

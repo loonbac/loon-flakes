@@ -44,6 +44,7 @@ let
     "npm:pi-commandcode-provider"
     "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
     "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
+    "@HOME@/.local/share/loon-pi-packages/pi-ghost-tools"
   ];
 
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
@@ -60,6 +61,7 @@ let
     "pi-commandcode-provider"
     "pi-cline-free"
     "pi-jev-context-guard"
+    "pi-ghost-tools"
   ];
 
   piSettings = {
