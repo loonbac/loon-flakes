@@ -234,6 +234,11 @@
         helium-browser = helium-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
+        # La TUI de port tal como la usa el sistema. Se declara aquí para que la
+        # caché binaria (Cachix) publique exactamente esta derivación: el flake
+        # de port sigue nuestro nixpkgs, así que el store path coincide con el
+        # que evalúa el sistema y se descarga en vez de compilar.
+        port = port.packages.${system}.default;
         # Notificador de batería baja crítica (<=10%)
         battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
         # Lanza apps de Android (Waydroid) levantando contenedor+sesión bajo demanda.
