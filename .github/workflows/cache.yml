@@ -35,5 +35,6 @@ jobs:
       # Paquetes propios cuyo build cuesta minutos de CPU (Rust y GTK).
       - name: Construir y publicar
         run: |
-          nix build --print-out-paths .#port .#nixos-updates .#loon-launch | tee /tmp/paths
+          set -euo pipefail
+          nix build --print-out-paths .#port .#nixos-updates .#loon-launch > /tmp/paths
           xargs -r cachix push loon-flakes < /tmp/paths
