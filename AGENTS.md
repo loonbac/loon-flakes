@@ -738,6 +738,12 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   mover `nixpkgs` es `rebuild update`, que pasa antes por el gate de binarios
   publicados.
 
+- **Un movimiento de `nixpkgs` y el bump del lock de `port` viajan en el mismo
+  PR**: ambos cambian store paths, así que la caché binaria queda desalineada
+  hasta que corra CI con el lock nuevo. Juntos se paga un solo ciclo de runner
+  y la caché queda coherente de una vez; separados, el run intermedio publica
+  paths que ya nadie va a usar.
+
 - **Rutas `target/` fijas en proyectos con el caché de Rust**: con el wrapper de
   `cargo` los artefactos ya no están en `<proyecto>/target`. Scripts revisados
   que lo asumían: `shirley-show/scripts/verify-responsive.sh` y su copia en
