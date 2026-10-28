@@ -385,6 +385,12 @@ let
     # esta lista para que la fusión borre la entrada vieja de settings.json en
     # la próxima activación.
     "pi-mcp-adapter"
+    # Sondas de desarrollo que quedaron instaladas desde /tmp: volcaban el
+    # catálogo de modelos (coste y capacidades) al arrancar cada sesión. Su
+    # fuente vive en /tmp, así que al limpiarse quedan como paquete sin origen en
+    # settings.json; se retiran para que la fusión las borre y no vuelvan.
+    "pi-costdump"
+    "pi-full"
   ];
 
   # Entradas de `extensions` que este repo escribió y ya no quiere. La fusión
