@@ -4,7 +4,11 @@ import {
   decide,
   extractText,
   recentMessagesFrom,
+  latestAssistantText,
+  buildState,
   buildCompactionInstructions,
+  evaluateCompactionAction,
+  runGuardTurn,
   QUESTIONS,
   askJev,
   askJevWithRetry,
@@ -93,6 +97,19 @@ test("QUESTIONS choice criteria match decision strings", () => {
   const freshKeys = Object.keys(QUESTIONS.session_fresh.criteria || {});
   assert.ok(freshKeys.includes("new-session"));
   assert.ok(freshKeys.includes("continue"));
+});
+
+test("QUESTIONS.heavy_context has no percentage anchors and uses usefulness criteria", () => {
+  const instructions = QUESTIONS.heavy_context.instructions;
+  const criteria = JSON.stringify(QUESTIONS.heavy_context.criteria || {});
+  assert.ok(!instructions.includes("%"), "instructions must not contain %");
+  assert.ok(!criteria.includes("%"), "criteria must not contain %");
+  assert.ok(!criteria.includes("85"), "criteria must not contain 85");
+  assert.ok(!criteria.includes("60"), "criteria must not contain 60");
+  assert.ok(instructions.includes("settled"), "instructions must mention settled");
+  assert.ok(instructions.includes("stale"), "instructions must mention stale");
+  assert.ok(instructions.includes("summary"), "instructions must mention summary");
+  assert.ok(instructions.includes("mid-flight"), "instructions must mention mid-flight");
 });
 
 const noul = (n: number) => ({ type: "noul" as const, noul: n });
@@ -477,4 +494,210 @@ test("askJev respects AbortSignal", async () => {
   } finally {
     (globalThis as { fetch: unknown }).fetch = orig;
   }
+});
+
+// --- latestAssistantText ----------------------------------------------------
+
+test("latestAssistantText extracts text from messages array", () => {
+  const messages = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: "I fixed the issue." },
+  ];
+  assert.equal(latestAssistantText(messages, []), "I fixed the issue.");
+});
+
+test("latestAssistantText extracts text from array content in message", () => {
+  const messages = [
+    { role: "assistant", content: [{ type: "text", text: "Done with refactor." }] },
+  ];
+  assert.equal(latestAssistantText(messages, []), "Done with refactor.");
+});
+
+test("latestAssistantText falls back to session entries when messages has no assistant", () => {
+  const entries = [
+    { type: "message", message: { role: "assistant", content: "Earlier response" } },
+    { type: "message", message: { role: "user", content: "thanks" } },
+  ];
+  assert.equal(latestAssistantText([], entries), "Earlier response");
+});
+
+test("latestAssistantText returns empty string when no assistant message exists", () => {
+  assert.equal(latestAssistantText([], []), "");
+  assert.equal(latestAssistantText(undefined, []), "");
+});
+
+// --- buildState -------------------------------------------------------------
+
+test("buildState counts messages and populates GuardState", () => {
+  const entries = [
+    { type: "message", message: { role: "user", content: "hi" } },
+    { type: "message", message: { role: "assistant", content: "hello" } },
+    { type: "compaction", summary: "compaction summary" },
+    { type: "usage" },
+  ];
+  const fakeCtx = {
+    sessionManager: { getEntries: () => entries },
+    getContextUsage: () => ({ tokens: 50_000, contextWindow: 200_000, percent: 25 }),
+    model: { provider: "test", id: "m1" },
+  } as never;
+
+  const state1 = buildState({ text: "user prompt" }, fakeCtx);
+  assert.ok(state1);
+  assert.equal(state1.currentInput, "user prompt");
+  assert.equal(state1.session.messages, 2);
+  assert.equal(state1.context.messages, 2);
+  assert.equal(state1.context.tokens, 50_000);
+  assert.equal(state1.session.lastCompaction, "compaction summary");
+
+  const state2 = buildState("plain text", fakeCtx);
+  assert.ok(state2);
+  assert.equal(state2.currentInput, "plain text");
+});
+
+// --- evaluateCompactionAction -----------------------------------------------
+
+test("evaluateCompactionAction: compact-now + settled compacts when no cooldown", () => {
+  const d = decide({ mid_task: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
+  const outcome = evaluateCompactionAction(d, 100_000, 0, 50_000);
+  assert.equal(outcome.compacted, true);
+  assert.equal(outcome.action, "compact");
+  assert.ok(outcome.notified[0].includes("compacting now"));
+});
+
+test("evaluateCompactionAction: compact-now + settled respects cooldown", () => {
+  const d = decide({ mid_task: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
+  const outcome = evaluateCompactionAction(d, 100_000, 90_000, 50_000);
+  assert.equal(outcome.compacted, false);
+  assert.equal(outcome.action, "cooldown");
+  assert.ok(outcome.notified[0].includes("cooldown active"));
+});
+
+test("evaluateCompactionAction: compact-now + mid-task refuses to compact", () => {
+  const d = decide({ mid_task: noul(0.8), heavy_context: choice("compact-now"), session_fresh: choice("continue") });
+  const outcome = evaluateCompactionAction(d, 100_000, 0, 50_000);
+  assert.equal(outcome.compacted, false);
+  assert.equal(outcome.action, "mid-task-waiting");
+  assert.ok(outcome.notified[0].includes("waiting for a settled moment"));
+});
+
+test("evaluateCompactionAction: keep-going does not compact", () => {
+  const d = decide({ mid_task: noul(0.1), heavy_context: choice("keep-going"), session_fresh: choice("continue") });
+  const outcome = evaluateCompactionAction(d, 100_000, 0, 50_000);
+  assert.equal(outcome.compacted, false);
+  assert.equal(outcome.action, "none");
+});
+
+// --- runGuardTurn -----------------------------------------------------------
+
+test("runGuardTurn: executes for agent_end when not debounced", async () => {
+  let asked = false;
+  let compacted = false;
+  const traces: Record<string, unknown>[] = [];
+  const notifications: string[] = [];
+
+  const fakeCtx = {
+    sessionManager: {
+      getEntries: () => [{ type: "message", message: { role: "assistant", content: "Done" } }],
+      getSessionId: () => "sess-1",
+    },
+    getContextUsage: () => ({ tokens: 100_000, contextWindow: 1_000_000, percent: 10 }),
+    model: { provider: "test", id: "m" },
+    cwd: "/tmp",
+    compact: (opts?: { onComplete?: () => void }) => {
+      compacted = true;
+      opts?.onComplete?.();
+    },
+    ui: { notify: (msg: string) => { notifications.push(msg); } },
+  } as never;
+
+  const fakeAsk = async () => {
+    asked = true;
+    return {
+      model: "jev-latest",
+      answers: {
+        mid_task: noul(0.2),
+        worth_memory: noul(0.8),
+        heavy_context: choice("compact-now"),
+        session_fresh: choice("continue"),
+      },
+      usage: { input_tokens: 10, output_tokens: 5 },
+    };
+  };
+
+  const res = await runGuardTurn("agent_end", "Done with work", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: 0, session: "" },
+    lastAutoCompact: 0,
+    askJevFn: fakeAsk as never,
+    traceFn: async (t) => { traces.push(t); },
+    saveEngramFn: async () => ({ saved: true, project: "test", observationId: 1 }),
+  });
+
+  assert.equal(res.ran, true);
+  assert.equal(asked, true);
+  assert.equal(compacted, true);
+  assert.ok(traces.some((t) => t.event === "response_judged"));
+  assert.ok(traces.some((t) => t.event === "auto_compacted"));
+});
+
+test("runGuardTurn: compact-now + mid-task still refuses to compact", async () => {
+  let compacted = false;
+  const traces: Record<string, unknown>[] = [];
+  const notifications: string[] = [];
+
+  const fakeCtx = {
+    sessionManager: {
+      getEntries: () => [{ type: "message", message: { role: "assistant", content: "Still working" } }],
+      getSessionId: () => "sess-1",
+    },
+    getContextUsage: () => ({ tokens: 100_000, contextWindow: 1_000_000, percent: 10 }),
+    model: { provider: "test", id: "m" },
+    cwd: "/tmp",
+    compact: () => { compacted = true; },
+    ui: { notify: (msg: string) => { notifications.push(msg); } },
+  } as never;
+
+  const fakeAsk = async () => ({
+    model: "jev-latest",
+    answers: {
+      mid_task: noul(0.9), // mid-task
+      worth_memory: noul(0.1),
+      heavy_context: choice("compact-now"),
+      session_fresh: choice("continue"),
+    },
+    usage: { input_tokens: 10, output_tokens: 5 },
+  });
+
+  const res = await runGuardTurn("agent_end", "in-flight change", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: 0, session: "" },
+    lastAutoCompact: 0,
+    askJevFn: fakeAsk as never,
+    traceFn: async (t) => { traces.push(t); },
+    notifyFn: (c, msg) => { notifications.push(msg); },
+  });
+
+  assert.equal(res.ran, true);
+  assert.equal(compacted, false, "must NOT compact while mid-task");
+  assert.ok(notifications.some((n) => n.includes("mid-flight - waiting for a settled moment")));
+  assert.ok(!traces.some((t) => t.event === "auto_compacted"));
+});
+
+test("runGuardTurn: respects 10s debounce across turns", async () => {
+  let asked = false;
+  const now = Date.now();
+  const fakeCtx = {
+    sessionManager: { getEntries: () => [] },
+    getContextUsage: () => null,
+  } as never;
+
+  const res = await runGuardTurn("agent_end", "text", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: now - 3_000, session: "" }, // only 3s ago
+    lastAutoCompact: 0,
+    askJevFn: (async () => { asked = true; }) as never,
+  });
+
+  assert.equal(res.ran, false);
+  assert.equal(asked, false);
 });

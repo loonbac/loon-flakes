@@ -2,6 +2,7 @@ import { appendFile, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
+  AgentEndEvent,
   ExtensionAPI,
   ExtensionContext,
   SessionBeforeCompactEvent,
@@ -75,9 +76,9 @@ async function readTypeSafeKey(agentDir: string): Promise<string | undefined> {
 }
 
 export interface GuardState {
-  context: { tokens: number | null; window: number; percent: number | null };
+  context: { tokens: number | null; window: number; percent: number | null; messages?: number };
   model: string;
-  session: { entries: number; lastCompaction: string | null };
+  session: { entries: number; messages: number; lastCompaction: string | null };
   recentMessages: { role: string; text: string }[];
   currentInput: string;
 }
@@ -95,6 +96,31 @@ export function extractText(content: unknown): string {
   return "";
 }
 
+export function latestAssistantText(messages: unknown[] | undefined, entries: unknown[]): string {
+  if (Array.isArray(messages) && messages.length > 0) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i] as { role?: string; content?: unknown };
+      if (m && m.role === "assistant") {
+        const text = extractText(m.content).trim();
+        if (text.length > 0) return text;
+      }
+    }
+    const last = messages[messages.length - 1] as { content?: unknown };
+    const text = extractText(last?.content).trim();
+    if (text.length > 0) return text;
+  }
+  if (Array.isArray(entries)) {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i] as { type?: string; message?: { role?: string; content?: unknown } };
+      if (e && e.type === "message" && e.message?.role === "assistant") {
+        const text = extractText(e.message.content).trim();
+        if (text.length > 0) return text;
+      }
+    }
+  }
+  return "";
+}
+
 export function recentMessagesFrom(entries: unknown[], limit: number): { role: string; text: string }[] {
   const messages: { role: string; text: string }[] = [];
   for (const entry of entries) {
@@ -107,7 +133,7 @@ export function recentMessagesFrom(entries: unknown[], limit: number): { role: s
   return messages.slice(-limit);
 }
 
-export function buildState(event: { text: string }, ctx: ExtensionContext): GuardState | undefined {
+export function buildState(eventOrText: { text: string } | string, ctx: ExtensionContext): GuardState | undefined {
   let entries: unknown[] = [];
   try {
     entries = ctx.sessionManager.getEntries() as unknown[];
@@ -115,23 +141,27 @@ export function buildState(event: { text: string }, ctx: ExtensionContext): Guar
     return undefined;
   }
   let lastCompaction: string | null = null;
+  let messageCount = 0;
   for (const entry of entries) {
     const e = entry as { type?: string; summary?: string };
     if (e.type === "compaction") lastCompaction = e.summary ? e.summary.slice(0, 120) : "(summary unavailable)";
+    if (e.type === "message") messageCount += 1;
   }
   const usage = (() => {
     try { return ctx.getContextUsage(); } catch { return null; }
   })();
+  const currentText = typeof eventOrText === "string" ? eventOrText : eventOrText.text;
   return {
     context: {
       tokens: usage ? usage.tokens : null,
       window: usage ? usage.contextWindow : 0,
       percent: usage ? usage.percent : null,
+      messages: messageCount,
     },
     model: ctx.model ? ctx.model.provider + "/" + ctx.model.id : "unknown",
-    session: { entries: entries.length, lastCompaction },
+    session: { entries: entries.length, messages: messageCount, lastCompaction },
     recentMessages: recentMessagesFrom(entries, 12),
-    currentInput: event.text.slice(0, 600),
+    currentInput: (currentText || "").slice(0, 600),
   };
 }
 
@@ -161,11 +191,14 @@ export const QUESTIONS: Record<string, Question> = {
   heavy_context: {
     type: "choice",
     instructions:
-      "Given context (current token usage vs window) and recentMessages, how pressing is compaction RIGHT NOW?",
+      "Given context (tokens used, window, percent, and messages carried in state) and recentMessages, is compacting NOW worth it? " +
+      "Judge by usefulness rather than a token fraction: is the recent work settled enough to summarize, is most of the carried context stale for the current work, and would a summary keep what is needed for the next step? " +
+      "Compacting now is worth it when the accumulated context is mostly historical and the work has reached a clean settling point. " +
+      "Keep going when the work is mid-flight or the carried context remains live and relevant.",
     criteria: {
-      "compact-now": "Context is heavy (>=85% of window) and the recent work looks settled enough to summarize.",
-      soon: "Context is filling up (60-85%) or will be heavy within a few more exchanges; compaction is needed soon but is not urgent.",
-      "keep-going": "Context is comfortable (<60%) or the work is mid-flight and compacting now would lose live state.",
+      "compact-now": "Compacting now is worth it: recent work is settled enough to summarize, most carried context is stale for the next step, and a summary will preserve all necessary state.",
+      soon: "Context is accumulating and compaction will be needed soon, but either the current topic is not yet cleanly settled or the carried context still has active value.",
+      "keep-going": "Keep going without compacting: work is mid-flight, carried context is live and active, or the exchange is still fresh enough that summarizing now would lose useful detail.",
       other: "Not enough information to judge.",
     },
   },
@@ -377,6 +410,152 @@ export function buildEngramContent(state: GuardState, reason: string): string {
     transcript,
   ].join("\n\n").slice(0, 8000);
 }
+export interface GuardActionOutcome {
+  action: "compact" | "cooldown" | "mid-task-waiting" | "none";
+  compacted: boolean;
+  notified: string[];
+  instructions?: string;
+}
+
+export function evaluateCompactionAction(
+  d: Decisions,
+  now: number,
+  lastAutoCompact: number,
+  cooldownMs: number,
+): GuardActionOutcome {
+  const notified: string[] = [];
+  if (d.compactionUrgency === "compact-now" && d.taskState === "settled") {
+    if (now - lastAutoCompact > cooldownMs) {
+      const instructions = buildCompactionInstructions(d);
+      notified.push("Jev: context is heavy and the task is settled - compacting now.");
+      return { action: "compact", compacted: true, instructions: instructions || undefined, notified };
+    } else {
+      notified.push("Jev: compact-now (cooldown active) - manual /compact is available.");
+      return { action: "cooldown", compacted: false, notified };
+    }
+  } else if (d.compactionUrgency === "compact-now" && d.taskState === "mid-task") {
+    notified.push("Jev: context is heavy but the task is mid-flight - waiting for a settled moment.");
+    return { action: "mid-task-waiting", compacted: false, notified };
+  }
+  return { action: "none", compacted: false, notified };
+}
+
+export const AUTO_COMPACT_COOLDOWN_MS = 5 * 60 * 1000;
+export const GUARD_DEBOUNCE_MS = 10_000;
+
+export async function runGuardTurn(
+  source: "input" | "agent_end",
+  text: string,
+  ctx: ExtensionContext,
+  deps: {
+    getKey: () => Promise<string | undefined>;
+    lastAdvice: { at: number; session: string };
+    lastAutoCompact: number;
+    cooldownMs?: number;
+    debounceMs?: number;
+    askJevFn?: typeof askJevWithRetry;
+    traceFn?: typeof trace;
+    notifyFn?: (ctx: ExtensionContext, message: string, type: "info" | "warning" | "error") => void;
+    saveEngramFn?: typeof saveToEngramDirect;
+  },
+): Promise<{ ran: boolean; lastAdvice: { at: number; session: string }; lastAutoCompact: number }> {
+  let { lastAdvice, lastAutoCompact } = deps;
+  const cooldownMs = deps.cooldownMs ?? AUTO_COMPACT_COOLDOWN_MS;
+  const debounceMs = deps.debounceMs ?? GUARD_DEBOUNCE_MS;
+  const askFn = deps.askJevFn ?? askJevWithRetry;
+  const traceFn = deps.traceFn ?? trace;
+  const notifyFn = deps.notifyFn ?? ((c, msg, type) => { try { c.ui.notify(msg, type); } catch { /* best-effort */ } });
+  const saveEngram = deps.saveEngramFn ?? saveToEngramDirect;
+
+  const key = await deps.getKey();
+  if (!key) return { ran: false, lastAdvice, lastAutoCompact };
+
+  const state = buildState(text, ctx);
+  if (!state) return { ran: false, lastAdvice, lastAutoCompact };
+
+  const now = Date.now();
+  if (now - lastAdvice.at < debounceMs) return { ran: false, lastAdvice, lastAutoCompact };
+
+  try {
+    const timeoutMs = Number(process.env.PI_JEV_GUARD_TIMEOUT_MS || "4000");
+    const response = await askFn(key, state, QUESTIONS, ctx.signal, timeoutMs, (attempt, err) => {
+      if (err && attempt < 2) void traceFn({ event: "jev_retry", attempt, error: err.message.slice(0, 200) });
+      else if (err && attempt === 2) void traceFn({ event: "jev_retry_exhausted", attempt, error: err.message.slice(0, 200) });
+    });
+    const d = decide(response.answers);
+    lastAdvice = { at: now, session: d.sessionAdvice };
+
+    await traceFn({
+      event: source === "input" ? "input_judged" : "response_judged",
+      tokens: state.context.tokens,
+      percent: state.context.percent,
+      task: d.taskState,
+      compaction: d.compactionUrgency,
+      session: d.sessionAdvice,
+      saveToEngram: d.saveToEngram,
+      usage: response.usage,
+    });
+
+    const action = evaluateCompactionAction(d, now, lastAutoCompact, cooldownMs);
+    for (const msg of action.notified) {
+      notifyFn(ctx, msg, "info");
+    }
+    if (action.compacted) {
+      lastAutoCompact = now;
+      ctx.compact({
+        customInstructions: action.instructions,
+        onComplete: () => traceFn({ event: "auto_compacted", reason: "jev_compact_now" }),
+        onError: (err) => traceFn({ event: "auto_compact_error", error: err.message.slice(0, 200) }),
+      });
+    }
+
+    if (d.saveToEngram) {
+      const sessionId = (() => {
+        try { return ctx.sessionManager.getSessionId(); } catch { return ""; }
+      })();
+      const cwd = ctx.cwd;
+      if (sessionId) {
+        const savePromise = saveEngram({
+          sessionId,
+          cwd,
+          title: buildEngramTitle(state, d.saveReason),
+          content: buildEngramContent(state, d.saveReason),
+          signal: ctx.signal,
+        }).then((res) => {
+          if (res.saved) {
+            traceFn({
+              event: "engram_saved",
+              project: res.project,
+              observationId: res.observationId,
+              reason: d.saveReason,
+            });
+            notifyFn(ctx, "Jev: saved to Engram (" + (res.project ?? "unknown") + "#" + (res.observationId ?? "?") + ").", "info");
+          } else {
+            traceFn({ event: "engram_save_failed", reason: res.reason, project: res.project });
+            notifyFn(ctx, "Jev: Engram save failed (" + (res.reason ?? "unknown") + ").", "warning");
+          }
+        });
+        void savePromise.catch(() => {});
+      } else {
+        await traceFn({ event: "engram_save_skipped", reason: "no_session_id" });
+        notifyFn(ctx, "Jev: Engram save skipped (no runtime session id).", "warning");
+      }
+    }
+
+    if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now") {
+      notifyFn(ctx, "Jev: a fresh session may be cleaner than continuing compacted. Your call.", "info");
+    }
+
+    return { ran: true, lastAdvice, lastAutoCompact };
+  } catch (error) {
+    await traceFn({
+      event: source === "input" ? "input_error" : "response_error",
+      error: String(error instanceof Error ? error.message : error).slice(0, 200),
+    });
+    return { ran: false, lastAdvice, lastAutoCompact };
+  }
+}
+
 export default function jevContextGuard(pi: ExtensionAPI): void {
   if (process.env.PI_JEV_GUARD === "0") return;
 
@@ -396,99 +575,35 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
     try { ctx.ui.notify(message, type); } catch { /* best-effort */ }
   };
 
-  const AUTO_COMPACT_COOLDOWN_MS = 5 * 60 * 1000;
-
-  // Every user message: one batched Jev request.
+  // 1. Every user message: one batched Jev request.
   pi.on("input", async (event: { text: string; streamingBehavior?: string }, ctx: ExtensionContext) => {
     if (event.streamingBehavior) return { action: "continue" as const };
-    const key = await getKey();
-    if (!key) return { action: "continue" as const };
-    const state = buildState(event, ctx);
-    if (!state) return { action: "continue" as const };
-
-    const now = Date.now();
-    if (now - lastAdvice.at < 10_000) return { action: "continue" as const };
-
-    try {
-      const timeoutMs = Number(process.env.PI_JEV_GUARD_TIMEOUT_MS || "4000");
-      const response = await askJevWithRetry(key, state, QUESTIONS, ctx.signal, timeoutMs, (attempt, err) => {
-        if (err && attempt < 2) void trace({ event: "jev_retry", attempt, error: err.message.slice(0, 200) });
-        else if (err && attempt === 2) void trace({ event: "jev_retry_exhausted", attempt, error: err.message.slice(0, 200) });
-      });
-      const d = decide(response.answers);
-      lastAdvice = { at: now, session: d.sessionAdvice };
-
-      await trace({
-        event: "input_judged",
-        tokens: state.context.tokens,
-        percent: state.context.percent,
-        task: d.taskState,
-        compaction: d.compactionUrgency,
-        session: d.sessionAdvice,
-        saveToEngram: d.saveToEngram,
-        usage: response.usage,
-      });
-
-      // Auto-compact when Jev says it is due and we are not mid-task.
-      if (d.compactionUrgency === "compact-now" && d.taskState === "settled") {
-        if (now - lastAutoCompact > AUTO_COMPACT_COOLDOWN_MS) {
-          lastAutoCompact = now;
-          const instructions = buildCompactionInstructions(d);
-          ctx.compact({
-            customInstructions: instructions || undefined,
-            onComplete: () => trace({ event: "auto_compacted", reason: "jev_compact_now" }),
-            onError: (err) => trace({ event: "auto_compact_error", error: err.message.slice(0, 200) }),
-          });
-          notify(ctx, "Jev: context is heavy and the task is settled - compacting now.", "info");
-        } else {
-          notify(ctx, "Jev: compact-now (cooldown active) - manual /compact is available.", "info");
-        }
-      } else if (d.compactionUrgency === "compact-now" && d.taskState === "mid-task") {
-        notify(ctx, "Jev: context is heavy but the task is mid-flight - waiting for a settled moment.", "info");
-      }
-
-      if (d.saveToEngram) {
-        // Real persistence: resolve project, register session, save observation.
-        const sessionId = (() => {
-          try { return ctx.sessionManager.getSessionId(); } catch { return ""; }
-        })();
-        const cwd = ctx.cwd;
-        if (sessionId) {
-          const savePromise = saveToEngramDirect({
-            sessionId,
-            cwd,
-            title: buildEngramTitle(state, d.saveReason),
-            content: buildEngramContent(state, d.saveReason),
-            signal: ctx.signal,
-          }).then((res) => {
-            if (res.saved) {
-              trace({
-                event: "engram_saved",
-                project: res.project,
-                observationId: res.observationId,
-                reason: d.saveReason,
-              });
-              notify(ctx, "Jev: saved to Engram (" + (res.project ?? "unknown") + "#" + (res.observationId ?? "?") + ").", "info");
-            } else {
-              trace({ event: "engram_save_failed", reason: res.reason, project: res.project });
-              notify(ctx, "Jev: Engram save failed (" + (res.reason ?? "unknown") + ").", "warning");
-            }
-          });
-          // Fire-and-forget; the input hook must not block on Engram.
-          void savePromise.catch(() => {});
-        } else {
-          await trace({ event: "engram_save_skipped", reason: "no_session_id" });
-          notify(ctx, "Jev: Engram save skipped (no runtime session id).", "warning");
-        }
-      }
-      if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now") {
-        notify(ctx, "Jev: a fresh session may be cleaner than continuing compacted. Your call.", "info");
-      }
-    } catch (error) {
-      await trace({ event: "input_error", error: String(error instanceof Error ? error.message : error).slice(0, 200) });
-    }
-
+    const res = await runGuardTurn("input", event.text, ctx, {
+      getKey,
+      lastAdvice,
+      lastAutoCompact,
+      notifyFn: notify,
+    });
+    lastAdvice = res.lastAdvice;
+    lastAutoCompact = res.lastAutoCompact;
     return { action: "continue" as const };
+  });
+
+  // 2. Once per completed assistant response: one batched Jev request.
+  // agent_end fires when the agent loop finishes all turns in the run,
+  // making it the exact completed response boundary (firing least often).
+  pi.on("agent_end", async (event: AgentEndEvent, ctx: ExtensionContext) => {
+    let entries: unknown[] = [];
+    try { entries = ctx.sessionManager.getEntries() as unknown[]; } catch { /* best-effort */ }
+    const text = latestAssistantText(event.messages, entries);
+    const res = await runGuardTurn("agent_end", text, ctx, {
+      getKey,
+      lastAdvice,
+      lastAutoCompact,
+      notifyFn: notify,
+    });
+    lastAdvice = res.lastAdvice;
+    lastAutoCompact = res.lastAutoCompact;
   });
 
   // Compaction veto: only cancel when Jev says mid-task AND we just compacted (threshold < 50k).

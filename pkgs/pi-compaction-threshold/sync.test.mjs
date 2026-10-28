@@ -12,6 +12,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  OVERFLOW_SAFETY_RATIO,
   computeOverrides,
   mergeOverrides,
   parseContextTokens,
@@ -19,7 +20,11 @@ import {
   writeSettings,
 } from "./sync.mjs";
 
-const BASE = { threshold: 250_000, floorReserve: 65_536, builtinReserve: 16_384 };
+const BASE = { safetyRatio: 0.90, floorReserve: 65_536, builtinReserve: 16_384 };
+
+test("OVERFLOW_SAFETY_RATIO is 90% by default", () => {
+  assert.equal(OVERFLOW_SAFETY_RATIO, 0.90);
+});
 
 test("parseContextTokens reads the compact size Pi prints", () => {
   assert.equal(parseContextTokens("1M"), 1_000_000);
@@ -63,37 +68,45 @@ test("parseModelTable ignores the header row and prose", () => {
 
 test("computeOverrides keys a 1M model so it compacts at the threshold", () => {
   const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 1_000_000 }], BASE);
-  assert.deepEqual(overrides, { "p/m": { reserveTokens: 750_000 } });
-  // The threshold Pi derives is contextWindow - reserveTokens.
-  assert.equal(1_000_000 - overrides["p/m"].reserveTokens, 250_000);
+  assert.deepEqual(overrides, { "p/m": { reserveTokens: 100_000 } });
+  // The threshold Pi derives is contextWindow - reserveTokens (90% of 1M = 900k).
+  assert.equal(1_000_000 - overrides["p/m"].reserveTokens, 900_000);
 });
 
 test("computeOverrides holds the threshold for a model below 1M", () => {
-  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 400_000 }], BASE);
-  assert.deepEqual(overrides, { "p/m": { reserveTokens: 150_000 } });
-  assert.equal(400_000 - overrides["p/m"].reserveTokens, 250_000);
+  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 800_000 }], BASE);
+  // 90% of 800k = 720k; reserve = 80k > 65_536 floor.
+  assert.deepEqual(overrides, { "p/m": { reserveTokens: 80_000 } });
+  assert.equal(800_000 - overrides["p/m"].reserveTokens, 720_000);
 });
 
 test("computeOverrides asks for no entry when the default already fits", () => {
-  // A 262.1K model compacts at 245_716 with the built-in reserve, which is
-  // earlier than the requested 250k, so an override would only be noise.
-  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 262_100 }], BASE);
+  // A 100K model compacts at 83_616 with the built-in reserve, which is
+  // earlier than the 90% threshold (90k), so an override would only be noise.
+  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 100_000 }], BASE);
   assert.deepEqual(overrides, {});
 });
 
 test("computeOverrides applies the floor to a model just above the threshold", () => {
-  // 300K - 250K would be a 50K reserve; the floor keeps 65_536 so the model
+  // 400K * 0.90 = 360K; 400K - 360K would be a 40K reserve; the floor keeps 65_536 so the model
   // can still emit a full response.
-  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 300_000 }], BASE);
+  const overrides = computeOverrides([{ provider: "p", id: "m", contextWindow: 400_000 }], BASE);
   assert.deepEqual(overrides, { "p/m": { reserveTokens: 65_536 } });
 });
 
 test("computeOverrides upgrades an existing reserve that is smaller", () => {
   const models = [{ provider: "p", id: "m", contextWindow: 1_000_000 }];
-  const first = computeOverrides(models, { ...BASE, threshold: 150_000 });
+  const first = computeOverrides(models, { ...BASE, safetyRatio: 0.80 });
   const second = computeOverrides(models, BASE);
-  assert.equal(first["p/m"].reserveTokens, 850_000);
-  assert.equal(second["p/m"].reserveTokens, 750_000);
+  assert.equal(first["p/m"].reserveTokens, 200_000);
+  assert.equal(second["p/m"].reserveTokens, 100_000);
+});
+
+test("computeOverrides supports explicit threshold override", () => {
+  const models = [{ provider: "p", id: "m", contextWindow: 1_000_000 }];
+  const overrides = computeOverrides(models, { ...BASE, threshold: 250_000 });
+  assert.equal(overrides["p/m"].reserveTokens, 750_000);
+  assert.equal(1_000_000 - overrides["p/m"].reserveTokens, 250_000);
 });
 
 test("mergeOverrides keeps an entry the catalogue no longer reports", () => {

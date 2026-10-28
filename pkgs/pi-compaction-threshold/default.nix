@@ -22,8 +22,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
     install -Dm644 sync.mjs "$out/libexec/pi-compaction-threshold/sync.mjs"
-    # `pi` is resolved at runtime on purpose: the launcher in nixpkgs owns it,
-    # and this tool must read whichever catalogue that launcher exposes.
+    # `pi` se resuelve en tiempo de ejecución a propósito: el launcher de nixpkgs
+    # es su dueño, y esta herramienta debe leer el catálogo que ese launcher exponga.
     makeWrapper ${nodejs}/bin/node "$out/bin/pi-compaction-threshold" \
       --add-flags "$out/libexec/pi-compaction-threshold/sync.mjs"
     runHook postInstall
@@ -34,16 +34,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "Pin Pi's compaction threshold across every model of a context size";
+    description = "Red de seguridad contra desbordamiento de contexto para modelos de Pi";
     longDescription = ''
-      Pi compacts when the context exceeds `contextWindow - reserveTokens`, and it
-      accepts that reserve only as an exact `provider/model` entry. With the
-      built-in reserve a million-token model carries almost the whole window
-      before compacting, which re-sends a large prefix at the cache-miss price.
-
-      This tool reads the live model catalogue and derives one override per model
-      so the threshold stays constant as models come and go. It only adds or
-      updates entries, never removing one.
+      Configura un margen de seguridad (90% de la ventana de contexto) para que la
+      auto-compactación nativa de Pi actúe únicamente como red de salvaguarda ante
+      desbordamientos si el context guard de Jev falla o no está presente.
+      La política de cadencia de compactación efectiva la decide Jev.
     '';
     license = lib.licenses.mit;
     platforms = lib.platforms.linux;
