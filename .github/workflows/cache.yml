@@ -7,6 +7,9 @@ name: cache
 on:
   push:
     branches: [master]
+  # Disparador primario: calienta la caché aunque nadie toque este repo.
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -20,21 +23,25 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@d9186cbdca7adedf113a159fa91f725a27866771 # v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@ad2ddac53f961de1989924296a1f236fcfbaa4fc # v15
         with:
           name: loon-flakes
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       # Paquetes propios cuyo build cuesta minutos de CPU (Rust y GTK).
-      - name: Construir y publicar
+      - name: Actualizar port y publicar
         run: |
           set -euo pipefail
+          # Adelanta la caché a la próxima revisión de port: cuando el lock de
+          # este repo la apunte, el binario ya estará publicado. Solo mueve ese
+          # nodo del lock y no se commitea.
+          nix flake update port
           nix build --print-out-paths .#port .#nixos-updates .#loon-launch > /tmp/paths
           xargs -r cachix push loon-flakes < /tmp/paths
