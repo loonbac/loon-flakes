@@ -40,6 +40,7 @@ let
   piCompactionThreshold = pkgs.callPackage ../../../pkgs/pi-compaction-threshold { };
   betterClaudeCodeUi = loon;
   gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
+  piJevContextGuard = pkgs.callPackage ../../../pkgs/pi-jev-context-guard { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
     inherit
       engramLauncher
@@ -53,7 +54,7 @@ let
     gentleAiRuntimeSource = core.gentleAi.source;
     engramSourceMode = core.engram.mode;
     engramSourceRef = core.engram.ref;
-    inherit betterClaudeCodeUi gptFastModeShared;
+    inherit betterClaudeCodeUi gptFastModeShared piJevContextGuard;
     inherit piCompactionThreshold;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {

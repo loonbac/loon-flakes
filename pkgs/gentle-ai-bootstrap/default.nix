@@ -16,6 +16,7 @@
 , engramLauncher
 , betterClaudeCodeUi
 , gptFastModeShared
+, piJevContextGuard
 , gentlePiSource ? "npm:gentle-pi"
 , gentlePiPackageSubpath ? "npm/node_modules/gentle-pi"
 , useGentleAiDevRuntime ? false
@@ -308,7 +309,7 @@ let
     # instead of a list that would need editing.
     jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    # The four review lenses, plus the refuter and the validator.
+    # The four review lenses.
     # These must not depend on which Antigravity account is active. Google marks Claude Sonnet
     # 4.6 / Opus 4.6 as removed on 2 Nov 2026, the keeper's preferred account no longer
     # advertises them at all, and no published pi-antigravity release exposes the 5.5
@@ -325,21 +326,11 @@ let
     review-reliability = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
     review-resilience = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
     review-risk = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
-    review-refuter = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
-    review-validator = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
-    sdd-apply = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-archive = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-design = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-init = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-onboard = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-proposal = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-research = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-spec = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-status = { model = "antigravity/gemini-3.5-flash"; effort = "low"; };
-    sdd-sync = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    sdd-tasks = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    sdd-verify = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    # Rutas sin agente: ni el refuter ni el validador son agentes de Pi (la review
+    # nativa los ejecuta por su propio relay) y los agentes sdd-* se retiraron de
+    # esta máquina, con sus ficheros borrados durante el sync. Una ruta que no
+    # puede casar con ningún agente solo produce el aviso "did not match any
+    # agent and was ignored" en cada arranque, así que no se declaran.
   };
 
 
@@ -1438,6 +1429,19 @@ writeShellApplication {
         mv "$fast_mode_source" "$backup_dir/local-packages/pi-gpt-fast-mode-shared"
       fi
       ln -s "${gptFastModeShared}" "$fast_mode_source"
+    fi
+
+    # El guard de contexto Jev vivía como directorio copiado a mano en el home:
+    # el repo tenía su fuente pero nada la desplegaba, así que un cambio en
+    # pkgs/pi-jev-context-guard no llegaba nunca a Pi. Se enlaza como el resto:
+    # los bytes son del flake y el home solo guarda la identidad.
+    jev_guard_source="$local_package_root/pi-jev-context-guard"
+    if [ ! -L "$jev_guard_source" ] || [ "$(readlink -f "$jev_guard_source" || true)" != "${piJevContextGuard}" ]; then
+      if [ -e "$jev_guard_source" ] || [ -L "$jev_guard_source" ]; then
+        mkdir -p "$backup_dir/local-packages"
+        mv "$jev_guard_source" "$backup_dir/local-packages/pi-jev-context-guard"
+      fi
+      ln -s "${piJevContextGuard}" "$jev_guard_source"
     fi
 
     # Install Pi only when absent. Subsequent upgrades belong to `pi update`,
