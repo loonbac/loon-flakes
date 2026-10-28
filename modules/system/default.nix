@@ -64,6 +64,16 @@
   # ---- Configuración de Nix (Flakes y CLI moderno) ----
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # ---- Caché binaria propia (Cachix) ----
+  # Los paquetes de este repo (port, nixos-updates, loon-launch...) se publican
+  # en una caché pública para que la máquina los descargue en vez de compilarlos.
+  # La clave de escritura vive solo en CI (secreto CACHIX_AUTH_TOKEN); aquí va
+  # únicamente la clave pública de verificación.
+  nix.settings.extra-substituters = [ "https://loon-flakes.cachix.org" ];
+  nix.settings.extra-trusted-public-keys = [
+    "loon-flakes.cachix.org-1:xsVkmne14tAk2SnsB2PMh9G79tahiPEdytxugEDFoCE="
+  ];
+
   # ---- Compatibilidad FHS para scripts de Node/npm (ej. gentle-pi busca /bin/tar, cline busca /bin/bash) ----
   systemd.tmpfiles.rules = [
     "L+ /bin/tar - - - - ${pkgs.gnutar}/bin/tar"
