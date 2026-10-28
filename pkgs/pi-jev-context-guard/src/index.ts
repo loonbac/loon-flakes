@@ -78,7 +78,15 @@ async function readTypeSafeKey(agentDir: string): Promise<string | undefined> {
 export interface GuardState {
   context: { tokens: number | null; window: number; percent: number | null; messages?: number };
   model: string;
-  session: { entries: number; messages: number; lastCompaction: string | null };
+  session: {
+    entries: number;
+    messages: number;
+    lastCompaction: string | null;
+    // Mensajes posteriores a la última compactación de la sesión. Es la única
+    // señal durable de "acabo de compactar": sobrevive al reinicio de Pi,
+    // mientras que el cooldown en memoria no.
+    sinceCompaction: number | null;
+  };
   recentMessages: { role: string; text: string }[];
   currentInput: string;
 }
@@ -142,10 +150,17 @@ export function buildState(eventOrText: { text: string } | string, ctx: Extensio
   }
   let lastCompaction: string | null = null;
   let messageCount = 0;
+  let sinceCompaction: number | null = null;
   for (const entry of entries) {
     const e = entry as { type?: string; summary?: string };
-    if (e.type === "compaction") lastCompaction = e.summary ? e.summary.slice(0, 120) : "(summary unavailable)";
-    if (e.type === "message") messageCount += 1;
+    if (e.type === "compaction") {
+      lastCompaction = e.summary ? e.summary.slice(0, 120) : "(summary unavailable)";
+      sinceCompaction = 0;
+    }
+    if (e.type === "message") {
+      messageCount += 1;
+      if (sinceCompaction !== null) sinceCompaction += 1;
+    }
   }
   const usage = (() => {
     try { return ctx.getContextUsage(); } catch { return null; }
@@ -159,7 +174,7 @@ export function buildState(eventOrText: { text: string } | string, ctx: Extensio
       messages: messageCount,
     },
     model: ctx.model ? ctx.model.provider + "/" + ctx.model.id : "unknown",
-    session: { entries: entries.length, messages: messageCount, lastCompaction },
+    session: { entries: entries.length, messages: messageCount, lastCompaction, sinceCompaction },
     recentMessages: recentMessagesFrom(entries, 12),
     currentInput: (currentText || "").slice(0, 600),
   };
@@ -411,7 +426,7 @@ export function buildEngramContent(state: GuardState, reason: string): string {
   ].join("\n\n").slice(0, 8000);
 }
 export interface GuardActionOutcome {
-  action: "compact" | "cooldown" | "mid-task-waiting" | "none";
+  action: "compact" | "cooldown" | "mid-task-waiting" | "just-compacted" | "none";
   compacted: boolean;
   notified: string[];
   instructions?: string;
@@ -422,8 +437,16 @@ export function evaluateCompactionAction(
   now: number,
   lastAutoCompact: number,
   cooldownMs: number,
+  postCompaction?: { messagesSinceCompaction: number | null },
 ): GuardActionOutcome {
   const notified: string[] = [];
+  // Justo después de una compactación el contexto *es* el resumen: volver a
+  // compactar no aporta y Pi lo rechaza ("Already compacted"). Se exige al
+  // menos un intercambio completo posterior antes de considerar otra.
+  const since = postCompaction?.messagesSinceCompaction;
+  if (d.compactionUrgency === "compact-now" && typeof since === "number" && since <= 2) {
+    return { action: "just-compacted", compacted: false, notified };
+  }
   if (d.compactionUrgency === "compact-now" && d.taskState === "settled") {
     if (now - lastAutoCompact > cooldownMs) {
       const instructions = buildCompactionInstructions(d);
@@ -453,6 +476,7 @@ export async function runGuardTurn(
     lastAutoCompact: number;
     cooldownMs?: number;
     debounceMs?: number;
+    onCompactError?: (error: string, at: number) => void;
     askJevFn?: typeof askJevWithRetry;
     traceFn?: typeof trace;
     notifyFn?: (ctx: ExtensionContext, message: string, type: "info" | "warning" | "error") => void;
@@ -493,10 +517,14 @@ export async function runGuardTurn(
       compaction: d.compactionUrgency,
       session: d.sessionAdvice,
       saveToEngram: d.saveToEngram,
+      sinceCompaction: state.session.sinceCompaction,
       usage: response.usage,
     });
 
-    const action = evaluateCompactionAction(d, now, lastAutoCompact, cooldownMs);
+    const action = evaluateCompactionAction(d, now, lastAutoCompact, cooldownMs, {
+      messagesSinceCompaction: state.session.sinceCompaction,
+    });
+    void traceFn({ event: "compaction_action", action: action.action });
     for (const msg of action.notified) {
       notifyFn(ctx, msg, "info");
     }
@@ -505,7 +533,14 @@ export async function runGuardTurn(
       ctx.compact({
         customInstructions: action.instructions,
         onComplete: () => traceFn({ event: "auto_compacted", reason: "jev_compact_now" }),
-        onError: (err) => traceFn({ event: "auto_compact_error", error: err.message.slice(0, 200) }),
+        onError: (err) => {
+          const message = err.message.slice(0, 200);
+          deps.onCompactError?.(message, Date.now());
+          // "Already compacted" no es un fallo: la sesión ya está compactada y
+          // reintentar en el siguiente turno solo repite el error en pantalla.
+          const benign = /already compacted/i.test(err.message);
+          void traceFn({ event: benign ? "auto_compact_rejected" : "auto_compact_error", error: message });
+        },
       });
     }
 
@@ -542,7 +577,9 @@ export async function runGuardTurn(
       }
     }
 
-    if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now") {
+    // El consejo de sesión nueva solo cuando NO se compacta: pedir compactación y
+    // sugerir empezar de cero en el mismo turno se contradice.
+    if (d.sessionAdvice === "new-session" && d.compactionUrgency === "compact-now" && !action.compacted) {
       notifyFn(ctx, "Jev: a fresh session may be cleaner than continuing compacted. Your call.", "info");
     }
 
@@ -583,6 +620,7 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
       lastAdvice,
       lastAutoCompact,
       notifyFn: notify,
+      onCompactError: (_error, at) => { lastAutoCompact = at; },
     });
     lastAdvice = res.lastAdvice;
     lastAutoCompact = res.lastAutoCompact;
@@ -601,6 +639,7 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
       lastAdvice,
       lastAutoCompact,
       notifyFn: notify,
+      onCompactError: (_error, at) => { lastAutoCompact = at; },
     });
     lastAdvice = res.lastAdvice;
     lastAutoCompact = res.lastAutoCompact;
@@ -674,6 +713,9 @@ export default function jevContextGuard(pi: ExtensionAPI): void {
 
   // After a real compaction: surface the session advice.
   pi.on("session_compact", async (event: { reason: string }, ctx: ExtensionContext) => {
+    // Cualquier compactación arma el cooldown, no solo la que decide el guard:
+    // las manuales y las de umbral también dejan la sesión recién compactada.
+    lastAutoCompact = Date.now();
     if (lastAdvice.session === "new-session") {
       notify(ctx, "Jev: after that compaction, a fresh session may be cleaner. Your call.", "info");
     }
