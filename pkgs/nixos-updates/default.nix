@@ -473,10 +473,20 @@ def record_applicability(cache_dir, code):
     atomic_write(summary_file, body + "\n" + status + "\n")
     print(status)
 
+def pending_count(cache_dir):
+    """Versiones que se pueden anunciar.
+
+    Si el gate ya midió y no deja aplicar ninguna, no hay nada pendiente: la
+    barra y el banner se comportan como "al día" y el detalle de qué falta
+    queda en el tooltip y en el resumen.
+    """
+    count = read_int(cache_dir / "count")
+    return 0 if read_text(cache_dir / "applicable") == "0" else count
+
 def waybar_status(cache_dir):
     state = read_text(cache_dir / "state", "unknown")
     count = read_int(cache_dir / "count")
-    applicable = read_text(cache_dir / "applicable")
+    pending = pending_count(cache_dir)
     summary = read_text(cache_dir / "summary.txt")
     error = read_text(cache_dir / "error.txt")
     last_check = read_int(cache_dir / "last-check")
@@ -492,25 +502,24 @@ def waybar_status(cache_dir):
         lines.append("Revisa: nixos-updates logs")
     elif state == "ok":
         stale = last_success <= 0 or time.time() - last_success > 3 * 60 * 60
-        # Hay versiones nuevas pero el gate no las dejaría aplicar. Waybar pone
-        # el alt como clase CSS: `.blocked` no tiene regla en style.css ni icono
-        # en format-icons, así que hereda el color base de #custom-updates (y
-        # el icono queda vacío) hasta que se declaren ahí.
-        blocked = count > 0 and applicable == "0"
+        # Hay versiones nuevas pero el gate todavía no las dejaría aplicar: la
+        # barra se queda como "al día" y el detalle viaja en el tooltip, porque
+        # anunciar un pendiente que 'rebuild update' rechazaría es una promesa
+        # falsa.
+        blocked = count > 0 and pending == 0
         if stale:
             alt = "stale"
-        elif blocked:
-            alt = "blocked"
         else:
-            alt = "has-updates" if count > 0 else "updated"
-        text = "n/d" if blocked else (str(count) if count > 0 else "")
-        if summary:
+            alt = "has-updates" if pending > 0 else "updated"
+        text = str(pending) if pending > 0 else ""
+        if blocked:
+            lines.append("Sin actualizaciones aplicables.")
+            lines.append("\n%d anunciadas, ninguna publicada todavia. NixOS aun no publica: %s"
+                         % (count, format_blockers(load_gate(cache_dir))))
+        elif summary:
             lines.append(summary)
         else:
             lines.append("Sistema al día.")
-        if blocked:
-            lines.append("\nNuevas: %d · Aplicables: 0" % count)
-            lines.append("NixOS aun no publica: %s" % format_blockers(load_gate(cache_dir)))
     else:
         alt, text = "unknown", "?"
         lines.append("Aún no se ha completado ninguna comprobación.")
@@ -585,11 +594,7 @@ def main():
             sys.exit(0)
         if not count_file.exists():
             sys.exit(0)
-        try:
-            count = int(count_file.read_text().strip())
-        except ValueError:
-            sys.exit(0)
-
+        count = pending_count(cache_dir)
         if count <= 0:
             sys.exit(0)
 
