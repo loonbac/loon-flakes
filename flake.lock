@@ -341,11 +341,11 @@
         "port-plugins": "port-plugins"
       },
       "locked": {
-        "lastModified": 1793175983,
-        "narHash": "sha256-LOAI+uZUktQEqkhPNdtJ/NPkb5DzZ0ZL8KUZruabPXg=",
+        "lastModified": 1793228348,
+        "narHash": "sha256-b7NKzLgEHatx4ZbUVAn2rlW1iWzKwyEIrwNRNwhdeMc=",
         "owner": "loonbac",
         "repo": "port",
-        "rev": "95abcbf7ec2aae8562c5b0d44d32b7984412cdaf",
+        "rev": "d56a0c59d4b6a3bfee812b57a87960227a6394d8",
         "type": "github"
       },
       "original": {
