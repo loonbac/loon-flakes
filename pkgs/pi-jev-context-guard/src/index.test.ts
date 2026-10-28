@@ -701,3 +701,171 @@ test("runGuardTurn: respects 10s debounce across turns", async () => {
   assert.equal(res.ran, false);
   assert.equal(asked, false);
 });
+
+// --- post-compaction window -------------------------------------------------
+
+const compactNowSettled = () =>
+  decide({ mid_task: noul(0.1), heavy_context: choice("compact-now"), session_fresh: choice("new-session") });
+
+test("buildState reports messages since the last compaction", () => {
+  const entries = [
+    { type: "message", message: { role: "user", content: "old" } },
+    { type: "message", message: { role: "assistant", content: "old reply" } },
+    { type: "compaction", summary: "sum" },
+    { type: "message", message: { role: "user", content: "hola" } },
+    { type: "message", message: { role: "assistant", content: "ok" } },
+  ];
+  const afterCompaction = buildState("hola", {
+    sessionManager: { getEntries: () => entries },
+    getContextUsage: () => null,
+  } as never);
+  assert.ok(afterCompaction);
+  assert.equal(afterCompaction.session.sinceCompaction, 2);
+
+  const neverCompacted = buildState("hi", {
+    sessionManager: { getEntries: () => [{ type: "message", message: { role: "user", content: "hi" } }] },
+    getContextUsage: () => null,
+  } as never);
+  assert.ok(neverCompacted);
+  assert.equal(neverCompacted.session.sinceCompaction, null);
+});
+
+test("evaluateCompactionAction: never compacts within the first exchange after a compaction", () => {
+  const outcome = evaluateCompactionAction(compactNowSettled(), 1_000_000, 0, 50_000, {
+    messagesSinceCompaction: 2,
+  });
+  assert.equal(outcome.action, "just-compacted");
+  assert.equal(outcome.compacted, false);
+  assert.equal(outcome.notified.length, 0, "no nagging right after a compaction");
+});
+
+test("evaluateCompactionAction: still compacts once the post-compaction window has real work", () => {
+  const outcome = evaluateCompactionAction(compactNowSettled(), 1_000_000, 0, 50_000, {
+    messagesSinceCompaction: 9,
+  });
+  assert.equal(outcome.action, "compact");
+  assert.equal(outcome.compacted, true);
+});
+
+test("runGuardTurn: arms the cooldown when Pi rejects an already-compacted session", async () => {
+  const traces: Record<string, unknown>[] = [];
+  const notifications: { msg: string; type: string }[] = [];
+  let reported: { error: string; at: number } | undefined;
+
+  const fakeCtx = {
+    sessionManager: {
+      getEntries: () => [{ type: "message", message: { role: "assistant", content: "Done" } }],
+      getSessionId: () => "sess-1",
+    },
+    getContextUsage: () => ({ tokens: 400_000, contextWindow: 1_000_000, percent: 40 }),
+    model: { provider: "test", id: "m" },
+    cwd: "/tmp",
+    compact: (opts?: { onError?: (err: Error) => void }) => {
+      opts?.onError?.(new Error("Compaction failed: Already compacted"));
+    },
+    ui: { notify: (msg: string, type: string) => { notifications.push({ msg, type }); } },
+  } as never;
+
+  const res = await runGuardTurn("input", "sigo con lo de antes", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: 0, session: "" },
+    lastAutoCompact: 0,
+    askJevFn: (async () => ({
+      model: "jev-latest",
+      answers: {
+        mid_task: noul(0.1),
+        worth_memory: noul(0.1),
+        heavy_context: choice("compact-now"),
+        session_fresh: choice("new-session"),
+      },
+      usage: { input_tokens: 10, output_tokens: 5 },
+    })) as never,
+    traceFn: async (t) => { traces.push(t); },
+    saveEngramFn: async () => ({ saved: false, reason: "skipped" }),
+    onCompactError: (error, at) => { reported = { error, at }; },
+  });
+
+  assert.ok(reported, "the rejection must reach the guard so it can arm the cooldown");
+  assert.ok(reported.error.includes("Already compacted"));
+  assert.ok(res.lastAutoCompact > 0, "a rejected compaction must arm the cooldown, not retry next turn");
+  assert.ok(traces.some((t) => t.event === "auto_compact_rejected"));
+  assert.ok(!traces.some((t) => t.event === "auto_compact_error"));
+  assert.ok(!notifications.some((n) => n.type === "error"), "a benign rejection is not a user-facing error");
+});
+
+test("runGuardTurn: does not suggest a fresh session in the same turn it compacts", async () => {
+  const notifications: { msg: string; type: string }[] = [];
+
+  const fakeCtx = {
+    sessionManager: {
+      getEntries: () => [{ type: "message", message: { role: "assistant", content: "Done" } }],
+      getSessionId: () => "sess-1",
+    },
+    getContextUsage: () => ({ tokens: 600_000, contextWindow: 1_000_000, percent: 60 }),
+    model: { provider: "test", id: "m" },
+    cwd: "/tmp",
+    compact: () => {},
+    ui: { notify: (msg: string, type: string) => { notifications.push({ msg, type }); } },
+  } as never;
+
+  const res = await runGuardTurn("agent_end", "listo por ahora", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: 0, session: "" },
+    lastAutoCompact: 0,
+    askJevFn: (async () => ({
+      model: "jev-latest",
+      answers: {
+        mid_task: noul(0.1),
+        worth_memory: noul(0.1),
+        heavy_context: choice("compact-now"),
+        session_fresh: choice("new-session"),
+      },
+      usage: { input_tokens: 10, output_tokens: 5 },
+    })) as never,
+    traceFn: async () => {},
+    saveEngramFn: async () => ({ saved: false, reason: "skipped" }),
+  });
+
+  assert.equal(res.ran, true);
+  assert.ok(notifications.some((n) => n.msg.includes("compacting now")));
+  assert.ok(
+    !notifications.some((n) => n.msg.includes("may be cleaner")),
+    "advising a new session while compacting is contradictory",
+  );
+});
+
+test("runGuardTurn: keeps the fresh-session advice when the compaction is held back", async () => {
+  const notifications: { msg: string; type: string }[] = [];
+
+  const fakeCtx = {
+    sessionManager: {
+      getEntries: () => [{ type: "message", message: { role: "assistant", content: "Done" } }],
+      getSessionId: () => "sess-1",
+    },
+    getContextUsage: () => ({ tokens: 600_000, contextWindow: 1_000_000, percent: 60 }),
+    model: { provider: "test", id: "m" },
+    cwd: "/tmp",
+    compact: () => { throw new Error("must not compact during cooldown"); },
+    ui: { notify: (msg: string, type: string) => { notifications.push({ msg, type }); } },
+  } as never;
+
+  await runGuardTurn("input", "listo por ahora", fakeCtx, {
+    getKey: async () => "key-123",
+    lastAdvice: { at: 0, session: "" },
+    lastAutoCompact: Date.now(),
+    askJevFn: (async () => ({
+      model: "jev-latest",
+      answers: {
+        mid_task: noul(0.1),
+        worth_memory: noul(0.1),
+        heavy_context: choice("compact-now"),
+        session_fresh: choice("new-session"),
+      },
+      usage: { input_tokens: 10, output_tokens: 5 },
+    })) as never,
+    traceFn: async () => {},
+    saveEngramFn: async () => ({ saved: false, reason: "skipped" }),
+  });
+
+  assert.ok(notifications.some((n) => n.msg.includes("may be cleaner")));
+});
