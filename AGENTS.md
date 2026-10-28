@@ -239,15 +239,39 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 3. **Aplicar**: `rebuild` (preferido; sobre SSH desacopla la activación en una unidad
    systemd, así un corte de conexión no la mata) o
    `sudo nixos-rebuild switch --flake .#<hostname>`.
-4. **Commit + push**:
-   ```bash
-   git add -A
-   git -c user.name="loonbac" -c user.email="loonbac@users.noreply.github.com" commit -m "feat: ..."
-   git push origin master
-   ```
+4. **Entrega**: rama propia, un commit por unidad revisable, issue, PR y
+   merge (ver "Entrega autónoma de un cambio"). Nunca commitear directo a
+   `master`.
 
 > **sudo no interactivo por SSH**: usar `echo <PASSWORD> | sudo -S ...`. La
 > contraseña NO se guarda en el repo (es público en GitHub) — pedirla al usuario.
+
+### Entrega autónoma de un cambio
+
+Todo cambio de código autorizado incluye su entrega completa; no se pide
+permiso entre pasos. El orden es fijo:
+
+1. **ODD**: si la tarea es grande, `odd/tasks/<feature>.md` + espejo en Engram
+   antes de la primera escritura.
+2. **TDD**: prueba roja antes del arreglo cuando exista runner; si no lo hay,
+   verificación funcional ejecutada y registrada (comando + salida real).
+3. **Aplicar**: `rebuild` y comprobar en vivo lo que el usuario va a ver.
+4. **RDD**: con `gentle-ai review mode status` en `on`, `gentle_review assess`
+   → `inspect` → `start` → capturas → `acknowledge`.
+5. **Rama + commits**: rama `feat/…` o `fix/…` (nunca encima de `master`), un
+   commit por unidad revisable, mensaje Conventional Commit en inglés.
+6. **Issue**: `gh issue create` con el defecto, la evidencia y el arreglo.
+7. **PR**: `gh pr create` contra `master`, cuerpo con `Closes #<issue>`, la
+   evidencia de verificación y la línea `Risk:`.
+8. **Merge**: `gh pr merge <n> --squash --delete-branch` cuando los checks
+   estén verdes y la revisión nativa haya cerrado; luego `git checkout master
+   && git pull`.
+
+Detenerse y preguntar solo cuando: falta una decisión de producto, hace falta
+una credencial o un consentimiento nativo, un check falla sin explicación, o la
+acción es destructiva o sale del alcance autorizado (force-push, reescribir
+historia ajena, tocar `/boot`, cortar túneles). Que el paso siguiente sea
+"obvio" no es motivo para preguntar.
 
 ---
 
