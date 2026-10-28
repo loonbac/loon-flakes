@@ -175,14 +175,19 @@ def probe(path):
 
 
 def verdict(node):
-    """Basta una salida publicada: la primera alfabética no tiene por qué ser la que está."""
+    """Necesita todas las salidas publicadas.
+
+    La derivación aparece en el dry-run justamente porque le falta al menos una
+    de las salidas que el sistema necesita; con una sola publicada el gate
+    prometería una descarga que no existe y la actualización compilaría.
+    """
     answers = []
     for path in output_paths(node):
         answer = probe(path)
-        if answer:
-            return True
+        if answer is False:
+            return False
         answers.append(answer)
-    return False if answers and all(a is False for a in answers) else None
+    return True if answers and all(a is True for a in answers) else None
 
 
 def analyze(work, dry_path, cache_dir):
@@ -856,8 +861,17 @@ if __name__ == "__main__":
           && [ -f "$CACHE_DIR/summary.txt" ] \
           && [ "$(< "$CACHE_DIR/fingerprint")" = "$candidate_fingerprint" ]; then
           echo "Sin cambios desde la última comprobación." >> "$RUN_LOG"
-          # Solo se reintenta la medición si la anterior quedó sin respuesta.
-          [ -f "$CACHE_DIR/applicable" ] || measure_applicability
+          # Se vuelve a medir mientras el veredicto guardado no sea "aplicable":
+          # con el mismo fingerprint un 0 antiguo no se revisaría nunca y la
+          # actualización seguiría saliendo como no aplicable aun después de que
+          # NixOS publique los binarios.
+          applicable_state=""
+          if [ -f "$CACHE_DIR/applicable" ]; then
+            applicable_state="$(< "$CACHE_DIR/applicable")"
+          fi
+          if [ "$applicable_state" != "1" ]; then
+            measure_applicability
+          fi
           finish_success "$candidate_fingerprint"
           echo -e "\033[32m󰄬\033[0m Sin cambios desde la última comprobación."
           exit 0
