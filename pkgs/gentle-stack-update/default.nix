@@ -31,9 +31,14 @@ writeShellApplication {
     gentle-ai-runtime-update
     engram update
     gentle-ai-bootstrap
-    # CodeGraph owns its mutable npm installation and updater. This command is
-    # reached only through the user's explicit full-stack update request.
-    "$npm_prefix/bin/codegraph" upgrade
+    # CodeGraph owns its mutable npm installation. `codegraph upgrade` runs
+    # npm without --prefix, so it lands in npm's global prefix (~/.npm-global)
+    # and leaves the copy Nix launches stale; install it into the managed
+    # prefix the same way gentle-ai-bootstrap does. This step is reached only
+    # through the user's explicit full-stack update request.
+    npm install --global --prefix "$npm_prefix" \
+      --include=optional --ignore-scripts --no-audit --no-fund --loglevel=error \
+      @colbymchenry/codegraph
     LOON_PI_SKIP_POST_UPDATE_RECONCILE=1 pi update --extensions
     # An extension update can ship new agent assets. Apply the declarative
     # model routes again and verify gentle-pi's companion runtime afterwards.
