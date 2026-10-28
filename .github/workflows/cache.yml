@@ -36,12 +36,11 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       # Paquetes propios cuyo build cuesta minutos de CPU (Rust y GTK).
-      - name: Actualizar port y publicar
+      # Se construye el lock COMMITEADO, nunca uno actualizado aquí: así lo que
+      # se publica es exactamente la revisión que el sistema evalúa. Mover el
+      # lock dentro del runner publicaría un artefacto que esta máquina no usa.
+      - name: Construir y publicar
         run: |
           set -euo pipefail
-          # Adelanta la caché a la próxima revisión de port: cuando el lock de
-          # este repo la apunte, el binario ya estará publicado. Solo mueve ese
-          # nodo del lock y no se commitea.
-          nix flake update port
           nix build --print-out-paths .#port .#nixos-updates .#loon-launch > /tmp/paths
           xargs -r cachix push loon-flakes < /tmp/paths
