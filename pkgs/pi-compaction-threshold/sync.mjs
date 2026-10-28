@@ -1,17 +1,15 @@
 #!/usr/bin/env node
-// Keep Pi's compaction threshold constant across every model of a chosen
-// context size.
+// Configura la red de seguridad de compactación de Pi para modelos del catálogo.
 //
-// Pi compacts when `contextTokens > contextWindow - reserveTokens`, and it
-// accepts the override only as an exact `provider/model` key (the settings
-// schema is a record with no wildcards). With the built-in reserve of 16384 a
-// 1M model therefore carries ~984k tokens before compacting, and the whole
-// prefix is re-sent at the cache-miss price in the meantime.
+// Pi compacta cuando `contextTokens > contextWindow - reserveTokens`, y solo acepta
+// la reserva como una clave exacta `provider/model` (el esquema de settings es un
+// registro sin comodines). Con la reserva integrada de 16384, un modelo de 1M lleva
+// ~984k tokens antes de compactar.
 //
-// This tool derives one override per model from the live catalogue so the
-// threshold stays put while the catalogue changes. It only ever adds or
-// updates entries: a model missing from a partial catalogue keeps the override
-// it already had.
+// Esta herramienta deriva una reserva por modelo para que la auto-compactación propia
+// de Pi actúe como red de seguridad (overflow protection) cerca del límite (90%),
+// dejando la política de cadencia real al context guard de Jev. Solo añade o actualiza
+// entradas: un modelo que falte en un catálogo parcial conserva la reserva que tenía.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -20,11 +18,15 @@ import { execFileSync } from "node:child_process";
 
 const VERSION = "1.0.0";
 
+// Red de seguridad contra desbordamiento (overflow protection), no política de cadencia.
+// La cadencia la decide el context guard de Jev; este umbral es solo una salvaguarda
+// para que la auto-compactación propia de Pi solo actúe cerca del límite del contexto.
+export const OVERFLOW_SAFETY_RATIO = 0.90;
+
 const DEFAULTS = {
-  threshold: 250_000,
-  // Below this reserve a small model would lose the headroom it needs to emit
-  // a full response before hitting the window; the default 16384 already
-  // compacts such a model well below the requested threshold.
+  safetyRatio: OVERFLOW_SAFETY_RATIO,
+  // Por debajo de esta reserva un modelo pequeño perdería el margen necesario para
+  // emitir una respuesta completa antes de alcanzar la ventana.
   floorReserve: 65_536,
   builtinReserve: 16_384,
 };
@@ -32,10 +34,11 @@ const DEFAULTS = {
 function usage(stream) {
   stream.write(`Usage: pi-compaction-threshold [options]
 
-Pin Pi's compaction threshold for every model large enough to exceed it.
+Configure Pi's overflow compaction safety net for every model in the catalogue.
 
 Options:
-  --threshold N       Context tokens to keep before compacting (default ${DEFAULTS.threshold})
+  --ratio R           Fraction of context window before safety compaction (default ${OVERFLOW_SAFETY_RATIO})
+  --threshold N       Explicit context tokens to keep before compacting (optional override)
   --settings PATH     settings.json to update (default ~/.pi/agent/settings.json)
   --apply             Write the result (default is a dry run)
   --json              Print the computed overrides as JSON
@@ -55,6 +58,12 @@ function parseArgs(argv) {
       return next;
     };
     switch (arg) {
+      case "--ratio": {
+        const raw = Number(value());
+        if (!Number.isFinite(raw) || raw <= 0 || raw >= 1) throw new Error(`invalid --ratio: ${raw}`);
+        options.safetyRatio = raw;
+        break;
+      }
       case "--threshold": {
         const raw = Number(value());
         if (!Number.isSafeInteger(raw) || raw <= 0) throw new Error(`invalid --threshold: ${raw}`);
@@ -121,15 +130,23 @@ export function parseModelTable(table) {
 /**
  * Derive the override map for `models`.
  *
+ * For each model, threshold = floor(contextWindow * safetyRatio) (default 90%),
+ * unless an explicit threshold was provided.
  * A model whose window does not exceed the threshold plus the built-in reserve
  * needs no entry: the default already compacts it earlier than requested.
+ * The reserve floor (65_536) is preserved so the model retains headroom.
  */
-export function computeOverrides(models, { threshold, floorReserve, builtinReserve }) {
+export function computeOverrides(
+  models,
+  { threshold, safetyRatio = OVERFLOW_SAFETY_RATIO, floorReserve = 65_536, builtinReserve = 16_384 },
+) {
   const overrides = {};
   for (const { provider, id, contextWindow } of models) {
-    if (contextWindow - builtinReserve <= threshold) continue;
+    const targetThreshold =
+      threshold !== undefined ? threshold : Math.floor(contextWindow * safetyRatio);
+    if (contextWindow - builtinReserve <= targetThreshold) continue;
     overrides[`${provider}/${id}`] = {
-      reserveTokens: Math.max(floorReserve, contextWindow - threshold),
+      reserveTokens: Math.max(floorReserve, contextWindow - targetThreshold),
     };
   }
   return overrides;
@@ -209,7 +226,9 @@ function main(argv) {
     process.stdout.write(
       [
         `models in catalogue : ${models.length}`,
-        `threshold           : ${options.threshold.toLocaleString("en-US")} tokens`,
+        options.threshold !== undefined
+          ? `threshold           : ${options.threshold.toLocaleString("en-US")} tokens (explicit)`
+          : `safety net ratio    : ${(options.safetyRatio * 100).toFixed(0)}% of window (overflow protection)`,
         `overrides computed  : ${Object.keys(computed).length}`,
         `  newly added       : ${added}`,
         `  reserve corrected : ${updated}`,
