@@ -731,6 +731,13 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ## Lecciones aprendidas (gotchas)
 
+- **`nix flake update` a secas está prohibido aquí**: mueve `nixpkgs` y con él
+  todos los store paths, lo que deja inservible la caché binaria propia
+  (`loon-flakes`) incluso para el cierre del sistema. Para subir un input
+  concreto hay que nombrarlo: `nix flake update port`. La única vía que puede
+  mover `nixpkgs` es `rebuild update`, que pasa antes por el gate de binarios
+  publicados.
+
 - **Rutas `target/` fijas en proyectos con el caché de Rust**: con el wrapper de
   `cargo` los artefactos ya no están en `<proyecto>/target`. Scripts revisados
   que lo asumían: `shirley-show/scripts/verify-responsive.sh` y su copia en
