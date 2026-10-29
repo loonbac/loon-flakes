@@ -842,9 +842,18 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   de recarga hasta que tmpfiles cree el archivo; tras el primer arranque queda
   sembrado y no vuelve a ocurrir.
 - **Pausa de wallpaper por motivo**: el perfil AC/batería pausa con
-  `mpvpaper-wallpaper pause power-profile`; los motivos se apilan y `resume`
-  solo elimina el suyo — no usar `pause`/`resume` sin motivo para políticas
-  persistentes.
+  `mpvpaper-wallpaper pause power-profile` y el watcher de visibilidad con
+  `opaque-window`; los motivos se apilan. `resume MOTIVO` retira solo el suyo
+  (es lo que usan esos actores); `resume` sin motivo los retira todos y es la
+  orden explícita del usuario. Toda política persistente debe nombrar su
+  motivo y usar `resume MOTIVO`, nunca `pause`/`resume` sin argumento.
+- **Ventanas transparentes y `opaque-window`**: `pkgs/niri-wallpaper-visibility`
+  pausa el fondo cuando la ventana activa de un workspace visible es opaca. La
+  lista `TRANSPARENT_APP_IDS` del watcher debe coincidir con lo que de verdad
+  deja ver el fondo: ghostty (`opacity 0.8` + `xray` en `config.kdl`) y PORT
+  (`opacity 0.85` en su `config.md`). Si la lista se queda corta, el fondo se
+  congela detrás de una terminal transparente; si sobra una app opaca, se
+  decodifica video que nadie ve.
 
 ---
 
