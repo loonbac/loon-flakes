@@ -310,22 +310,34 @@ let
     jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
     pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
     # The four review lenses.
-    # These must not depend on which Antigravity account is active. Google marks Claude Sonnet
-    # 4.6 / Opus 4.6 as removed on 2 Nov 2026, the keeper's preferred account no longer
-    # advertises them at all, and no published pi-antigravity release exposes the 5.5
-    # placeholder ids — so every Antigravity choice here dies either on 2 Nov or on an account
-    # switch. The review relay resolves model ids against the catalog of the pi process that
-    # dispatches it, which is loaded at session start and cannot follow a live account change,
-    # so an Antigravity lens fails closed with reviewer-model-not-found right after a switch.
-    # alibaba-token-plan/deepseek-v4.1-flash-1017 is billed from a prepaid balance, carries a 1M
-    # window, and is the model this machine already trusts for orchestration (intelligence 45,
-    # AA-LCR 84.0). Review runs a handful of times a month, so its cost is negligible here.
+    # Historical rationale, kept because it still constrains the choice: an Antigravity lens
+    # can fail closed with reviewer-model-not-found right after an account switch, because the
+    # review relay resolves model ids against the catalogue of the dispatching pi process, and
+    # the Sonnet/Opus ids Google removed on 2 Nov 2026 were never published as 5.5 ids.
+    # alibaba-token-plan/deepseek-v4.1-flash-1017 was picked for its 1M window, intelligence 45
+    # and AA-LCR 84. It is no longer viable: that prepaid balance ran out on 28 Oct 2026, the
+    # plan quoted a 23 Nov reset, and every lens aborted with insufficient_quota, leaving the
+    # review with zero verdicts. A lens may never sit on a balance that can drain.
+    # Assignment by workload, from numbers published as of 28 Oct 2026:
+    #   risk        river/deepseek-ai/DeepSeek-V4.1-Flash-1017  AA-LCR 84, intelligence 45.
+    #               Security review is long-context reasoning, and river is the provider this
+    #               machine already runs orchestration on, so its key and quota are known good.
+    #   reliability river/zai-org/GLM-5.3-Flash                 The GLM-5.3 family publishes
+    #               the best verified SWE-bench among the reachable candidates (95.4%,
+    #               Mini-SWE-agent), and this is the lens that judges tests and code contracts.
+    #   resilience  antigravity/gemini-3.8-flash                Different family from the two
+    #               above so the lenses do not share blind spots; $0.50/M keeps it affordable.
+    #   readability antigravity/gemini-3.8-flash                medium effort: a clarity review
+    #               does not need more.
+    # Measured and rejected the same day, so nobody retries them blindly:
+    #   intern-ai/glm-5.3 -> 429 quota exceeded; ollama-cloud/glm-5.3 and ollama-cloud/kimi-k3
+    #   -> 402, outside the free plan. Smoked with "pi -p --provider X --model Y".
     # Do not point these at a model the interactive pi's model list cannot resolve: the reviewer
     # resolver fails closed with reviewer-model-not-found and the review never reaches a lens.
-    review-readability = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "medium"; };
-    review-reliability = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
-    review-resilience = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
-    review-risk = { model = "alibaba-token-plan/deepseek-v4.1-flash-1017"; effort = "high"; };
+    review-readability = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
+    review-reliability = { model = "river/zai-org/GLM-5.3-Flash"; effort = "high"; };
+    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
+    review-risk = { model = "river/deepseek-ai/DeepSeek-V4.1-Flash-1017"; effort = "high"; };
     # Rutas sin agente: ni el refuter ni el validador son agentes de Pi (la review
     # nativa los ejecuta por su propio relay) y los agentes sdd-* se retiraron de
     # esta máquina, con sus ficheros borrados durante el sync. Una ruta que no

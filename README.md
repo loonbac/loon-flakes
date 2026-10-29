@@ -172,8 +172,9 @@ Reproduce un video en loop detrás de las ventanas con `mpvpaper`:
 mpvpaper-wallpaper              # reproduce el video seteado (o el primero)
 mpvpaper-wallpaper set NOMBRE   # setea un video de ~/Videos/Wallpapers
 mpvpaper-wallpaper list         # lista los videos disponibles
-mpvpaper-wallpaper pause        # pausa por IPC y conserva el último frame
-mpvpaper-wallpaper resume       # reanuda el mismo proceso/video
+mpvpaper-wallpaper pause [MOTIVO]  # pausa por IPC y conserva el último frame
+mpvpaper-wallpaper resume [MOTIVO] # retira ese motivo; sin motivo los retira todos
+mpvpaper-wallpaper reasons      # motivos de pausa activos, uno por línea
 mpvpaper-wallpaper status       # playing, paused o stopped
 mpvpaper-wallpaper stop         # detiene el fondo animado
 ```
@@ -185,6 +186,14 @@ completamente opaco.
 Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
 El socket IPC de mpv queda bajo `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/`, con
 permisos privados del usuario; no se usa `/tmp` compartido.
+
+La pausa no es un interruptor único: los **motivos** se apilan y el video solo
+se detiene mientras quede al menos uno. `niri-wallpaper-visibility` añade
+`opaque-window` cuando la ventana activa de un workspace visible es opaca
+(las transparentes —ghostty y PORT— no cuentan), y el perfil de energía de la
+laptop añade `power-profile`. Si el fondo se queda parado sin explicación,
+`mpvpaper-wallpaper reasons` dice cuál de ellos sigue puesto y
+`mpvpaper-wallpaper resume` sin argumentos los retira todos.
 
 ### `accent-wallpaper` — acento dinámico desde el wallpaper
 
