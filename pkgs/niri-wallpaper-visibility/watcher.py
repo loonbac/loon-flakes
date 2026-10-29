@@ -10,7 +10,11 @@ import sys
 from typing import Any
 
 
-GHOSTTY_APP_ID = "com.mitchellh.ghostty"
+# Apps cuya superficie deja ver el fondo: pausarlo detrás de ellas no ahorra
+# GPU y sí corta el efecto. Debe coincidir con lo que de verdad es transparente:
+# el window-rule de ghostty en config.kdl (opacity 0.8 + xray) y la transparencia
+# propia de PORT (opacity 0.85 en su config.md). Una app opaca NO se añade aquí.
+TRANSPARENT_APP_IDS = frozenset({"com.mitchellh.ghostty", "port"})
 PAUSE_REASON = "opaque-window"
 
 
@@ -30,7 +34,7 @@ class VisibilityState:
             window = self.windows.get(window_id)
             # Durante actualizaciones no atómicas, pausar de forma conservadora
             # hasta que llegue la descripción de la ventana.
-            if window is None or window.get("app_id") != GHOSTTY_APP_ID:
+            if window is None or window.get("app_id") not in TRANSPARENT_APP_IDS:
                 return True
         return False
 

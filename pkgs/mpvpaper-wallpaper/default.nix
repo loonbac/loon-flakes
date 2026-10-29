@@ -6,7 +6,8 @@
 #   mpvpaper-wallpaper set NOMBRE # setea y reproduce un video específico
 #   mpvpaper-wallpaper list       # lista los videos disponibles
 #   mpvpaper-wallpaper pause [MOTIVO]  # pausa por IPC conservando el último frame
-#   mpvpaper-wallpaper resume [MOTIVO] # retira ese motivo; reanuda si no quedan otros
+#   mpvpaper-wallpaper resume [MOTIVO] # sin motivo retira todos; con motivo, solo ese
+#   mpvpaper-wallpaper reasons    # motivos de pausa activos, uno por línea
 #   mpvpaper-wallpaper status     # muestra playing, paused o stopped
 #   mpvpaper-wallpaper stop       # detiene el fondo animado
 { pkgs, lib, accent-wallpaper }:
@@ -152,6 +153,31 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     fi
   }
 
+  # Motivos activos, uno por línea. Sin esto 'status' solo dice "paused" y un
+  # 'manual' viejo se ve igual que una ventana opaca tapando el fondo.
+  list_reasons() {
+    local marker
+    [ -d "$PAUSE_DIR" ] || return 0
+    for marker in "$PAUSE_DIR"/*; do
+      [ -f "$marker" ] || continue
+      printf '%s\n' "''${marker##*/}"
+    done
+  }
+
+  # 'resume' sin motivo es una orden explícita del usuario: retira todos los
+  # motivos, incluidos los que dejó otro actor. Quien sabe qué pausó
+  # (opaque-window, power-profile) sigue nombrando su motivo.
+  resume_all() {
+    local marker
+    if [ -d "$PAUSE_DIR" ]; then
+      for marker in "$PAUSE_DIR"/*; do
+        [ -f "$marker" ] || continue
+        rm -f "$marker"
+      done
+    fi
+    send_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  }
+
   apply_pause_reasons() {
     local socket=$1
     if has_pause_reasons; then
@@ -253,7 +279,15 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       exit 0
       ;;
     resume)
-      resume_for "''${2:-manual}"
+      if [ -n "''${2:-}" ]; then
+        resume_for "$2"
+      else
+        resume_all
+      fi
+      exit 0
+      ;;
+    reasons)
+      list_reasons
       exit 0
       ;;
     status)
