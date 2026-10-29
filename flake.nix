@@ -92,6 +92,9 @@
       betterClaudeCodeUi = loon.packages.${system}.default;
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
       piCompactionThreshold = pkgs.callPackage ./pkgs/pi-compaction-threshold { };
+      # El módulo de NixOS instancia el paquete con este argumento; sin él la
+      # entrada de `packages` no evaluaba y `nix flake check` abortaba.
+      piJevContextGuard = pkgs.callPackage ./pkgs/pi-jev-context-guard { };
       gentleAiBootstrap = pkgs.callPackage ./pkgs/gentle-ai-bootstrap {
         inherit
           piLauncher
@@ -101,6 +104,7 @@
           engramLauncher
           betterClaudeCodeUi
           gptFastModeShared
+          piJevContextGuard
           ;
       };
       gentleStackUpdate = pkgs.callPackage ./pkgs/gentle-stack-update {
@@ -309,6 +313,7 @@
         lib.genAttrs (builtins.attrNames self.nixosConfigurations) hostEvalCheck
         // {
           cargo-target-cache = cargoTargetCache.tests.focused;
+          mpvpaper-wallpaper = self.packages.${system}.mpvpaper-wallpaper.tests.focused;
         };
     };
 }

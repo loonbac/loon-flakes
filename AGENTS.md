@@ -191,7 +191,8 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 9. **Verificación proporcionada.** Existe: `niri-config-check` (valida
    `config.kdl` en el build), `niri validate --config`, la aserción de tmpfiles
    multilínea (`modules/default.nix`) y tests unitarios de `pkgs/`
-   (loon-launch, pi-ssh-clipboard, equibop-voice-normalizer). Obligatorio al
+   (loon-launch, pi-ssh-clipboard, equibop-voice-normalizer,
+   mpvpaper-wallpaper: motivos, procedencia y `resume`). Obligatorio al
    tocar un módulo compartido: validar ambos hosts (`rebuild dry` o
    `nixos-rebuild build --flake .#<host>`). Falta: `checks` en `flake.nix`, así
    que `nix flake check` no evalúa los hosts.
@@ -847,6 +848,17 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   (es lo que usan esos actores); `resume` sin motivo los retira todos y es la
   orden explícita del usuario. Toda política persistente debe nombrar su
   motivo y usar `resume MOTIVO`, nunca `pause`/`resume` sin argumento.
+- **Cada motivo declara dueño y hora**: el marcador en
+  `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/paused.d/` guarda `epoch=` y `origin=`.
+  Los actores que pueden morir pasan su pid (`pause MOTIVO pid:$$`), y
+  `reconcile` descarta los motivos cuyo dueño ya no existe: sin eso un watcher
+  que muere deja el fondo pausado para siempre. `reconcile` solo reanuda cuando
+  retiró el último motivo, y `reasons`/`status` no mutan nada: una pausa puesta
+  a mano en el socket de mpv, sin marcador, es estado válido y no se deshace.
+  Los motivos `cli` no se retiran solos. `reasons` imprime motivo, antigüedad y
+  dueño, y es la primera parada cuando el fondo se queda parado. Prueba:
+  `nix build .#mpvpaper-wallpaper.tests.focused` (incluye un servidor IPC falso
+  que comprueba qué comandos se envían y cuáles no).
 - **Ventanas transparentes y `opaque-window`**: `pkgs/niri-wallpaper-visibility`
   pausa el fondo cuando la ventana activa de un workspace visible es opaca. La
   lista `TRANSPARENT_APP_IDS` del watcher debe coincidir con lo que de verdad
