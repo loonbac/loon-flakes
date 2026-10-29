@@ -43,7 +43,10 @@ let
     "npm:pi-btw"
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
-    "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
+    # Provider de Cline mantenido aguas arriba (device-code login + catálogo de
+    # modelos en vivo, 1 h de caché). Sustituye al paquete local pi-cline-free,
+    # que traía cinco modelos escritos a mano y se desactualizaba solo.
+    "npm:cline-pi"
     "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
     "@HOME@/.local/share/loon-pi-packages/pi-ghost-tools"
   ];
@@ -60,7 +63,7 @@ let
     "pi-btw"
     "pi-antigravity"
     "pi-commandcode-provider"
-    "pi-cline-free"
+    "cline-pi"
     "pi-jev-context-guard"
     "pi-ghost-tools"
   ];
@@ -375,6 +378,9 @@ let
   # settings.json files during the migration. Gentle Agents and Gentle Todo
   # are built into the pinned gentle-pi main snapshot.
   retiredPiPackageNames = [
+    # Sustituido por npm:cline-pi: el paquete local traía cinco modelos escritos
+    # a mano y el catálogo de Cline cambia sin avisar.
+    "pi-cline-free"
     "better-claude-code-ui-live"
     "pi-subagents-j0k3r"
     "@tintinweb/pi-subagents"
@@ -410,6 +416,9 @@ let
   # igual, porque lo aporta gentle-pi.
   retiredPiExtensions = [
     "-builtin:mcp"
+    # La entrada que declaraba el paquete local retirado: la unión de listas del
+    # merge la conservaría para siempre si no se filtra explícitamente.
+    "@HOME@/.local/share/loon-pi-packages/pi-cline-free"
   ];
 
   manifest = writeText "gentle-ai-manifest.json" (builtins.toJSON {
