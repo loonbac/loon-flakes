@@ -172,9 +172,10 @@ Reproduce un video en loop detrás de las ventanas con `mpvpaper`:
 mpvpaper-wallpaper              # reproduce el video seteado (o el primero)
 mpvpaper-wallpaper set NOMBRE   # setea un video de ~/Videos/Wallpapers
 mpvpaper-wallpaper list         # lista los videos disponibles
-mpvpaper-wallpaper pause [MOTIVO]  # pausa por IPC y conserva el último frame
+mpvpaper-wallpaper pause [MOTIVO] [DUEÑO]  # pausa por IPC y conserva el último frame
 mpvpaper-wallpaper resume [MOTIVO] # retira ese motivo; sin motivo los retira todos
-mpvpaper-wallpaper reasons      # motivos de pausa activos, uno por línea
+mpvpaper-wallpaper reasons      # motivos activos: motivo, antigüedad y dueño
+mpvpaper-wallpaper reconcile    # retira motivos huérfanos y ajusta la pausa
 mpvpaper-wallpaper status       # playing, paused o stopped
 mpvpaper-wallpaper stop         # detiene el fondo animado
 ```
@@ -191,9 +192,26 @@ La pausa no es un interruptor único: los **motivos** se apilan y el video solo
 se detiene mientras quede al menos uno. `niri-wallpaper-visibility` añade
 `opaque-window` cuando la ventana activa de un workspace visible es opaca
 (las transparentes —ghostty y PORT— no cuentan), y el perfil de energía de la
-laptop añade `power-profile`. Si el fondo se queda parado sin explicación,
-`mpvpaper-wallpaper reasons` dice cuál de ellos sigue puesto y
-`mpvpaper-wallpaper resume` sin argumentos los retira todos.
+laptop añade `power-profile`.
+
+Cada motivo guarda **cuándo** y **quién** lo creó. `reasons` imprime tres
+columnas —motivo, antigüedad y dueño— para que un motivo olvidado no se vea
+igual que una ventana opaca de ahora mismo:
+
+```
+$ mpvpaper-wallpaper reasons
+manual	3d2h	cli
+opaque-window	12s	pid:2841 (huérfano)
+```
+
+Un motivo con dueño `pid:N` solo puede retirarlo ese proceso; si murió (el
+watcher se reinició, el perfil de energía terminó a la fuerza) el motivo queda
+sin nadie que lo retire y pausa el fondo para siempre. `mpvpaper-wallpaper
+reconcile` los descarta, y solo reanuda cuando retiró el último: esa pausa era
+suya. El arranque del fondo también reconcilia. `reasons` y `status` solo
+informan y nunca cambian nada, así que una pausa puesta a mano en el socket de
+mpv se respeta. Los motivos del usuario son `cli` y nunca se retiran solos:
+`resume` sin argumentos los elimina todos.
 
 ### `accent-wallpaper` — acento dinámico desde el wallpaper
 

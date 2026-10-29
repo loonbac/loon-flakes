@@ -5,9 +5,10 @@
 #   mpvpaper-wallpaper            # reproduce el video seteado (o el único/primero)
 #   mpvpaper-wallpaper set NOMBRE # setea y reproduce un video específico
 #   mpvpaper-wallpaper list       # lista los videos disponibles
-#   mpvpaper-wallpaper pause [MOTIVO]  # pausa por IPC conservando el último frame
+#   mpvpaper-wallpaper pause [MOTIVO] [DUEÑO]  # pausa por IPC conservando el último frame
 #   mpvpaper-wallpaper resume [MOTIVO] # sin motivo retira todos; con motivo, solo ese
-#   mpvpaper-wallpaper reasons    # motivos de pausa activos, uno por línea
+#   mpvpaper-wallpaper reasons    # motivos activos: motivo, antigüedad y dueño
+#   mpvpaper-wallpaper reconcile  # retira motivos huérfanos y ajusta la pausa
 #   mpvpaper-wallpaper status     # muestra playing, paused o stopped
 #   mpvpaper-wallpaper stop       # detiene el fondo animado
 { pkgs, lib, accent-wallpaper }:
@@ -18,7 +19,8 @@ let
   # 1.9 corrige la fuga de fences OpenGL con libmpv 0.41 (#132).
   mpvpaperFixed = pkgs.callPackage ../mpvpaper-fixed { };
 in
-pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
+let
+  script = pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
   set -euo pipefail
 
   DIR="${wallpapersDir}"
@@ -94,14 +96,19 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     send_ipc_to "$IPC" "$payload" || true
   }
 
-  validate_pause_reason() {
+  # El motivo se convierte en nombre de archivo y el dueño en token de
+  # procedencia, así que ambos comparten alfabeto.
+  validate_token() {
     case "$1" in
-      ""|*[!A-Za-z0-9._-]*)
-        echo "mpvpaper-wallpaper: motivo de pausa inválido: $1" >&2
+      ""|*[!A-Za-z0-9._:-]*)
+        echo "mpvpaper-wallpaper: $2 inválido: $1" >&2
         return 1
         ;;
     esac
   }
+
+  validate_pause_reason() { validate_token "$1" "motivo de pausa"; }
+  validate_owner() { validate_token "$1" "dueño de pausa"; }
 
   query_paused() {
     local response
@@ -122,9 +129,94 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     return 1
   }
 
+  # Procedencia de cada motivo. El marcador guarda cuándo y quién lo creó: así
+  # un motivo olvidado es visible por su antigüedad y retirable cuando su dueño
+  # ya no existe, en lugar de quedar pegado durante días.
+  write_marker() {
+    local reason=$1
+    local owner=$2
+    mkdir -p "$PAUSE_DIR"
+    {
+      echo "epoch=$(date +%s)"
+      echo "origin=$owner"
+    } > "$PAUSE_DIR/$reason"
+  }
+
+  marker_field() {
+    sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1
+  }
+
+  pid_alive() {
+    local pid=''${1#pid:}
+    pid=''${pid%%:*}
+    [ -n "$pid" ] || return 1
+    kill -0 "$pid" 2>/dev/null
+  }
+
+  humanize_age() {
+    local secs=$1 day hour min sec
+    [ "$secs" -ge 0 ] || secs=0
+    day=$((secs / 86400))
+    hour=$(((secs % 86400) / 3600))
+    min=$(((secs % 3600) / 60))
+    sec=$((secs % 60))
+    if [ "$day" -gt 0 ]; then
+      printf '%dd%dh' "$day" "$hour"
+    elif [ "$hour" -gt 0 ]; then
+      printf '%dh%dm' "$hour" "$min"
+    elif [ "$min" -gt 0 ]; then
+      printf '%dm%ds' "$min" "$sec"
+    else
+      printf '%ds' "$sec"
+    fi
+  }
+
+  # Un motivo con dueño 'pid:N' solo puede retirarlo ese proceso. Si murió
+  # (watcher reiniciado, perfil de energía terminado a la fuerza) el motivo
+  # queda sin nadie que lo retire y pausa el fondo para siempre: se descarta.
+  # Los motivos 'cli' los retira una persona con 'resume', nunca el script.
+  # Los avisos van a stderr para no ensuciar la salida de 'status'.
+  prune_orphans() {
+    local marker reason origin
+    [ -d "$PAUSE_DIR" ] || return 0
+    for marker in "$PAUSE_DIR"/*; do
+      [ -f "$marker" ] || continue
+      origin="$(marker_field "$marker" origin)"
+      case "$origin" in
+        pid:*) pid_alive "$origin" && continue ;;
+        *) continue ;;
+      esac
+      reason="''${marker##*/}"
+      rm -f "$marker"
+      PRUNED=1
+      echo "mpvpaper-wallpaper: retirado $reason (dueño $origin ya no existe)" >&2
+    done
+  }
+
+  send_ipc_quiet() {
+    [ -S "$IPC" ] || return 0
+    send_ipc_to "$IPC" "$1" >/dev/null || true
+  }
+
+  # Deja la reproducción acorde a los motivos que sobreviven. Nunca reanuda
+  # por su cuenta: solo cuando esta llamada retiró el último motivo, porque esa
+  # pausa la puso un actor que ya no existe. Una pausa hecha directamente en el
+  # socket IPC de mpv, sin marcador, es estado válido del usuario y se respeta.
+  reconcile() {
+    PRUNED=0
+    prune_orphans
+    if has_pause_reasons; then
+      send_ipc_quiet '{"command":["set_property","pause",true]}'
+    elif [ "$PRUNED" = 1 ]; then
+      send_ipc_quiet '{"command":["set_property","pause",false]}'
+    fi
+  }
+
   pause_for() {
     local reason=$1
+    local owner=''${2:-cli}
     validate_pause_reason "$reason"
+    validate_owner "$owner"
     ensure_runtime_dir
     mkdir -p "$PAUSE_DIR"
 
@@ -132,10 +224,10 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     # versión anterior del script, preservar esa pausa como manual antes de
     # adquirir nuestro motivo propio.
     if [ "$reason" != manual ] && ! has_pause_reasons && query_paused; then
-      : > "$PAUSE_DIR/manual"
+      write_marker manual cli
     fi
 
-    : > "$PAUSE_DIR/$reason"
+    write_marker "$reason" "$owner"
     send_ipc '{"command":["set_property","pause",true]}' >/dev/null
   }
 
@@ -153,14 +245,26 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
     fi
   }
 
-  # Motivos activos, uno por línea. Sin esto 'status' solo dice "paused" y un
-  # 'manual' viejo se ve igual que una ventana opaca tapando el fondo.
+  # Motivos activos: motivo, antigüedad y dueño, separados por tabuladores.
+  # Sin la antigüedad un 'manual' de hace días se ve igual que una ventana opaca
+  # tapando el fondo ahora mismo. No muta nada: solo 'reconcile' retira.
   list_reasons() {
-    local marker
+    local marker reason origin epoch age
     [ -d "$PAUSE_DIR" ] || return 0
     for marker in "$PAUSE_DIR"/*; do
       [ -f "$marker" ] || continue
-      printf '%s\n' "''${marker##*/}"
+      reason="''${marker##*/}"
+      origin="$(marker_field "$marker" origin)"
+      epoch="$(marker_field "$marker" epoch)"
+      [ -n "$origin" ] || origin=desconocido
+      age='?'
+      if [ -n "$epoch" ] && [ "$epoch" -eq "$epoch" ] 2>/dev/null; then
+        age="$(humanize_age "$(( $(date +%s) - epoch ))")"
+      fi
+      case "$origin" in
+        pid:*) pid_alive "$origin" || origin="$origin (huérfano)" ;;
+      esac
+      echo "$reason	$age	$origin"
     done
   }
 
@@ -180,6 +284,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
 
   apply_pause_reasons() {
     local socket=$1
+    prune_orphans
     if has_pause_reasons; then
       send_ipc_to "$socket" '{"command":["set_property","pause",true]}' >/dev/null || true
     fi
@@ -275,7 +380,7 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       exit 0
       ;;
     pause)
-      pause_for "''${2:-manual}"
+      pause_for "''${2:-manual}" "''${3:-cli}"
       exit 0
       ;;
     resume)
@@ -288,6 +393,10 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       ;;
     reasons)
       list_reasons
+      exit 0
+      ;;
+    reconcile)
+      reconcile
       exit 0
       ;;
     status)
@@ -370,4 +479,20 @@ pkgs.writeShellScriptBin "mpvpaper-wallpaper" ''
       fi
       ;;
   esac
-''
+  '';
+
+  # Pruebas enfocadas de los motivos de pausa: procedencia, antigüedad, motivos
+  # huérfanos y la semántica de resume. No necesitan mpvpaper ni una sesión
+  # gráfica, que es justo la parte que puede regresionar en silencio.
+  focusedTests = pkgs.runCommand "mpvpaper-wallpaper-reasons-tests" {
+    nativeBuildInputs = [ pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gnused pkgs.procps pkgs.python3 ];
+  } ''
+    ${pkgs.bash}/bin/bash ${./tests/reasons.sh} ${script}/bin/mpvpaper-wallpaper
+    touch $out
+  '';
+in
+script.overrideAttrs (old: {
+  passthru = (old.passthru or { }) // {
+    tests = (old.passthru.tests or { }) // { focused = focusedTests; };
+  };
+})

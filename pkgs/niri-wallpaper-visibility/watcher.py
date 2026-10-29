@@ -94,18 +94,30 @@ class VisibilityState:
 
 
 def set_wallpaper_paused(paused: bool) -> None:
-    action = "pause" if paused else "resume"
-    subprocess.run(
-        ["mpvpaper-wallpaper", action, PAUSE_REASON],
-        check=False,
-        stdout=subprocess.DEVNULL,
-    )
+    args = ["mpvpaper-wallpaper", "pause" if paused else "resume", PAUSE_REASON]
+    if paused:
+        # El watcher es dueño de su motivo. Si muere sin retirarlo (crash, OOM,
+        # reinicio del servicio) ese pid deja de existir y el siguiente
+        # reconcile descarta el motivo en vez de dejar el fondo pausado para
+        # siempre. 'resume' no necesita dueño: retira por nombre.
+        args.append(f"pid:{os.getpid()}")
+    subprocess.run(args, check=False, stdout=subprocess.DEVNULL)
 
 
 def main() -> int:
     if not os.environ.get("NIRI_SOCKET"):
         print("niri-wallpaper-visibility: NIRI_SOCKET no está definido", file=sys.stderr)
         return 1
+
+    # Reconciliar al arrancar: una instancia anterior pudo morir con su motivo
+    # de pausa puesto y, sin este paso, nada lo retiraría hasta el próximo
+    # cambio de foco.
+    subprocess.run(
+        ["mpvpaper-wallpaper", "reconcile"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     state = VisibilityState()
     applied: bool | None = None
