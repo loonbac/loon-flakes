@@ -36,8 +36,6 @@ let
   ];
 
   localPiPackages = [
-    "@HOME@/.local/share/loon-pi-packages/better-claude-code-ui"
-    "@HOME@/.local/share/loon-pi-packages/pi-gpt-fast-mode-shared"
     "npm:pi-discord-activity"
     "npm:pi-web-access"
     "npm:pi-btw"
@@ -54,8 +52,6 @@ let
   piPackages = (map (package: package.source) corePiPackages) ++ localPiPackages;
 
   piPackageNames = [
-    "better-claude-code-ui"
-    "pi-gpt-fast-mode-shared"
     "pi-discord-activity"
     "gentle-pi"
     "gentle-engram"
@@ -92,13 +88,10 @@ let
     markdown.mermaid = "streaming";
     quietStartup = true;
     showHardwareCursor = true;
-    # Must match the `name` inside the theme the extension package ships as
-    # theme/loon.json, because pi reads themes from every installed package.
-    # Pi resolves the theme before any extension loads, so a name with no file
-    # behind it is not recoverable at runtime: pi falls back to `system` and
-    # prints a load error on every start. The extension can only re-assert the
-    # theme later, and only if pi settled on a theme it recognises.
-    theme = "loon";
+    # El tema "loon" viajaba dentro del paquete de UI personalizada. Se fija uno
+    # que existe siempre: dejar la clave sin declarar conservaria "loon" en
+    # settings.json y Pi fallaria buscando un tema que ya no se instala.
+    theme = "system";
     tuiMode = "fullscreen";
   };
 
@@ -381,6 +374,11 @@ let
     # Sustituido por npm:cline-pi: el paquete local traía cinco modelos escritos
     # a mano y el catálogo de Cline cambia sin avisar.
     "pi-cline-free"
+    # Capa LOON retirada (2026-10-29): la UI personalizada y el hook de /fast
+    # dejan de cargarse. Sin esta lista sobrevivirian en settings.packages,
+    # porque la fusion solo une listas y nunca borra.
+    "better-claude-code-ui"
+    "pi-gpt-fast-mode-shared"
     "better-claude-code-ui-live"
     "pi-subagents-j0k3r"
     "@tintinweb/pi-subagents"
@@ -531,227 +529,9 @@ let
     };
   });
 
-  # Pi's own ui.notify() is an in-terminal toast. Desktop alerts are exposed
-  # separately through lifecycle events, so bridge every blocking extension
-  # prompt and every settled run to SwayNC and play an explicit PipeWire sound.
-  # This deliberately does not depend on the terminal bell: Ghostty ships with
-  # audio bells disabled, and Pi may also be run from another terminal.
-  piNotifications = writeText "loon-pi-notifications.ts" ''
-    import { spawn } from "node:child_process";
-    import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-    const NOTIFY_SEND = "${libnotify}/bin/notify-send";
-    const PW_PLAY = "${pipewire}/bin/pw-play";
-    const NOTIFICATION_SOUND = "${../pi/assets/snd_pi_attention.wav}";
-    const PROMPT_DEDUP_MS = 2500;
-    const IS_GENTLE_SUBAGENT = process.env.GENTLE_PI_AGENTS_CHILD === "1";
-    const GENTLE_SUBAGENT_PROMPT_PREFIX = "❀ ";
 
-    type UnknownRecord = Record<string, unknown>;
 
-    function isRecord(value: unknown): value is UnknownRecord {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    }
-
-    function clean(value: unknown, fallback: string, limit = 220): string {
-      if (typeof value !== "string") return fallback;
-      const text = value.replace(/[\x00-\x1f\x7f]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!text) return fallback;
-      return text.length <= limit ? text : text.slice(0, limit - 1) + "…";
-    }
-
-    function launch(command: string, args: string[]): void {
-      try {
-        const child = spawn(command, args, { detached: true, stdio: "ignore" });
-        child.on("error", () => {});
-        child.unref();
-      } catch {
-        // Notifications are best effort and must never interrupt Pi.
-      }
-    }
-
-    function desktopNotification(title: string, body: string, icon: string): void {
-      launch(NOTIFY_SEND, [
-        "--app-name=Pi",
-        "--urgency=normal",
-        "--expire-time=10000",
-        "--icon=" + icon,
-        title,
-        body,
-      ]);
-    }
-
-    function play(sound: string): void {
-      launch(PW_PLAY, ["--media-role=Notification", "--volume=0.15", sound]);
-    }
-
-    export default function loonPiNotifications(pi: ExtensionAPI): void {
-      // Gentle Agents launches isolated Pi RPC processes which load the same
-      // global extensions. Their lifecycle is internal to the main session:
-      // never alert when a child settles. Questions relayed by a child are
-      // rendered through the main Pi UI and are covered there instead.
-      if (IS_GENTLE_SUBAGENT) return;
-
-      let context: ExtensionContext | undefined;
-      let lastPromptAt = 0;
-      let promptActive = false;
-      let notifyWhenSettled = false;
-
-      pi.on("session_start", (_event, ctx) => {
-        context = ctx;
-        lastPromptAt = 0;
-        promptActive = false;
-        notifyWhenSettled = false;
-      });
-
-      const prompt = (
-        body: unknown,
-        options: { allowIdle?: boolean; title?: string; icon?: string } = {},
-      ): void => {
-        // Ignore dialogs opened manually while Pi is idle (settings, model
-        // picker, plugin browsers, etc.). An RPC question relayed by a Gentle
-        // subagent is the exception: the parent can be idle while the child
-        // is blocked waiting for its answer.
-        if (!context?.hasUI || (context.isIdle() && !options.allowIdle)) return;
-        const now = Date.now();
-        if (now - lastPromptAt < PROMPT_DEDUP_MS) return;
-        lastPromptAt = now;
-        desktopNotification(
-          options.title ?? "Pi necesita tu respuesta",
-          clean(body, "Hay una pregunta esperando en la terminal."),
-          options.icon ?? "dialog-question",
-        );
-        play(NOTIFICATION_SOUND);
-      };
-
-      // Unlike automatic custom-message turns (notably gentle-agents.result),
-      // a normal main-session request passes through before_agent_start. Keep
-      // this marker across retries, compaction and queued continuations until
-      // the one final agent_settled event.
-      pi.on("before_agent_start", (_event, ctx) => {
-        context = ctx;
-        notifyWhenSettled = true;
-      });
-
-      // Pi 0.85+ emits this for every select/confirm/input/editor/custom UI,
-      // including prompts created by third-party plugins.
-      pi.on("ui_prompt_start", (event, ctx) => {
-        context = ctx;
-        promptActive = true;
-        const fromSubagent = typeof event.title === "string"
-          && event.title.startsWith(GENTLE_SUBAGENT_PROMPT_PREFIX);
-        const body = fromSubagent
-          ? event.title?.slice(GENTLE_SUBAGENT_PROMPT_PREFIX.length)
-          : event.title;
-        prompt(body, { allowIdle: fromSubagent });
-      });
-      pi.on("ui_prompt_end", (_event, ctx) => {
-        context = ctx;
-        promptActive = false;
-      });
-
-      // Compatibility and richer text for the two installed question tools.
-      // Their event fires before ui_prompt_start, which the dedupe window then
-      // suppresses, so each prompt still produces exactly one alert.
-      pi.events.on("rpiv:ask-user:prompt", (payload) => {
-        const questions = isRecord(payload) && Array.isArray(payload.questions)
-          ? payload.questions
-          : [];
-        const first = questions.find(isRecord);
-        prompt(first?.question, { title: "Pi tiene una pregunta" });
-      });
-      pi.events.on("rpiv:ask-user:blocked", (payload) => {
-        if (isRecord(payload) && payload.active === true) {
-          prompt("Hay una pregunta esperando en la terminal.", {
-            title: "Pi espera tu respuesta",
-          });
-        }
-      });
-      pi.events.on("gentle-pi:ask-user-choice:blocked", (payload) => {
-        if (isRecord(payload) && payload.active === true) {
-          prompt("Hay una elección esperando en la terminal.", {
-            title: "Pi necesita una elección",
-          });
-        }
-      });
-      pi.events.on("pi-permission-system:permission-request", (payload) => {
-        if (isRecord(payload) && payload.state === "waiting") {
-          prompt(payload.message, {
-            title: "Pi solicita confirmación",
-            icon: "dialog-warning",
-          });
-        }
-      });
-
-      // agent_settled is the correct full-request boundary: unlike agent_end,
-      // it does not fire before automatic retries, compaction or follow-ups.
-      pi.on("agent_settled", (_event, ctx) => {
-        context = ctx;
-        const shouldNotify = notifyWhenSettled && !promptActive;
-        notifyWhenSettled = false;
-        if (!shouldNotify) return;
-        desktopNotification("Pi terminó", "La tarea principal terminó y espera instrucciones.", "dialog-information");
-        play(NOTIFICATION_SOUND);
-      });
-    }
-  '';
-
-  # Pi announces when it is waiting for an answer. PORT intercepts that on its
-  # own socket so the sidebar can show "espera tu respuesta" instead of staying
-  # on "working": the notification path already worked, but the state never
-  # reached the terminal. Gated exactly like the activity transport, because
-  # without PORT's socket and panel id there is nobody to report to.
-  piPanelState = writeText "loon-port-panel-state.ts" ''
-    import { execFile } from "node:child_process";
-    import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-    // Name of the balanced attention event the Gentle AI adapter publishes: one
-    // activation when blocking begins and one release after the last source
-    // clears. Renaming it upstream would only dim this signal, never break Pi.
-    const ATTENTION_EVENT = "herdr:blocked";
-    const SOURCE = "port:state";
-    const STATE_TOKEN = "port_state";
-    const TTL_MS = 30000;
-    const REPORT_TIMEOUT_MS = 1500;
-
-    export default function (pi: ExtensionAPI): void {
-      const env = process.env;
-      if (env.GENTLE_PI_AGENTS_CHILD === "1" || env.HERDR_ENV !== "1") return;
-      const pane = env.HERDR_PANE_ID ? env.HERDR_PANE_ID.trim() : "";
-      const socket = env.HERDR_SOCKET_PATH ? env.HERDR_SOCKET_PATH.trim() : "";
-      if (!pane || !socket) return;
-      const configured = env.HERDR_BIN_PATH ? env.HERDR_BIN_PATH.trim() : "";
-      const bin = configured || "herdr";
-
-      // The receiving socket drops a report whose seq does not grow, so it only
-      // ever increases and never repeats between runs of this process.
-      let seq = Date.now();
-
-      const report = (state: string): void => {
-        seq += 1;
-        execFile(bin, [
-          "pane", "report-metadata", pane,
-          "--source", SOURCE,
-          "--agent", "pi",
-          "--seq", String(seq),
-          "--ttl-ms", String(TTL_MS),
-          "--token", STATE_TOKEN + "=" + state,
-        ], { timeout: REPORT_TIMEOUT_MS, maxBuffer: 4096, windowsHide: true }, () => {
-          // Best effort a propósito: un informe que no se puede entregar no
-          // puede frenar ni romper la sesión de Pi.
-        });
-      };
-
-      pi.events.on(ATTENTION_EVENT, (payload: unknown) => {
-        const active = typeof payload === "object" && payload !== null
-          && (payload as { active?: unknown }).active === true;
-        report(active ? "blocked" : "working");
-      });
-
-      pi.on("agent_start", () => { report("working"); });
-      pi.on("agent_settled", () => { report("idle"); });
-    }
-  '';
 
   mergeSettings = writeText "merge-pi-settings.mjs" ''
     import fs from "node:fs";
@@ -1423,34 +1203,10 @@ writeShellApplication {
     ''}
     engram update --if-needed
 
-    # Give Pi a stable, unhashed local-package identity for the customized UI
-    # while keeping its bytes owned by the flake.
+    # Raiz de los paquetes locales de Pi. Solo el guard de contexto Jev queda
+    # enlazado aqui: los bytes son del flake y el home guarda la identidad.
     local_package_root="$HOME/.local/share/loon-pi-packages"
-    better_ui_source="$local_package_root/better-claude-code-ui"
-    fast_mode_source="$local_package_root/pi-gpt-fast-mode-shared"
     mkdir -p "$local_package_root"
-    if [ ! -L "$better_ui_source" ] || [ "$(readlink -f "$better_ui_source" || true)" != "${betterClaudeCodeUi}" ]; then
-      if [ -e "$better_ui_source" ] || [ -L "$better_ui_source" ]; then
-        mkdir -p "$backup_dir/local-packages"
-        mv "$better_ui_source" "$backup_dir/local-packages/better-claude-code-ui"
-      fi
-      ln -s "${betterClaudeCodeUi}" "$better_ui_source"
-    fi
-
-    # Deliberately no copy of the package's themes into $agent_dir/themes. Pi
-    # already reads theme/*.json from every installed package, so a second copy
-    # only makes it report a theme-name collision and skip one of the two. The
-    # package stays the single source, and the `theme` setting selects from it.
-
-    # Keep the provider hook for /fast immutable too. Its tiny mutable state
-    # file remains in ~/.pi/agent/state and is deliberately not Nix-owned.
-    if [ ! -L "$fast_mode_source" ] || [ "$(readlink -f "$fast_mode_source" || true)" != "${gptFastModeShared}" ]; then
-      if [ -e "$fast_mode_source" ] || [ -L "$fast_mode_source" ]; then
-        mkdir -p "$backup_dir/local-packages"
-        mv "$fast_mode_source" "$backup_dir/local-packages/pi-gpt-fast-mode-shared"
-      fi
-      ln -s "${gptFastModeShared}" "$fast_mode_source"
-    fi
 
     # El guard de contexto Jev vivía como directorio copiado a mano en el home:
     # el repo tenía su fuente pero nada la desplegaba, así que un cambio en
@@ -1584,35 +1340,21 @@ writeShellApplication {
       link_skill "$skill_name"
     done
 
-    # Global extension managed by the flake. Keep a user-created regular file
-    # recoverable, while updated Nix store links can be replaced in place.
-    notifications_source="${piNotifications}"
-    notifications_destination="$agent_dir/extensions/loon-notifications.ts"
-    mkdir -p "$agent_dir/extensions"
-    if [ -L "$notifications_destination" ]; then
-      ln -sfn "$notifications_source" "$notifications_destination"
-    elif [ -e "$notifications_destination" ]; then
-      mkdir -p "$backup_dir/extensions"
-      mv "$notifications_destination" "$backup_dir/extensions/loon-notifications.ts"
-      ln -s "$notifications_source" "$notifications_destination"
-    else
-      ln -s "$notifications_source" "$notifications_destination"
-    fi
-
-    # Extensión que reporta el estado del agente a PORT por su socket. Mismo
-    # tratamiento que las notificaciones: un archivo del usuario se conserva
-    # recuperable, y un enlace previo del store se reemplaza en el lugar.
-    panel_state_source="${piPanelState}"
-    panel_state_destination="$agent_dir/extensions/loon-port-panel-state.ts"
-    if [ -L "$panel_state_destination" ]; then
-      ln -sfn "$panel_state_source" "$panel_state_destination"
-    elif [ -e "$panel_state_destination" ]; then
-      mkdir -p "$backup_dir/extensions"
-      mv "$panel_state_destination" "$backup_dir/extensions/loon-port-panel-state.ts"
-      ln -s "$panel_state_source" "$panel_state_destination"
-    else
-      ln -s "$panel_state_source" "$panel_state_destination"
-    fi
+    # Las dos extensiones de LOON ya no se instalan. Se retiran los enlaces que
+    # instalaron generaciones anteriores: sin esto seguirian cargandose desde el
+    # store en cualquier host que no se haya limpiado a mano. Solo se retiran
+    # enlaces; un archivo regular se conserva recuperable en el respaldo.
+    for retired_extension in \
+      loon-notifications.ts \
+      loon-port-panel-state.ts; do
+      retired_destination="$agent_dir/extensions/$retired_extension"
+      if [ -L "$retired_destination" ]; then
+        rm -f "$retired_destination"
+      elif [ -e "$retired_destination" ]; then
+        mkdir -p "$backup_dir/extensions"
+        mv "$retired_destination" "$backup_dir/extensions/$retired_extension"
+      fi
+    done
 
     rm -f "$agent_dir/extensions/loon-antigravity-quota-fallback.ts"
 
@@ -1803,14 +1545,6 @@ NODE
 
     # This local UI is repository-owned code, not a retained external release.
     # Keep Pi pointed at its stable local identity across Nix generations.
-    better_ui="$npm_node_modules/better-claude-code-ui"
-    if [ ! -L "$better_ui" ] || [ "$(readlink -f "$better_ui" || true)" != "${betterClaudeCodeUi}" ]; then
-      if [ -e "$better_ui" ] || [ -L "$better_ui" ]; then
-        mkdir -p "$backup_dir/packages"
-        mv "$better_ui" "$backup_dir/packages/better-claude-code-ui"
-      fi
-      ln -s "${betterClaudeCodeUi}" "$better_ui"
-    fi
 
     # Reconcile only Nix-managed providers and preserve any local providers.
     node "${mergeModels}" "$agent_dir/models.json" "${manifest}"
