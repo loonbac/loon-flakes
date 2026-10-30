@@ -148,6 +148,16 @@ buildFHSEnv {
     "--setenv __EGL_VENDOR_LIBRARY_FILENAMES /run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json"
     "--setenv __EGL_EXTERNAL_PLATFORM_CONFIG_DIRS /run/opengl-driver/share/egl/egl_external_platform.d"
     "--setenv FUNNEL_RENDER_NODE /dev/dri/renderD128"
+
+    # buildFHSEnv bind-mounts every top-level host directory into the sandbox,
+    # so if /opt exists on the machine (it does here, root-owned 0711) the host
+    # /opt shadows the sandbox root and bwrap cannot create the mountpoint
+    # below it: "Can't mkdir parents for /opt/veadotube-mini: Permission
+    # denied".  The app then never starts at all.  A tmpfs over /opt replaces
+    # that host bind, so the runtime keeps its original path.
+    "--tmpfs"
+    "/opt"
+
     "--ro-bind ${runtime} /opt/veadotube-mini"
   ];
   runScript = "/opt/veadotube-mini/veadotube-mini";
