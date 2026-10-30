@@ -38,5 +38,11 @@
   # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
   loon.devPorts = [ 5173 8080 ];
 
+  # Minecraft: el mundo abierto al LAN desde PrismLauncher escucha en *:25565.
+  # Se abre solo a la tailnet, no a la LAN ni a internet: la regla se limita a
+  # la interfaz tailscale0 en vez de sumar el puerto a allowedTCPPorts, que lo
+  # expondría a cualquier equipo de la red local.
+  networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ 25565 ];
+
   system.stateVersion = "26.05";
 }
