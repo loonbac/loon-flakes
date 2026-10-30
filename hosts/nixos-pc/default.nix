@@ -13,6 +13,7 @@
     ./cross-toolchain.nix
     ./cloudflared.nix
     ./creator.nix
+    ./mdm-respaldo.nix
   ];
 
   networking.hostName = "nixos-pc";
