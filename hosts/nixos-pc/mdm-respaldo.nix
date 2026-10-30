@@ -14,6 +14,12 @@
 # Los guiones NO se empaquetan en el store: se editan a mano y esa mutabilidad es
 # deliberada. Nix declara quién los ejecuta y cuándo, no su contenido; una
 # reinstalación limpia tiene que restaurarlos en /var/lib/mdm/bin.
+#
+# El destino tampoco se pasa por entorno. resolver_destino (guiones-comunes.sh) lo
+# fija a /var/backups/mdm cuando corre como root y solo deja elegirlo al modo
+# usuario: un proceso privilegiado que acepta su destino del entorno se envenena
+# con el entorno. Declarar aquí MDM_RESPALDOS_DEST no cambiaría nada y describiría
+# mal al servicio.
 { config, pkgs, ... }:
 
 {
@@ -22,19 +28,27 @@
     after = [ "docker.service" ];
     requires = [ "docker.service" ];
     # systemd builds a minimal PATH for system services (coreutils, findutils,
-    # gnugrep, gnused, systemd). Missing from it are the three things the script
-    # cannot run without: bash, because it starts with #!/usr/bin/env bash and
-    # env resolves it through PATH (unit fails with 127 otherwise); docker, to
-    # reach the containers; and gzip, which validates the materials archive on
-    # the host rather than inside the container.
+    # gnugrep, gnused, systemd) and the script needs five things that are not in
+    # it. bash, because it starts with #!/usr/bin/env bash and env resolves the
+    # interpreter through PATH (the unit dies with 127 before its first line);
+    # docker, to reach the containers; gzip, which validates the materials
+    # archive on the host rather than inside the container; tar, for the same
+    # reason, since the listing that proves the archive is not empty runs here
+    # and not in the container; and flock, which the verification script takes
+    # before touching anything.
+    #
+    # Keep flock here. The verification script reads a failed flock -n as "another
+    # run is in progress" and exits 0, so a missing binary turns every weekly run
+    # into a silent success that verifies nothing.
     path = [
       pkgs.bash
       config.virtualisation.docker.package
       pkgs.gzip
+      pkgs.gnutar
+      pkgs.util-linux
     ];
     serviceConfig = {
       Type = "oneshot";
-      Environment = [ "MDM_RESPALDOS_DEST=/var/backups/mdm" ];
       ExecStart = "/var/lib/mdm/bin/mdm-respaldo.sh";
       Nice = 10;
       IOSchedulingClass = "best-effort";
@@ -59,14 +73,17 @@
     description = "Verifica que el último respaldo del gestor MDM se restaura (issue #338)";
     after = [ "docker.service" ];
     requires = [ "docker.service" ];
+    # Same PATH as the backup unit, for the same reasons; flock is the one that
+    # matters most here.
     path = [
       pkgs.bash
       config.virtualisation.docker.package
       pkgs.gzip
+      pkgs.gnutar
+      pkgs.util-linux
     ];
     serviceConfig = {
       Type = "oneshot";
-      Environment = [ "MDM_RESPALDOS_DEST=/var/backups/mdm" ];
       ExecStart = "/var/lib/mdm/bin/mdm-verifica-respaldo.sh";
       Nice = 10;
     };
