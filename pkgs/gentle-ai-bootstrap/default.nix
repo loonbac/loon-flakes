@@ -88,10 +88,20 @@ let
     markdown.mermaid = "streaming";
     quietStartup = true;
     showHardwareCursor = true;
-    # El tema "loon" viajaba dentro del paquete de UI personalizada. Se fija uno
-    # que existe siempre: dejar la clave sin declarar conservaria "loon" en
-    # settings.json y Pi fallaria buscando un tema que ya no se instala.
-    theme = "system";
+    # El tema no se declara, y no es un olvido: es preferencia del dueño, no
+    # configuración de máquina. `merge-pi-settings.mjs` hace
+    # `Object.assign(settings, manifest.piSettings)` sobre
+    # ~/.pi/agent/settings.json, así que **cualquier** valor declarado aquí se
+    # re-inyecta en cada `pi update` y pisa lo que el dueño eligió en
+    # `/gentle:customize`. Una clave ausente del manifiesto no la toca
+    # `Object.assign`: lo que haya en settings.json sobrevive a la actualización.
+    #
+    # Antes se fijaba `"system"` para no dejar "loon" colgado cuando ese tema se
+    # retiró con el paquete de UI personalizada. Ese motivo ya no existe: LOON
+    # regenera `Wallpaper (LOON).json` en ~/.pi/agent/themes/ con el acento del
+    # fondo, y Pi lo registra y lo valida. Fijar ahora cualquier otro valor
+    # repetiría el pisado la próxima vez que el dueño cambie de tema, así que la
+    # línea se elimina en vez de cambiarse por otro tema.
     tuiMode = "fullscreen";
   };
 
