@@ -99,7 +99,13 @@ in
     openssl            # deps de openssl-sys (mdm-gestor usa jsonwebtoken/sqlx)
     openssl.dev        # .pc files de OpenSSL para pkg-config en builds Rust
     libpq              # deps de pq-sys (sqlx + postgres)
-    claude-code
+    # Claude Code NO se declara aquí a propósito. Su binario lo instala el
+    # instalador oficial (https://claude.ai/install.sh) en ~/.local/bin, que
+    # salta a la última versión el mismo día que se publica; el paquete de
+    # nixpkgs va semanas atrás (2.1.223 frente a 2.1.318 el 2026-11-04) y,
+    # como el perfil del sistema va antes en el PATH, tapaba esa instalación:
+    # instalar la nueva no cambiaba nada porque nunca ganaba. Si alguna unidad
+    # de sistema necesita el binario, se declara en esa unidad, no aquí.
     zen-browser
     helium-browser
     chromium           # para E2E (Playwright/Puppeteer) en esta máquina

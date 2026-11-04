@@ -49,7 +49,7 @@ THIRD_PARTY = [
     r"better-claude", r"^zen[.-]", r"^helium", r"code-insiders", r"vscode",
     r"equibop", r"pear-desktop", r"cargo-target-cache", r"anydesk",
     r"google-chrome", r"^port-", r"lanzaboote", r"lzbt", r"^steam",
-    r"win11osx-cursor", r"mpv-with-scripts", r"heroic", r"claude-code",
+    r"win11osx-cursor", r"mpv-with-scripts", r"heroic",
     r"^mpvpaper",
 ]
 
