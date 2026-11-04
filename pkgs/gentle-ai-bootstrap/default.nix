@@ -272,8 +272,8 @@ let
   };
 
   # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
-  # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Google y
-  # DeepSeek) para preservar la independencia de Judgment Day.
+  # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Anthropic y
+  # Google) para preservar la independencia de Judgment Day.
   #
   # Only what must be fixed lives here. Everything else is the owner's decision, expressed
   # through the active profile in ~/.pi/gentle-ai/profiles.json and applied by the router at
@@ -302,21 +302,30 @@ let
   # re-applies it. If a lens ever refuses with reviewer-model-not-found, check the patch before
   # adding a model back here.
   #
-  # The two judges keep an explicit model on purpose: Judgment Day needs two different model
-  # families for its independence to mean anything, and that is infrastructure rather than
-  # preference. Their values are deliberately left as they were.
+  # The two judges keep an explicit model on purpose, and the criterion for choosing it is
+  # quality, not price. That is a deliberate reversal of the older text above, which picked the
+  # cheapest tier and justified it with the cost per million tokens. The reasoning behind the
+  # reversal is the workload: these two roles are not part of the routing decision and do not
+  # run by default. Nothing dispatches to them on the hot path. They are invoked on demand,
+  # when the owner asks for Judgment Day, and at that moment the only thing that matters is
+  # getting the best answer available — a review that runs rarely can afford the strongest
+  # model it can reach, and saving cents on a call that is not being made buys nothing.
+  #
+  # Independence is preserved by family rather than by price: jd-judge-a is Anthropic and
+  # jd-judge-b is Google, so the two judges still cannot share a blind spot. A cheaper pair
+  # from a single family would have cost less and proven less.
+  #
+  # jd-judge-a's model can report an exhausted quota. That is a known, accepted condition, not
+  # a reason to substitute it: the owner was told and chose this model deliberately, and a
+  # judge that is briefly unavailable is still better than one that is permanently mediocre.
+  # Do not "fix" it by downgrading — re-read this paragraph before touching the value.
   subagentModelProfiles = {
-    # Different families on purpose: the two judges must not share a bias. Both stay in the
-    # cheap tier, so independence costs three dollars per million instead of ninety.
-    jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    # A free model from a different family than the judge above. gpt-oss-120b was used here
-    # and should not be: it was the cheap end of a family chosen for convenience, not the best
-    # available answer. step-5-preview-free, which opencode-go now gives away, is the intended
-    # replacement and is not resolvable by Pi yet — its catalogue has not caught up with the
-    # provider — so this names a free model that is available now, and the router will take
-    # step-5 the moment it appears, because free detection reads the provider's own naming
-    # instead of a list that would need editing.
-    jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
+    # Anthropic. The strongest reasoning model the account can reach, which is the point of a
+    # role that only runs when someone explicitly asks for a second opinion.
+    jd-judge-a = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
+    # Google, a different family from the judge above so the two never share a bias. Same
+    # criterion as above: chosen for the best answer, not for the cheapest one.
+    jd-judge-b = { model = "antigravity/gemini-4-argon"; effort = "high"; };
     # Everything else — the orchestrator roles, the btw side channel and the four review
     # lenses — is intentionally absent. See the note above the set for why, and for the
     # review-route dependency that has to hold before the lenses may stay absent.
