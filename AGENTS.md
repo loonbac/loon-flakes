@@ -529,39 +529,9 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **`-builtin:codemode` es del usuario, no del repo**: gentle-pi sustituye el codemode
   builtin por su renderer compacto y, si el usuario acepta el prompt una vez, escribe esa
   entrada para silenciar el aviso de Pi. El repo la deja en paz a propósito:
-  `retiredPiExtensions` solo retira `-builtin:mcp`, porque filtrar la de codemode la revierte
-  en cada activación y gentle-pi vuelve a preguntar. Codemode funciona igual (lo aporta
-  gentle-pi).
-- **Forzar codemode (`pkgs/pi-codemode-forcer`)**: el default de Pi es `codemode.mode: "on"`,
-  que deja los tools nativos declarados y por tanto vuelve opcional agrupar. Medido en este
-  repo: 40.968 llamadas a `bash` en 30 días contra **169 a `codemode`**, que además solo se
-  usaba como puerta a las MCP tools. La extensión cierra esa brecha con dos reglas decididas
-  en el hook `tool_call`, antes de ejecutar, y ambas son chequeos de nombre sobre
-  `parentToolCallId` (campo que Pi rellena cuando la llamada viene de un script):
-  - **Ejecución nativa bloqueada**: `bash`, `bash_background`, `read`, `edit`, `write`,
-    `grep`, `find`, `ls` llamados desde el modelo se bloquean y el motivo trae el script
-    listo para pegar con `tools.<nombre>({...})`. Nada se ejecutó, así que no hay trabajo
-    que rehacer: solo se reemite la misma operación dentro de un script.
-  - **Host dentro de un script bloqueado**: `ask_user_choice`, `ask_user_question`,
-    `request_secret`, `gentle_review*`, `subagent_run` y `subagent_continue` no pueden
-    correr en el sandbox de QuickJS porque necesitan la UI o un relé del host. Si un script
-    los invoca, se bloquean; lo que el script ya ejecutó antes queda hecho.
-  - **Escape**: `PI_CODEMODE_FORCE=0` desactiva la exigencia en una invocación. Cada bloqueo
-    se anota en `~/.pi/agent/codemode-forcer.log` (0600) para poder medir el efecto: el
-    objetivo es pasar de 1,09 comandos por turno a más de 2,5.
-  - Verificado: `bash` nativo bloqueado y reintentado por codemode; `ask_user_question`
-    bloqueado con `fromScript: true`. La extensión se enlaza desde `piSettings.extensions`
-    y `mergeSettings` une listas, así que no pisa el `-builtin:codemode` del usuario.
-  - **La lista `HOST_ONLY` no se escribe de memoria**: se saca de `getAllTools()` (75 tools
-    configurados, 72 activos en esta sesión). Fuera de la lista quedan a propósito las
-    lecturas puras (`get_goal`, `subagent_status`, `subagent_result`, `subagent_list_*`,
-    `job_list`, `orchestrator_list`): bloquearlas costaría un turno sin ganar nada. Solo
-    `ask_user_question` está verificado empíricamente; el resto se clasificó por contrato.
-  - **Gotcha del merge de extensiones**: una extensión declarada como archivo cambia de
-    store path en cada activación, y la unión conservaba el anterior para siempre, así que
-    la extensión se cargaba dos veces y el JSON crecía. `mergeSettings` ahora compara por
-    nombre **quitando el prefijo `<hash32>-` del store**: comparar por basename no sirve
-    porque el basename incluye el hash.
+  `retiredPiExtensions` retira `-builtin:mcp` y la extensión del forcer retirado, pero
+  nunca la de codemode: filtrarla la revierte en cada activación y gentle-pi vuelve a
+  preguntar. Codemode funciona igual (lo aporta gentle-pi).
 - **Ficheros**: el único config de usuario que Pi lee es `~/.pi/agent/mcp.json` (symlink a
   `mcpConfig`). `mcp-adapter.json`, `mcp-cache.json` y `mcp-project-approvals.json` eran del
   adaptador: la activación los mueve a `backups/nix-gentle-ai/<fecha>/pi-mcp-adapter/`.
