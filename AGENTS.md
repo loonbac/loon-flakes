@@ -611,32 +611,21 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `pi -p --provider inception --model mercury-3` responde exacto y usa tools (leyó
     `/etc/hostname`); el provider sobrevive al rebuild.
   - Rotar la key = editar ese único archivo; no hay que rebuildear.
-- **Provider `alibaba-token-plan` (plan Starter/Essential comprado)**: declarado en
-  `piModelProviders` de `pkgs/gentle-ai-bootstrap/default.nix`. Endpoint OpenAI-compatible
-  `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` (región Singapur,
-  única disponible). La clave vive en `~/.config/alibaba-token-plan/api-key` (0600) y **empieza
-  por `sk-sp-`**: no es intercambiable con la de pago por uso (`sk-`) ni con Coding Plan, y el
-  endpoint debe ser el par correcto — usar la clave genérica factura aparte del plan y no se
-  puede descontar. Modelos declarados: `deepseek-v4.1-flash-1017`, `deepseek-v4.1-flash`,
-  `glm-5.3`, `qwen3.8-max` (todos 1M contexto). `compat.thinkingFormat = "qwen"` porque el
-  gateway usa `enable_thinking` (convención DashScope); acepta además `thinking.type` y
-  `reasoning_effort` (`low`/`high`/`max`). Máx salida 393 216 en DeepSeek, 131 072 en GLM/Qwen.
-  - **Descuento nocturno 50 %** para `deepseek-v4.1-flash*`, `deepseek-v4-pro-0813` y
-    `deepseek-v4-flash-0731` entre 22:00 y 08:00 UTC+8, que en Perú (UTC-5) es **09:00–19:00**:
-    toda la jornada laboral paga la mitad de créditos.
-  - Verificado: `pi -p --provider alibaba-token-plan --model deepseek-v4.1-flash-1017` responde
-    exacto y usa tools; streaming SSE con `stream_options.include_usage` funciona.
-  - Límite real del plan: no es la cuota de créditos sino la **concurrencia** (Essential 2–3
-    agentes). Si se agotan los créditos, las llamadas se bloquean y **no** pasan a pago por uso.
+- **Proveedor `alibaba-token-plan` retirado (2026-11-04)**: la declaración salió de
+  `piModelProviders` por decisión del dueño. `mergeModels` hace `Object.assign` sin lista de
+  retiro, así que quitar el manifiesto **no** borra la clave del JSON: el proveedor se quita a
+  mano de `~/.pi/agent/models.json` (y sus entradas de `compaction.modelOverrides` de
+  `~/.pi/agent/settings.json`). La clave de API sigue en
+  `~/.config/alibaba-token-plan/api-key` (0600) y no se toca desde el repo.
 - **Compactación de Pi: el ajuste que más ahorra** (`~/.pi/agent/settings.json`, no en Nix).
   Por defecto `reserveTokens = 16384`, así que con un modelo de 1M de contexto Pi compacta recién
   a **983 616 tokens**. Los logs del 2026-10 mostraron compactaciones con `tokensBefore` mediano de
   469 418 y p90 de 770 073: arrastrar ese contexto costaba el 62 % del gasto en *input miss*.
   Configuración aplicada: `compaction.reserveTokens = 16384` global (los modelos pequeños, 65k y
   262k, no toleran un reserve alto) y **`modelOverrides` con `reserveTokens: 850000`** para cada
-  modelo de 1M de contexto (`alibaba-token-plan/*`, `opencode-go/deepseek-v4.1-flash`,
-  `workbuddy/*`, `commandcode/*`, `intern-ai/*`, `river*/*`). Eso compacta a ~150k. Ahorro
-  proyectado: 55 % del coste.
+  modelo de 1M de contexto (`opencode-go/deepseek-v4.1-flash`, `workbuddy/*`, `commandcode/*`,
+  `intern-ai/*`, `river2/*`, `river3/*`). Eso compacta a ~150k. Ahorro proyectado: 55 % del
+  coste.
 - **Compactación de Pi: el ajuste que más ahorra** (`~/.pi/agent/settings.json`, no en Nix).
   Por defecto `reserveTokens = 16384`, así que con un modelo de 1M de contexto Pi compacta recién
   a **983 616 tokens**. Los logs del 2026-10 mostraron compactaciones con `tokensBefore` mediano de
