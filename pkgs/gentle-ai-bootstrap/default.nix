@@ -273,36 +273,39 @@ let
 
   # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
   # nativos de Pi. jd-judge-a y jd-judge-b usan familias distintas (Google y
-  # xAI) para preservar la independencia de Judgment Day.
-  # These profiles are required infrastructure, not a preference.
+  # DeepSeek) para preservar la independencia de Judgment Day.
   #
-  # gentle-pi's native review reads them to know which model each lens runs on, so emptying
-  # this map does not make the selector dynamic — it makes review unrunnable. That was the
-  # mistake: the map was blanked to let the router choose, and the router only overrides at
-  # delegation time, so nothing chose at all.
+  # Only what must be fixed lives here. Everything else is the owner's decision, expressed
+  # through the active profile in ~/.pi/gentle-ai/profiles.json and applied by the router at
+  # delegation time.
   #
-  # So the map stays, and it stays cheap: every entry points at the Antigravity subscription
-  # the user already pays for, whose marginal cost per call is zero, instead of the paid
-  # opencode-go models and the openai-codex routes that are no longer authenticated — the
-  # four review lenses were split across exactly those two.
+  # Why the other nine entries were removed instead of kept as a "floor": the floor claim was
+  # backwards. This map is written to ~/.pi/agent/subagents.json, and gentle-pi resolves a
+  # role from that map (source "profile") before the agent frontmatter (source "definition").
+  # An entry here therefore does not sit under the owner's choice, it sits over it: measured
+  # with gentle-pi's own resolveEffectiveAgentModel, all eleven roles reported "fijado" while
+  # the owner's profile had them empty. A static model in this file is a ceiling, and the
+  # router never gets to lower it.
   #
-  # The router still decides per delegation and overrides whatever is here; this is the
-  # floor, not the ceiling. Judgment Day keeps a different model family per judge, because
-  # that independence is the mechanism rather than a style choice.
+  # Measured after removing them, with the same resolver: the nine non-judge roles report
+  # inherited, which is exactly the state in which the router selects them, and
+  # DETERMINISTIC_FALLBACK_ROUTE covers a router that fails or has no catalogue.
+  #
+  # The four review lenses are the one case that needed care, and the old text above was right
+  # about the incident it recorded: a lens with no model makes native review unrunnable, and it
+  # fails closed with reviewer-model-not-found rather than picking something. It is no longer
+  # unrunnable because the relay now consults the router's published review routes
+  # (~/.pi/agent/state/natural-adaptive-routing/review-route.json, written per role) before it
+  # refuses, through the local patch shipped by loon-routing. That dependency is real and is
+  # stated here so nobody has to rediscover it: a package update replaces the installed
+  # gentle-pi and silently drops the patch, and review would then fail closed until loon-routing
+  # re-applies it. If a lens ever refuses with reviewer-model-not-found, check the patch before
+  # adding a model back here.
+  #
+  # The two judges keep an explicit model on purpose: Judgment Day needs two different model
+  # families for its independence to mean anything, and that is infrastructure rather than
+  # preference. Their values are deliberately left as they were.
   subagentModelProfiles = {
-    # Cheapest tier first. gemini-3.8-flash costs $0.50 per million tokens against $18 for
-    # Sonnet and $90 for Opus, and since a subscription's request ceiling is its budget over
-    # what one request costs, that is 36 and 180 times more requests for the same money. The
-    # first version of this map used the expensive ones on the reasoning that a subscription
-    # has no marginal cost — true, and beside the point: it still has an allowance, and those
-    # were the models that drained it.
-    #
-    # The router overrides these per delegation anyway, so this is the floor: cheap by default,
-    # and upgraded by evidence rather than by hand.
-    gentle-ai-explore = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    gentle-ai-worker = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    gentle-ai-verify = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    jd-fix-agent = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
     # Different families on purpose: the two judges must not share a bias. Both stay in the
     # cheap tier, so independence costs three dollars per million instead of ninety.
     jd-judge-a = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
@@ -314,36 +317,9 @@ let
     # step-5 the moment it appears, because free detection reads the provider's own naming
     # instead of a list that would need editing.
     jd-judge-b = { model = "infronai/deepseek/deepseek-v4.1-flash:free"; effort = "high"; };
-    pi-btw = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    # The four review lenses.
-    # Historical rationale, kept because it still constrains the choice: an Antigravity lens
-    # can fail closed with reviewer-model-not-found right after an account switch, because the
-    # review relay resolves model ids against the catalogue of the dispatching pi process, and
-    # the Sonnet/Opus ids Google removed on 2 Nov 2026 were never published as 5.5 ids.
-    # alibaba-token-plan/deepseek-v4.1-flash-1017 was picked for its 1M window, intelligence 45
-    # and AA-LCR 84. It is no longer viable: that prepaid balance ran out on 28 Oct 2026, the
-    # plan quoted a 23 Nov reset, and every lens aborted with insufficient_quota, leaving the
-    # review with zero verdicts. A lens may never sit on a balance that can drain.
-    # Assignment by workload, from numbers published as of 28 Oct 2026:
-    #   risk        river/deepseek-ai/DeepSeek-V4.1-Flash-1017  AA-LCR 84, intelligence 45.
-    #               Security review is long-context reasoning, and river is the provider this
-    #               machine already runs orchestration on, so its key and quota are known good.
-    #   reliability river/zai-org/GLM-5.3-Flash                 The GLM-5.3 family publishes
-    #               the best verified SWE-bench among the reachable candidates (95.4%,
-    #               Mini-SWE-agent), and this is the lens that judges tests and code contracts.
-    #   resilience  antigravity/gemini-3.8-flash                Different family from the two
-    #               above so the lenses do not share blind spots; $0.50/M keeps it affordable.
-    #   readability antigravity/gemini-3.8-flash                medium effort: a clarity review
-    #               does not need more.
-    # Measured and rejected the same day, so nobody retries them blindly:
-    #   intern-ai/glm-5.3 -> 429 quota exceeded; ollama-cloud/glm-5.3 and ollama-cloud/kimi-k3
-    #   -> 402, outside the free plan. Smoked with "pi -p --provider X --model Y".
-    # Do not point these at a model the interactive pi's model list cannot resolve: the reviewer
-    # resolver fails closed with reviewer-model-not-found and the review never reaches a lens.
-    review-readability = { model = "antigravity/gemini-3.8-flash"; effort = "medium"; };
-    review-reliability = { model = "river/zai-org/GLM-5.3-Flash"; effort = "high"; };
-    review-resilience = { model = "antigravity/gemini-3.8-flash"; effort = "high"; };
-    review-risk = { model = "river/deepseek-ai/DeepSeek-V4.1-Flash-1017"; effort = "high"; };
+    # Everything else — the orchestrator roles, the btw side channel and the four review
+    # lenses — is intentionally absent. See the note above the set for why, and for the
+    # review-route dependency that has to hold before the lenses may stay absent.
     # Rutas sin agente: ni el refuter ni el validador son agentes de Pi (la review
     # nativa los ejecuta por su propio relay) y los agentes sdd-* se retiraron de
     # esta máquina, con sus ficheros borrados durante el sync. Una ruta que no
