@@ -41,10 +41,6 @@ let
     "npm:pi-btw"
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
-    # Provider de Cline mantenido aguas arriba (device-code login + catálogo de
-    # modelos en vivo, 1 h de caché). Sustituye al paquete local pi-cline-free,
-    # que traía cinco modelos escritos a mano y se desactualizaba solo.
-    "npm:cline-pi"
     "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
     "@HOME@/.local/share/loon-pi-packages/pi-ghost-tools"
   ];
@@ -59,7 +55,6 @@ let
     "pi-btw"
     "pi-antigravity"
     "pi-commandcode-provider"
-    "cline-pi"
     "pi-jev-context-guard"
     "pi-ghost-tools"
   ];
@@ -140,124 +135,6 @@ let
       ];
     };
 
-    # Alibaba Token Plan (Personal Edition, región Singapur). La clave vive en
-    # ~/.config/alibaba-token-plan/api-key (0600) y empieza por `sk-sp-`: no es
-    # intercambiable con la clave de pago por uso (`sk-`) ni con Coding Plan.
-    # El endpoint y la clave deben ser del mismo par; con la clave de pago por
-    # uso la llamada se factura aparte del plan y no se puede descontar.
-    # Nota: el plan aplica 50 % de descuento en créditos entre 22:00 y 08:00
-    # UTC+8, que en Perú (UTC-5) corresponde a 09:00–19:00.
-    alibaba-token-plan = {
-      name = "Alibaba Token Plan";
-      baseUrl = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
-      api = "openai-completions";
-      apiKey = "!cat /home/loonbac/.config/alibaba-token-plan/api-key";
-      compat = {
-        # El gateway acepta enable_thinking (convención DashScope) además de
-        # thinking.type; se usa `qwen` para no enviar un campo que rechace.
-        thinkingFormat = "qwen";
-        supportsReasoningEffort = true;
-        supportsDeveloperRole = false;
-        maxTokensField = "max_tokens";
-      };
-      models = [
-        {
-          id = "deepseek-v4.1-flash-1017";
-          name = "DeepSeek V4.1 Flash 1017";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "off";
-            minimal = "low";
-            low = "low";
-            medium = "high";
-            high = "high";
-            xhigh = "high";
-            max = "max";
-          };
-          input = [ "text" "image" ];
-          cost = {
-            input = 0.15;
-            output = 0.60;
-            cacheRead = 0.015;
-            cacheWrite = 0;
-          };
-          contextWindow = 1000000;
-          maxTokens = 393216;
-        }
-        {
-          id = "deepseek-v4.1-flash";
-          name = "DeepSeek V4.1 Flash";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "off";
-            minimal = "low";
-            low = "low";
-            medium = "high";
-            high = "high";
-            xhigh = "high";
-            max = "max";
-          };
-          input = [ "text" "image" ];
-          cost = {
-            input = 0.15;
-            output = 0.60;
-            cacheRead = 0.015;
-            cacheWrite = 0;
-          };
-          contextWindow = 1000000;
-          maxTokens = 393216;
-        }
-        {
-          # El gateway rechaza enable_thinking=false en GLM 5.3
-          # ("The value of the enable_thinking parameter is restricted to True"),
-          # así que `off` se mapea a null: Pi nunca manda ese nivel.
-          id = "glm-5.3";
-          name = "GLM 5.3";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = null;
-            minimal = "low";
-            low = "low";
-            medium = "high";
-            high = "high";
-            xhigh = "high";
-            max = "max";
-          };
-          input = [ "text" ];
-          cost = {
-            input = 1.10;
-            output = 3.85;
-            cacheRead = 0.275;
-            cacheWrite = 0;
-          };
-          contextWindow = 1000000;
-          maxTokens = 131072;
-        }
-        {
-          id = "qwen3.8-max";
-          name = "Qwen 3.8 Max";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "off";
-            minimal = "low";
-            low = "low";
-            medium = "medium";
-            high = "xhigh";
-            xhigh = "xhigh";
-            max = "xhigh";
-          };
-          input = [ "text" "image" ];
-          cost = {
-            input = 1.65;
-            output = 4.95;
-            cacheRead = 0.21;
-            cacheWrite = 0;
-          };
-          contextWindow = 1000000;
-          maxTokens = 131072;
-        }
-      ];
-    };
   };
 
   # Los providers `cpa-*` que había aquí se retiraron al migrar a providers
@@ -355,8 +232,14 @@ let
   # settings.json files during the migration. Gentle Agents and Gentle Todo
   # are built into the pinned gentle-pi main snapshot.
   retiredPiPackageNames = [
-    # Sustituido por npm:cline-pi: el paquete local traía cinco modelos escritos
-    # a mano y el catálogo de Cline cambia sin avisar.
+    # Plugin de Cline retirado (2026-11-04) por decisión del dueño: deja de
+    # exponer el proveedor `cline`. La fusión solo une listas, así que sin esta
+    # entrada el paquete sobreviviría en settings.packages en cada activación.
+    # Su predecesor `pi-cline-free` desapareció al migrar a npm; ambos nombres se
+    # retiran aquí para que la fusión borre cualquiera de los dos del JSON.
+    # OJO: el comando `cline` del PATH es otro producto (pkgs/cline-launcher, la
+    # CLI independiente) y no está afectado.
+    "cline-pi"
     "pi-cline-free"
     # Capa LOON retirada (2026-10-29): la UI personalizada y el hook de /fast
     # dejan de cargarse. Sin esta lista sobrevivirian en settings.packages,
