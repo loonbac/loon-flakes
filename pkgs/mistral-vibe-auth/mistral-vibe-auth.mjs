@@ -500,6 +500,8 @@ async function commandLogin(argv) {
     if (!written) {
       throw new HelperError("a sign-out happened while you were signing in; run `vibe-token login` again", 3);
     }
+    // The status printed below reads this object, not the store on disk.
+    store.tenant = tenant;
     process.stderr.write(`Workspace: ${tenant.workspace_id} (organization ${tenant.organization_id})\n`);
   }
   process.stderr.write("Signed in.\n");
@@ -616,7 +618,6 @@ async function commandStatus() {
     process.stdout.write(`${JSON.stringify({ signedIn: false }, null, 2)}\n`);
     return;
   }
-  process.stderr.write("Signed in.\n");
   process.stdout.write(`${JSON.stringify(publicStatus(store), null, 2)}\n`);
 }
 

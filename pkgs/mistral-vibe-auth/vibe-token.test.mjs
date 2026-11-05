@@ -256,6 +256,14 @@ describe("vibe-token", () => {
     assert.equal(result.code, 0, `login failed: ${result.stderr}`);
     assert.equal(fake.state.exchangeCount, 1, "expected exactly one code exchange");
 
+    // The status printed by `login` itself must already carry the workspace.
+    const printed = JSON.parse(result.stdout);
+    assert.deepEqual(
+      printed.tenant,
+      { organizationId: "org-test", workspaceId: "ws-test" },
+      "login must report the tenant it just discovered",
+    );
+
     const authorize = new URL(result.authorizeUrl);
     assert.equal(authorize.searchParams.get("code_challenge_method"), "S256");
     assert.equal(authorize.searchParams.get("audience"), "fake-audience");
@@ -266,6 +274,7 @@ describe("vibe-token", () => {
     assert.equal(mode, 0o600, "credentials must not be readable by others");
 
     const status = await runCli(["status"], baseEnv);
+    assert.equal(status.stderr, "", "`status` must keep stderr quiet");
     const parsed = JSON.parse(status.stdout);
     assert.equal(parsed.signedIn, true);
     assert.equal(parsed.subject, "sub-test");
