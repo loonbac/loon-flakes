@@ -40,13 +40,6 @@
       url = "github:jacopone/antigravity-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # LOON: LOON Offers Only Nuanced-gentle — identidad visual Claude Code para
-    # pi. Vive en su propio repo para tener historia y cadence propios; aquí
-    # queda fijado en flake.lock para que la build sea reproducible.
-    loon = {
-      url = "github:loonbac/loon";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     # Steam con soporte para temas y plugins mediante Millennium.
     millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
     # SpaceTheme Fix para Millennium. No es un flake: se fija como fuente
@@ -69,7 +62,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, zen-browser, code-insiders-flake, antigravity-nix, loon, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -89,7 +82,6 @@
       engramLauncher = pkgs.callPackage ./pkgs/engram-launcher {
         inherit engramUpdater;
       };
-      betterClaudeCodeUi = loon.packages.${system}.default;
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
       piCompactionThreshold = pkgs.callPackage ./pkgs/pi-compaction-threshold { };
       # El módulo de NixOS instancia el paquete con este argumento; sin él la
@@ -102,7 +94,6 @@
           gentleAiLauncher
           gentleAiRuntimeUpdater
           engramLauncher
-          betterClaudeCodeUi
           gptFastModeShared
           piJevContextGuard
           ;
@@ -185,7 +176,6 @@
           helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
-          loon = betterClaudeCodeUi;
           inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
           # PORT llega como paquete ya resuelto: el modulo no debe conocer
           # inputs del flake ni llamar a getFlake, que exigiria --impure.
@@ -258,7 +248,6 @@
         pi-ssh-clipboard = piSshClipboard;
         # `cargo` con el caché de artefactos por workspace (ver modules/programs/rust).
         cargo-target-cache = cargoTargetCache;
-        better-claude-code-ui = betterClaudeCodeUi;
         pi-gpt-fast-mode-shared = gptFastModeShared;
         gentle-ai-bootstrap = gentleAiBootstrap;
         gentle-stack-update = gentleStackUpdate;
