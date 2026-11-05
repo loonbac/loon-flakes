@@ -42,5 +42,5 @@ jobs:
       - name: Construir y publicar
         run: |
           set -euo pipefail
-          nix build --print-out-paths .#port .#nixos-updates .#loon-launch > /tmp/paths
+          nix build --print-out-paths .#port .#nixos-updates .#loon-launch .#omafiles > /tmp/paths
           xargs -r cachix push loon-flakes < /tmp/paths
