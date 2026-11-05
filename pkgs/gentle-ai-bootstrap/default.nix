@@ -14,7 +14,7 @@
 , gentleAiLauncher
 , gentleAiRuntimeUpdater
 , engramLauncher
-, betterClaudeCodeUi
+
 , gptFastModeShared
 , piJevContextGuard
 , gentlePiSource ? "npm:gentle-pi"
