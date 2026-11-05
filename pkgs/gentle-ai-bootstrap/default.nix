@@ -10,6 +10,7 @@
 , libnotify
 , pipewire
 , piCompactionThreshold
+, mistralVibeAuth
 , piLauncher
 , gentleAiLauncher
 , gentleAiRuntimeUpdater
@@ -131,6 +132,98 @@ let
           };
           contextWindow = 1000000;
           maxTokens = 131072;
+        }
+      ];
+    };
+
+    # El bearer de este provider no es una API key de Studio: `vibe-token` lo
+    # saca del sign-in por navegador del CLI oficial de Mistral (OIDC, token
+    # guardado en ~/.config/mistral-vibe/credentials.json con modo 0600), y
+    # Mistral factura por tipo de credencial, no por endpoint. Por eso consume
+    # la asignación de Vibe Code en vez de la de API, contra el mismo
+    # https://api.mistral.ai.
+    #
+    # Las dos cabeceras de tenant son obligatorias: sin
+    # `x-external-organization-id` y `x-external-workspace-id` la misma petición
+    # devuelve 401 "Invalid API Key" aunque el bearer sea válido.
+    #
+    # `baseUrl` va sin `/v1`: el adaptador `mistral-conversations` añade
+    # `v1/chat/completions` por su cuenta, igual que el provider `mistral`
+    # nativo de Pi.
+    #
+    # Todos los modelos van con `reasoning = false` a propósito: con
+    # `reasoning = true` el adaptador envía `prompt_mode = "reasoning"` y esta
+    # cuenta recibe 400 "Reasoning prompt mode is not enabled for this model"
+    # (código 3051) en los seis modelos, incluido `mistral-medium-latest` que
+    # el catálogo de pi-ai marca como razonador. El resto de valores del enum
+    # (`auto`, `default`, `chat`, `agents`, `api`, `empty`) no los emite el
+    # adaptador; cuando la cuenta habilite el modo razonamiento se vuelve a
+    # poner a `true` aquí.
+    mistral-vibe = {
+      name = "Mistral (Vibe Code)";
+      baseUrl = "https://api.mistral.ai";
+      api = "mistral-conversations";
+      apiKey = "!${mistralVibeAuth}/bin/vibe-token token";
+      headers = {
+        x-external-organization-id = "!${mistralVibeAuth}/bin/vibe-token header organization";
+        x-external-workspace-id = "!${mistralVibeAuth}/bin/vibe-token header x-external-workspace-id";
+      };
+      models = [
+        {
+          id = "mistral-vibe-cli-latest";
+          name = "Mistral Vibe (default)";
+          reasoning = false;
+          input = [ "text" "image" ];
+          contextWindow = 262144;
+        }
+        {
+          id = "mistral-vibe-cli-fast";
+          name = "Mistral Vibe (fast)";
+          reasoning = false;
+          input = [ "text" "image" ];
+          contextWindow = 262144;
+        }
+        {
+          id = "mistral-vibe-cli-with-tools";
+          name = "Mistral Vibe (tools)";
+          reasoning = false;
+          input = [ "text" "image" ];
+          contextWindow = 262144;
+        }
+        {
+          id = "mistral-medium-latest";
+          name = "Mistral Medium";
+          reasoning = false;
+          input = [ "text" "image" ];
+          cost = {
+            input = 1.5;
+            output = 7.5;
+            cacheRead = 0.15;
+            cacheWrite = 0;
+          };
+          contextWindow = 262144;
+          maxTokens = 262144;
+        }
+        {
+          id = "mistral-large-latest";
+          name = "Mistral Large";
+          reasoning = false;
+          input = [ "text" "image" ];
+          cost = {
+            input = 0.5;
+            output = 1.5;
+            cacheRead = 0.05;
+            cacheWrite = 0;
+          };
+          contextWindow = 262144;
+          maxTokens = 262144;
+        }
+        {
+          id = "mistral-code-latest";
+          name = "Mistral Code";
+          reasoning = false;
+          input = [ "text" "image" ];
+          contextWindow = 256000;
         }
       ];
     };
