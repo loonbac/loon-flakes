@@ -183,11 +183,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793894517,
-        "narHash": "sha256-FqrVmkJ+OYPLyGW4X2AxnRkV6baEkD+pJP3yJ9pULG8=",
+        "lastModified": 1793904198,
+        "narHash": "sha256-IrbN6dqmk796Eotj4kmfj9+P/AZZ9llKhw7f7teuNvA=",
         "owner": "loonbac",
         "repo": "loon-launch",
-        "rev": "57d34163da97553c7a19f60d34a38a53babc886d",
+        "rev": "7d6f8a69da47fef6cd02d3eac779ca0d6a114da5",
         "type": "github"
       },
       "original": {
