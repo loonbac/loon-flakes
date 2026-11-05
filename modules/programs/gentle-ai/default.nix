@@ -1,4 +1,4 @@
-{ config, lib, pkgs, loon, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   cfg = config.programs.gentle-ai;
@@ -38,7 +38,6 @@ let
   # as an exact `provider/model` key, so the threshold has to be derived from
   # the live catalogue instead of written by hand.
   piCompactionThreshold = pkgs.callPackage ../../../pkgs/pi-compaction-threshold { };
-  betterClaudeCodeUi = loon;
   gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
   piJevContextGuard = pkgs.callPackage ../../../pkgs/pi-jev-context-guard { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
@@ -54,7 +53,7 @@ let
     gentleAiRuntimeSource = core.gentleAi.source;
     engramSourceMode = core.engram.mode;
     engramSourceRef = core.engram.ref;
-    inherit betterClaudeCodeUi gptFastModeShared piJevContextGuard;
+    inherit gptFastModeShared piJevContextGuard;
     inherit piCompactionThreshold;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
