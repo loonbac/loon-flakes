@@ -11,7 +11,6 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 ├── README.md                          # este archivo
 ├── pkgs/                              # "binarios" propios del flake
 │   ├── rebuild/                       # comando custom `rebuild`
-│   ├── loon-launch/                   # app launcher GTK4 (Super+Space)
 │   ├── niri-cycle/                    # mover ventanas con wrap infinito
 │   ├── mpvpaper-wallpaper/            # fondo animado (video en loop)
 │   ├── niri-backdrop/                 # fondo estático del backdrop
@@ -63,7 +62,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 | `modules/default.nix`           | "mod.rs" raíz                        |
 | `modules/services/default.nix`  | "mod" que compone sub-servicios      |
 | `modules/services/openssh/`     | cada servicio es un módulo propio    |
-| `pkgs/loon-launch/`             | binario propio del flake             |
+| `pkgs/niri-cycle/`              | binario propio del flake             |
 | `imports = [ ./foo ];`          | el "mod foo;"                        |
 | `rebuild`                       | el "cargo build && cargo run"        |
 
@@ -118,14 +117,16 @@ nixos-ssh        # menú: password | cert | cancelar
 
 ---
 
-## Paquetes del flake (`pkgs/`)
+## `loon-launch` — launcher propio (Super+Space) y fondos (Super+B)
 
-### `loon-launch` — app launcher (Super+Space) y fondos (Super+B)
+Launcher Wayland en Rust (GTK4 + libadwaita) para niri. **No vive en este
+repo**: su código y su empaquetado están en
+[`loonbac/loon-launch`](https://github.com/loonbac/loon-launch), consumido aquí
+como input de flake (`inputs.loon-launch`) y entregado a los módulos como
+`loonLaunch` vía `specialArgs`. Historia, tests y cadencia son suyos.
 
-Launcher Wayland en Rust (GTK4 + libadwaita) para niri. Daemon persistente:
-`Super+Space` abre las apps; `Super+B` (o `loon-launch wallpapers`) abre el
-selector de fondos. El código vive en `pkgs/loon-launch/src/` (`ui/`,
-`filter.rs`, `wallpapers.rs`).
+Daemon persistente: `Super+Space` abre las apps; `Super+B` (o
+`loon-launch wallpapers`) abre el selector de fondos.
 
 **Apps (680×350)**
 
@@ -145,18 +146,23 @@ selector de fondos. El código vive en `pkgs/loon-launch/src/` (`ui/`,
 - `↑/↓` saltan entre las dos filas. `Enter` aplica (`mpvpaper-wallpaper set`
   o `niri-backdrop set`).
 
-Validar: `niri validate --config modules/wayland/niri/config.kdl` y
-`cargo test` en `pkgs/loon-launch/`.
-
-Se compila con `rustPlatform.buildRustPackage` (Cargo.lock versionado).
-Código: `pkgs/loon-launch/src/main.rs`.
-
-Para validar cambios del launcher:
+Para cambiar el launcher se edita **en su repo**; el lock de este fija el
+commit, así que hay que mover el input para que el sistema lo vea:
 
 ```bash
-nix build .#loon-launch --no-link --print-out-paths
-nix-shell -p cargo rustc pkg-config gtk4 glib libadwaita glib-networking gobject-introspection --run 'cargo test'
+cd ~/Proyectos/loon-launch
+nix develop --command cargo test
+# ... commit y push ...
+cd ~/.nixos && nix flake update loon-launch && rebuild
 ```
+
+Validar: `niri validate --config modules/wayland/niri/config.kdl` y
+`nix build .#loon-launch --no-link --print-out-paths` (este flake reexporta el
+paquete del input, así que el store path es el mismo que usa el sistema).
+
+---
+
+## Paquetes del flake (`pkgs/`)
 
 ### `niri-cycle` — mover ventanas con wrap (Super+←/→)
 
@@ -911,7 +917,8 @@ transparente.
 | `helium-browser`      | Helium Browser (no está en nixpkgs)               |
 | `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
 
-**Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`,
+**Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`
+(reexportado desde su flake),
 `niri-cycle`, `vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
 `steamidra`, `citron-nextendo`, `citron-nextendo-v3` y

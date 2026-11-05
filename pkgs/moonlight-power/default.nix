@@ -10,7 +10,8 @@
     accent-wallpaper = accentWallpaper;
   }
 , screenBrightness ? pkgs.callPackage ../screen-brightness { }
-, loonLaunch ? pkgs.callPackage ../loon-launch { }
+# Requerido: el launcher vive en su propio flake, no en pkgs/ de este repo.
+, loonLaunch
 }:
 
 let
