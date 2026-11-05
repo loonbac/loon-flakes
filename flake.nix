@@ -277,6 +277,8 @@
         veadotube-mini = veadotubeMiniPackage;
         obs-pwvideo = obsPwvideoPackage;
         cline = pkgs.callPackage ./pkgs/cline-launcher { };
+        # Explorador de archivos GPUI/Wayland (no está en nixpkgs).
+        omafiles = pkgs.callPackage ./pkgs/omafiles { };
       };
 
       overlays = {
