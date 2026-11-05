@@ -29,7 +29,7 @@ const DEFAULT_API_BASE = "https://api.mistral.ai";
 // token that dies mid-flight.
 const REFRESH_MARGIN_SECONDS = 120;
 const LOGIN_TIMEOUT_SECONDS = 300;
-const LOCK_TIMEOUT_MS = 20_000;
+const LOCK_TIMEOUT_MS = Number(env("VIBE_TOKEN_LOCK_TIMEOUT_MS", 20_000));
 const LOCK_STALE_MS = 30_000;
 
 const VERSION = "1.0.0";
@@ -133,41 +133,78 @@ function sleepSync(ms) {
  * Run `fn` while holding the store lock. The refresh token rotates on every
  * use, so two concurrent refreshes would burn each other's token: the lock is
  * the only thing standing between us and a broken sign-in.
+ *
+ * The lock file names its owner. A lock is reclaimed only when that owner is
+ * gone, never merely because it looks old: a refresh may legitimately outlive
+ * a timeout, and stealing its lock would hand a second process the same
+ * single-use refresh token. Release is ownership-checked for the same reason.
  */
 function withLock(fn) {
   fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
+  const owner = `${process.pid}:${randomBytes(8).toString("hex")}`;
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   let handle;
   while (handle === undefined) {
     try {
       handle = fs.openSync(LOCK_PATH, "wx", 0o600);
-      fs.writeSync(handle, `${process.pid}\n`);
+      fs.writeSync(handle, `${owner}\n`);
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      try {
-        const age = Date.now() - fs.statSync(LOCK_PATH).mtimeMs;
-        if (age > LOCK_STALE_MS) {
-          fs.unlinkSync(LOCK_PATH);
-          continue;
-        }
-      } catch {
-        // Lost the race to another process that removed it: retry.
-      }
+      if (reclaimAbandonedLock()) continue;
       if (Date.now() > deadline) {
-        throw new HelperError(`timed out waiting for ${LOCK_PATH}; remove it if no process holds it`);
+        throw new HelperError(`timed out waiting for ${LOCK_PATH}; another process is refreshing`);
       }
       sleepSync(100);
     }
   }
   const release = () => {
     fs.closeSync(handle);
+    // Only the lock this process still owns may be removed.
     try {
-      fs.unlinkSync(LOCK_PATH);
+      if (fs.readFileSync(LOCK_PATH, "utf8").trim() === owner) fs.unlinkSync(LOCK_PATH);
     } catch {
-      // Already gone; nothing to release.
+      // Already reclaimed or removed: nothing of ours to release.
     }
   };
   return acquireResult(fn, release);
+}
+
+/** Whether the process named by the lock file is still running. */
+function lockHolderAlive() {
+  let content;
+  try {
+    content = fs.readFileSync(LOCK_PATH, "utf8").trim();
+  } catch {
+    return false;
+  }
+  const pid = Number(content.split(":")[0]);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (pid === process.pid) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means it exists and belongs to someone else.
+    return error.code === "EPERM";
+  }
+}
+
+/** Removes a lock whose owner is gone, unless something changed under us. */
+function reclaimAbandonedLock() {
+  if (lockHolderAlive()) return false;
+  let content;
+  try {
+    content = fs.readFileSync(LOCK_PATH, "utf8");
+  } catch {
+    return true;
+  }
+  try {
+    if (fs.readFileSync(LOCK_PATH, "utf8") !== content) return false;
+    fs.unlinkSync(LOCK_PATH);
+  } catch {
+    // Another waiter reclaimed it first.
+  }
+  return true;
 }
 
 async function acquireResult(fn, release) {
@@ -178,6 +215,16 @@ async function acquireResult(fn, release) {
   } finally {
     release();
   }
+}
+
+/** Read-modify-write of the store, serialized against every other writer. */
+function updateStore(mutate) {
+  return withLock(() => {
+    const latest = readStore();
+    const next = mutate(latest);
+    if (next) writeStore(next);
+    return next;
+  });
 }
 
 // ------------------------------------------------------------------- network
@@ -212,11 +259,13 @@ async function discoverMetadata() {
   return body;
 }
 
-async function exchangeCode({ metadata, code, verifier }) {
+async function exchangeCode({ metadata, code, verifier, port }) {
   const form = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: redirectUri(),
+    // The token endpoint rejects a redirect_uri that differs in any way from
+    // the one the authorization request carried, port included.
+    redirect_uri: redirectUri(port),
     client_id: CLIENT_ID,
     code_verifier: verifier,
   });
@@ -370,19 +419,21 @@ async function commandLogin(argv) {
   if (AUDIENCE) authorizeUrl.searchParams.set("audience", AUDIENCE);
 
   const code = await waitForCallback({ port, state, url: authorizeUrl.toString(), noBrowser });
-  const tokens = await exchangeCode({ metadata, code, verifier });
+  const tokens = await exchangeCode({ metadata, code, verifier, port });
   const store = mergeTokens(
     { version: 1 },
     { ...tokens, id_token: tokens.id_token || null },
   );
   store.subject = decodeJwtClaims(store.id_token)?.sub || null;
-  writeStore(store);
+  await updateStore(() => store);
 
   process.stderr.write("Signed in.\n");
   try {
     const tenant = await discoverTenant(store);
     store.tenant = tenant;
-    writeStore(store);
+    // A sign-out that landed while we discovered must not be resurrected.
+    const written = await updateStore((latest) => (latest ? { ...latest, tenant } : null));
+    if (!written) throw new HelperError("signed out while resolving the workspace");
     process.stderr.write(`Workspace: ${tenant.workspace_id} (organization ${tenant.organization_id})\n`);
   } catch (error) {
     process.stderr.write(`warning: ${error.message}\n`);
@@ -484,8 +535,10 @@ async function commandHeader(name) {
   if (!store) throw new HelperError("not signed in; run `vibe-token login`", 3);
   if (!store.tenant) {
     store = await currentStore();
-    store.tenant = await discoverTenant(store);
-    writeStore(store);
+    const tenant = await discoverTenant(store);
+    const written = await updateStore((latest) => (latest ? { ...latest, tenant } : null));
+    if (!written) throw new HelperError("signed out while resolving the workspace", 3);
+    store = written;
   }
   const value = store.tenant[field];
   if (!value) throw new HelperError(`no ${field} stored; run \`vibe-token login\``, 4);
@@ -501,14 +554,19 @@ async function commandStatus() {
   process.stdout.write(`${JSON.stringify(publicStatus(store), null, 2)}\n`);
 }
 
-function commandLogout() {
-  try {
-    fs.unlinkSync(STORE_PATH);
-    process.stdout.write("Signed out.\n");
-  } catch (error) {
-    if (error.code === "ENOENT") process.stdout.write("Already signed out.\n");
-    else throw new HelperError(`cannot remove ${STORE_PATH}: ${error.message}`);
-  }
+async function commandLogout() {
+  // Serialized with refresh: otherwise a refresh in flight would rewrite the
+  // store right after "Signed out." and leave the user authenticated.
+  const removed = await withLock(() => {
+    try {
+      fs.unlinkSync(STORE_PATH);
+      return true;
+    } catch (error) {
+      if (error.code === "ENOENT") return false;
+      throw new HelperError(`cannot remove ${STORE_PATH}: ${error.message}`);
+    }
+  });
+  process.stdout.write(removed ? "Signed out.\n" : "Already signed out.\n");
 }
 
 function usage() {

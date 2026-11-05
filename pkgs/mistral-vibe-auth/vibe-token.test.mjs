@@ -77,6 +77,9 @@ function createFakeServer() {
           if (form.get("code") !== "test-code") {
             return json(400, { error: "invalid_grant", error_description: "bad code" });
           }
+          if (state.redirectUri && form.get("redirect_uri") !== state.redirectUri) {
+            return json(400, { error: "invalid_grant", error_description: "redirect_uri mismatch" });
+          }
           const verifier = form.get("code_verifier") || "";
           const computed = createHash("sha256").update(verifier).digest("base64url");
           if (!state.challenge || computed !== state.challenge) {
@@ -153,6 +156,7 @@ function loginWithFakeBrowser(env, port, fakeState) {
       played = true;
       const authorize = new URL(match[0]);
       fakeState.challenge = authorize.searchParams.get("code_challenge");
+      fakeState.redirectUri = authorize.searchParams.get("redirect_uri");
       const state = authorize.searchParams.get("state");
       const redirect = new URL(authorize.searchParams.get("redirect_uri"));
       redirect.searchParams.set("code", "test-code");
@@ -227,6 +231,7 @@ describe("vibe-token", () => {
     fake.state.exchangeCount = 0;
     fake.state.refreshCount = 0;
     fake.state.challenge = null;
+    fake.state.redirectUri = null;
     fake.state.refreshToken = null;
     fake.state.bearerStatus = 200;
     fake.state.accessLifetime = 3600;
@@ -332,6 +337,55 @@ describe("vibe-token", () => {
     assert.ok(!status.stdout.includes(store.id_token), "status must not leak the ID token");
     assert.ok(!status.stdout.includes(store.access_token), "status must not leak the access token");
     assert.ok(!status.stdout.includes(store.refresh_token), "status must not leak the refresh token");
+  });
+
+  test("a lock held by a live process is never stolen, however old it looks", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: 10 });
+    const lockPath = path.join(dir, "credentials.lock");
+    // A live owner (this test process) and a timestamp old enough to look stale.
+    fs.writeFileSync(lockPath, `${process.pid}:held-by-test\n`, { mode: 0o600 });
+    const ancient = new Date(Date.now() - 10 * 60 * 1000);
+    fs.utimesSync(lockPath, ancient, ancient);
+
+    const before = fake.state.refreshCount;
+    const token = await runCli(["token"], {
+      ...baseEnv,
+      VIBE_TOKEN_LOCK_TIMEOUT_MS: "800",
+    });
+
+    assert.notEqual(token.code, 0, "a held lock must block the refresh");
+    assert.match(token.stderr, /timed out waiting for/);
+    assert.equal(fake.state.refreshCount, before, "no refresh may run without the lock");
+    assert.match(
+      fs.readFileSync(lockPath, "utf8"),
+      /^\d+:held-by-test/,
+      "the live owner's lock must survive",
+    );
+  });
+
+  test("a lock abandoned by a dead process is reclaimed", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: 10 });
+    const lockPath = path.join(dir, "credentials.lock");
+    // 4194303 is above the default pid_max, so no process can hold it.
+    fs.writeFileSync(lockPath, "4194303:abandoned\n", { mode: 0o600 });
+
+    const token = await runCli(["token"], { ...baseEnv, VIBE_TOKEN_LOCK_TIMEOUT_MS: "5000" });
+    assert.equal(token.code, 0, `a dead owner's lock must be reclaimed: ${token.stderr}`);
+    assert.equal(fake.state.refreshCount, 1);
+    assert.equal(fs.existsSync(lockPath), false, "the reclaimed lock must be released");
+  });
+
+  test("a concurrent refresh does not undo logout", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: 10 });
+    await Promise.all([runCli(["token"], baseEnv), runCli(["logout"], baseEnv)]);
+
+    const after = await runCli(["token"], baseEnv);
+    assert.equal(after.code, 3, "logout must survive a refresh that ran at the same time");
+    assert.equal(fs.existsSync(path.join(dir, "credentials.json")), false);
+    assert.equal(fs.existsSync(path.join(dir, "credentials.lock")), false);
   });
 
   test("logout forgets the sign-in", async () => {
