@@ -30,7 +30,7 @@ const DEFAULT_API_BASE = "https://api.mistral.ai";
 const REFRESH_MARGIN_SECONDS = 120;
 const LOGIN_TIMEOUT_SECONDS = 300;
 const LOCK_TIMEOUT_MS = Number(env("VIBE_TOKEN_LOCK_TIMEOUT_MS", 20_000));
-const LOCK_STALE_MS = 30_000;
+const UNATTRIBUTED_LOCK_GRACE_MS = 2_000;
 
 const VERSION = "1.0.0";
 
@@ -50,6 +50,9 @@ const STATE_DIR = env(
 );
 const STORE_PATH = path.join(STATE_DIR, "credentials.json");
 const LOCK_PATH = path.join(STATE_DIR, "credentials.lock");
+// Written by `logout`, so a sign-in that was already waiting for the browser
+// cannot resurrect the session it interrupted.
+const SIGNED_OUT_PATH = path.join(STATE_DIR, "signed-out.json");
 
 class HelperError extends Error {
   constructor(message, exitCode = 1) {
@@ -143,11 +146,11 @@ function withLock(fn) {
   fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
   const owner = `${process.pid}:${randomBytes(8).toString("hex")}`;
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
-  let handle;
-  while (handle === undefined) {
+  let held = false;
+  while (!held) {
     try {
-      handle = fs.openSync(LOCK_PATH, "wx", 0o600);
-      fs.writeSync(handle, `${owner}\n`);
+      acquireLockFile(owner);
+      held = true;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
       if (reclaimAbandonedLock()) continue;
@@ -158,7 +161,6 @@ function withLock(fn) {
     }
   }
   const release = () => {
-    fs.closeSync(handle);
     // Only the lock this process still owns may be removed.
     try {
       if (fs.readFileSync(LOCK_PATH, "utf8").trim() === owner) fs.unlinkSync(LOCK_PATH);
@@ -167,6 +169,31 @@ function withLock(fn) {
     }
   };
   return acquireResult(fn, release);
+}
+
+/**
+ * Create the lock file with its owner already inside, in one atomic step.
+ *
+ * `open(O_CREAT|O_EXCL)` followed by a write leaves a window where the file
+ * exists empty. A waiter that read it there would call it abandoned, unlink it
+ * and enter the critical section alongside the owner, and two refreshes with
+ * the same single-use token would burn one of them. Staging the content in a
+ * sibling file and hard-linking it into place closes that window: the lock is
+ * either absent or complete.
+ */
+function acquireLockFile(owner) {
+  const staged = `${LOCK_PATH}.${process.pid}.staged`;
+  fs.writeFileSync(staged, `${owner}\n`, { mode: 0o600 });
+  try {
+    // link(2) is atomic and refuses an existing destination with EEXIST.
+    fs.linkSync(staged, LOCK_PATH);
+  } finally {
+    try {
+      fs.unlinkSync(staged);
+    } catch {
+      // Best effort: a leftover staged file is inert.
+    }
+  }
 }
 
 /** Whether the process named by the lock file is still running. */
@@ -178,7 +205,16 @@ function lockHolderAlive() {
     return false;
   }
   const pid = Number(content.split(":")[0]);
-  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (!Number.isInteger(pid) || pid <= 0) {
+    // Content we cannot attribute is not proof of a dead owner: only a foreign
+    // or corrupt writer produces it. Give it a grace period instead of stealing
+    // it, so a half-written lock can never be taken over immediately.
+    try {
+      return Date.now() - fs.statSync(LOCK_PATH).mtimeMs < UNATTRIBUTED_LOCK_GRACE_MS;
+    } catch {
+      return false;
+    }
+  }
   if (pid === process.pid) return true;
   try {
     process.kill(pid, 0);
@@ -214,6 +250,16 @@ async function acquireResult(fn, release) {
     return await fn();
   } finally {
     release();
+  }
+}
+
+/** When `logout` last ran, or null when it never did. */
+function readSignedOutAt() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SIGNED_OUT_PATH, "utf8"));
+    return typeof parsed.at === "number" ? parsed.at : 0;
+  } catch {
+    return null;
   }
 }
 
@@ -396,6 +442,7 @@ function openBrowser(url) {
 }
 
 async function commandLogin(argv) {
+  const startedAt = Date.now();
   const noBrowser = argv.includes("--no-browser");
   const portFlag = argv.indexOf("--port");
   const port = portFlag === -1 ? REDIRECT_PORT : Number(argv[portFlag + 1]);
@@ -425,7 +472,19 @@ async function commandLogin(argv) {
     { ...tokens, id_token: tokens.id_token || null },
   );
   store.subject = decodeJwtClaims(store.id_token)?.sub || null;
-  await updateStore(() => store);
+  const signedIn = await updateStore(() => {
+    const signedOutAt = readSignedOutAt();
+    if (signedOutAt !== null && signedOutAt > startedAt) return null;
+    try {
+      fs.unlinkSync(SIGNED_OUT_PATH);
+    } catch {
+      // No marker to clear.
+    }
+    return store;
+  });
+  if (!signedIn) {
+    throw new HelperError("a sign-out happened while you were signing in; run `vibe-token login` again", 3);
+  }
 
   process.stderr.write("Signed in.\n");
   try {
@@ -556,8 +615,12 @@ async function commandStatus() {
 
 async function commandLogout() {
   // Serialized with refresh: otherwise a refresh in flight would rewrite the
-  // store right after "Signed out." and leave the user authenticated.
+  // store right after "Signed out." and leave the user authenticated. The
+  // marker records the sign-out for a sign-in that is still waiting for the
+  // browser, which no lock can order against.
   const removed = await withLock(() => {
+    fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(SIGNED_OUT_PATH, `${JSON.stringify({ at: Date.now() })}\n`, { mode: 0o600 });
     try {
       fs.unlinkSync(STORE_PATH);
       return true;

@@ -137,7 +137,7 @@ function runCli(args, env) {
 }
 
 /** Runs `login --no-browser`, plays the browser, and waits for the CLI. */
-function loginWithFakeBrowser(env, port, fakeState) {
+function loginWithFakeBrowser(env, port, fakeState, beforeCallback) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [CLI, "login", "--no-browser", "--port", String(port)], {
       env: { ...process.env, ...env },
@@ -154,6 +154,7 @@ function loginWithFakeBrowser(env, port, fakeState) {
       const match = stderr.match(/https?:\/\/\S+/);
       if (!match || played) return;
       played = true;
+      if (beforeCallback) await beforeCallback();
       const authorize = new URL(match[0]);
       fakeState.challenge = authorize.searchParams.get("code_challenge");
       fakeState.redirectUri = authorize.searchParams.get("redirect_uri");
@@ -337,6 +338,41 @@ describe("vibe-token", () => {
     assert.ok(!status.stdout.includes(store.id_token), "status must not leak the ID token");
     assert.ok(!status.stdout.includes(store.access_token), "status must not leak the access token");
     assert.ok(!status.stdout.includes(store.refresh_token), "status must not leak the refresh token");
+  });
+
+  test("a sign-out that lands while the browser is open is not undone by login", async () => {
+    const dir = scenario();
+    const port = await freePort();
+    const result = await loginWithFakeBrowser(baseEnv, port, fake.state, async () => {
+      const logout = await runCli(["logout"], baseEnv);
+      assert.equal(logout.code, 0);
+    });
+
+    assert.equal(result.code, 3, `login must honour the sign-out: ${result.stderr}`);
+    assert.match(result.stderr, /sign-out happened while you were signing in/);
+    assert.equal(fs.existsSync(path.join(dir, "credentials.json")), false);
+    const token = await runCli(["token"], baseEnv);
+    assert.equal(token.code, 3, "no bearer may be printed after a sign-out");
+  });
+
+  test("an empty lock is not stolen while it is fresh, and is reclaimed once stale", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: 10 });
+    const lockPath = path.join(dir, "credentials.lock");
+    fs.writeFileSync(lockPath, "", { mode: 0o600 });
+
+    const before = fake.state.refreshCount;
+    const blocked = await runCli(["token"], { ...baseEnv, VIBE_TOKEN_LOCK_TIMEOUT_MS: "800" });
+    assert.notEqual(blocked.code, 0, "a fresh unattributable lock must not be taken over");
+    assert.equal(fake.state.refreshCount, before);
+
+    // A writer that died between creating the lock and stamping it leaves this
+    // behind; once clearly stale it must not wedge the tool forever.
+    const ancient = new Date(Date.now() - 10 * 60 * 1000);
+    fs.utimesSync(lockPath, ancient, ancient);
+    const reclaimed = await runCli(["token"], { ...baseEnv, VIBE_TOKEN_LOCK_TIMEOUT_MS: "5000" });
+    assert.equal(reclaimed.code, 0, `a stale empty lock must be reclaimed: ${reclaimed.stderr}`);
+    assert.equal(fake.state.refreshCount, 1);
   });
 
   test("a lock held by a live process is never stolen, however old it looks", async () => {
