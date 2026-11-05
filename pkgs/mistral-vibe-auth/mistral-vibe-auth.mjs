@@ -486,17 +486,23 @@ async function commandLogin(argv) {
     throw new HelperError("a sign-out happened while you were signing in; run `vibe-token login` again", 3);
   }
 
-  process.stderr.write("Signed in.\n");
+  let tenant = null;
   try {
-    const tenant = await discoverTenant(store);
-    store.tenant = tenant;
-    // A sign-out that landed while we discovered must not be resurrected.
-    const written = await updateStore((latest) => (latest ? { ...latest, tenant } : null));
-    if (!written) throw new HelperError("signed out while resolving the workspace");
-    process.stderr.write(`Workspace: ${tenant.workspace_id} (organization ${tenant.organization_id})\n`);
+    tenant = await discoverTenant(store);
   } catch (error) {
+    // Discovery is best effort: the sign-in itself still succeeded.
     process.stderr.write(`warning: ${error.message}\n`);
   }
+  if (tenant) {
+    // A sign-out that landed while we discovered must not be resurrected, and
+    // must not be reported as a successful sign-in either.
+    const written = await updateStore((latest) => (latest ? { ...latest, tenant } : null));
+    if (!written) {
+      throw new HelperError("a sign-out happened while you were signing in; run `vibe-token login` again", 3);
+    }
+    process.stderr.write(`Workspace: ${tenant.workspace_id} (organization ${tenant.organization_id})\n`);
+  }
+  process.stderr.write("Signed in.\n");
   process.stdout.write(`${JSON.stringify(publicStatus(store), null, 2)}\n`);
 }
 
@@ -610,6 +616,7 @@ async function commandStatus() {
     process.stdout.write(`${JSON.stringify({ signedIn: false }, null, 2)}\n`);
     return;
   }
+  process.stderr.write("Signed in.\n");
   process.stdout.write(`${JSON.stringify(publicStatus(store), null, 2)}\n`);
 }
 
@@ -630,6 +637,15 @@ async function commandLogout() {
     }
   });
   process.stdout.write(removed ? "Signed out.\n" : "Already signed out.\n");
+}
+
+/** Refuse arguments a command does not accept: an ignored flag can destroy state. */
+function requireNoArgs(rest, command) {
+  if (rest.length === 0) return;
+  throw new HelperError(
+    `\`${command}\` takes no arguments (got ${rest.map((arg) => `"${arg}"`).join(" ")}); run \`vibe-token help\``,
+    2,
+  );
 }
 
 function usage() {
@@ -654,12 +670,22 @@ async function main(argv) {
     case "login":
       return commandLogin(rest);
     case "token":
+      requireNoArgs(rest, "token");
       return commandToken();
-    case "header":
+    case "header": {
+      if (rest.length !== 1) {
+        throw new HelperError(
+          `\`header\` needs exactly one of organization|workspace; run \`vibe-token help\``,
+          2,
+        );
+      }
       return commandHeader(rest[0]);
+    }
     case "status":
+      requireNoArgs(rest, "status");
       return commandStatus();
     case "logout":
+      requireNoArgs(rest, "logout");
       return commandLogout();
     case "--version":
       process.stdout.write(`vibe-token ${VERSION}\n`);

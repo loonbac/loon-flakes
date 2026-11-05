@@ -100,6 +100,7 @@ function createFakeServer() {
       }
 
       if (url.pathname === "/v1/users/me/workspaces") {
+        if (state.onWorkspaces) await state.onWorkspaces();
         state.lastBearer = request.headers.authorization || null;
         if (state.bearerStatus !== 200) return json(state.bearerStatus, { error: "denied" });
         return json(200, { workspaces: [{ id: "ws-test", organization_id: "org-test" }] });
@@ -233,6 +234,7 @@ describe("vibe-token", () => {
     fake.state.refreshCount = 0;
     fake.state.challenge = null;
     fake.state.redirectUri = null;
+    fake.state.onWorkspaces = null;
     fake.state.refreshToken = null;
     fake.state.bearerStatus = 200;
     fake.state.accessLifetime = 3600;
@@ -353,6 +355,35 @@ describe("vibe-token", () => {
     assert.equal(fs.existsSync(path.join(dir, "credentials.json")), false);
     const token = await runCli(["token"], baseEnv);
     assert.equal(token.code, 3, "no bearer may be printed after a sign-out");
+  });
+
+  test("extra arguments are refused instead of ignored", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: 3600 });
+
+    const token = await runCli(["token", "--help"], baseEnv);
+    assert.equal(token.code, 2, "`token --help` must not be treated as `token`");
+    assert.equal(token.stdout, "", "no bearer may be printed for an unexpected argument");
+    assert.match(token.stderr, /takes no arguments/);
+
+    const logout = await runCli(["logout", "--help"], baseEnv);
+    assert.equal(logout.code, 2, "`logout --help` must not delete credentials");
+    assert.equal(fs.existsSync(path.join(dir, "credentials.json")), true);
+
+    const header = await runCli(["header"], baseEnv);
+    assert.equal(header.code, 2, "`header` needs a field");
+  });
+
+  test("a sign-out during workspace discovery is not reported as a successful sign-in", async () => {
+    const dir = scenario();
+    const port = await freePort();
+    fake.state.onWorkspaces = () => fs.unlinkSync(path.join(dir, "credentials.json"));
+    const result = await loginWithFakeBrowser(baseEnv, port, fake.state);
+
+    assert.equal(result.code, 3, `login must fail when the store vanished: ${result.stderr}`);
+    assert.match(result.stderr, /sign-out happened while you were signing in/);
+    assert.ok(!/Signed in\./.test(result.stderr), "no success message may be printed");
+    assert.equal(fs.existsSync(path.join(dir, "credentials.json")), false);
   });
 
   test("an empty lock is not stolen while it is fresh, and is reclaimed once stale", async () => {
