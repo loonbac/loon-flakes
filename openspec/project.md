@@ -12,7 +12,9 @@ Workspace Root: /home/loonbac/.nixos
   - `nixos-pc`: AMD Ryzen 7 5700X desktop with NVIDIA GPU (primary machine).
 - **Repository Structure**:
   - `flake.nix` & `flake.lock`: Entrypoint flake declaring inputs, outputs, packages, and NixOS configurations.
-  - `pkgs/`: Custom derivation packages (`rebuild`, `loon-launch`, `steamidra`, `vision-cursor`, etc.).
+  - `pkgs/`: Custom derivation packages (`rebuild`, `steamidra`, `vision-cursor`, etc.).
+    `loon-launch` is not here: it lives in `github:loonbac/loon-launch` and reaches
+    the system as a flake input.
   - `modules/`: Modular NixOS configuration categories (`system/`, `networking/`, `services/`, `wayland/`, `programs/`, `users/`).
   - `hosts/`: Per-host identity, hardware configurations, and platform overrides.
 

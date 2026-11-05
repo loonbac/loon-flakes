@@ -1,9 +1,11 @@
 # This module has no wantedBy target.  Moonlight power mode is opt-in per
 # session and must never be turned on by login, logout, or reboot.
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, loonLaunch, ... }:
 
 let
-  moonlightPower = pkgs.callPackage ../../../pkgs/moonlight-power { };
+  moonlightPower = pkgs.callPackage ../../../pkgs/moonlight-power {
+    inherit loonLaunch;
+  };
   systemctl = "${pkgs.systemd}/bin/systemctl";
 in
 {

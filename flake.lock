@@ -176,6 +176,26 @@
         "type": "github"
       }
     },
+    "loon-launch": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793865263,
+        "narHash": "sha256-mCRUpNmH/wNUGEW37+8PBMxtTu4qII4BOSNxXHg6ZSg=",
+        "owner": "loonbac",
+        "repo": "loon-launch",
+        "rev": "7e53db36fc5efb3991aec4ddda2717fcae4bf34b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "loonbac",
+        "repo": "loon-launch",
+        "type": "github"
+      }
+    },
     "millennium": {
       "inputs": {
         "millennium-src": "millennium-src",
@@ -379,6 +399,7 @@
         "code-insiders-flake": "code-insiders-flake",
         "helium-browser": "helium-browser",
         "lanzaboote": "lanzaboote",
+        "loon-launch": "loon-launch",
         "millennium": "millennium",
         "nix-flatpak": "nix-flatpak",
         "nix-tools-steam": "nix-tools-steam",

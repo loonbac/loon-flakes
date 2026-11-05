@@ -2,10 +2,9 @@
 #
 # No se lanzan desde `spawn-at-startup`: systemd los supervisa, evita
 # duplicados, los reinicia tras un fallo y los detiene junto con la sesión.
-{ lib, pkgs, ... }:
+{ lib, pkgs, loonLaunch, ... }:
 
 let
-  loonLaunch = pkgs.callPackage ../../../pkgs/loon-launch { };
   accentWallpaper = pkgs.callPackage ../../../pkgs/accent-wallpaper { };
   mpvpaperWallpaper = pkgs.callPackage ../../../pkgs/mpvpaper-wallpaper {
     accent-wallpaper = accentWallpaper;
