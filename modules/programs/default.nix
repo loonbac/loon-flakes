@@ -10,7 +10,7 @@
     ./waybar
     ./swaync
     ./equibop
-    ./nautilus
+    ./omafiles
     ./yazi
     ./wine
     ./gtk
