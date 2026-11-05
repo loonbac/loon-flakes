@@ -56,9 +56,8 @@ exactos y las trampas aprendidas en el camino.
 ├── flake.lock                 # lockfile (versionar, no tocar a mano)
 ├── README.md                  # doc de usuario
 ├── AGENTS.md                  # este archivo
-├── pkgs/                      # 47 piezas propias: una carpeta = un concepto (regla 6)
+├── pkgs/                      # 48 piezas propias: una carpeta = un concepto (regla 6)
 │   ├── rebuild/               # comando custom `rebuild`
-│   ├── loon-launch/           # launcher Rust (GTK4 + libadwaita): Cargo.toml, src/main.rs
 │   ├── cargo-target-cache/    # wrapper de `cargo`: `target/` fuera del repo (desarrollo Rust)
 │   ├── nixos-ssh/ ts-bypass/ laptop-power-profile/ moonlight-power/ ...
 │   │                          #   operación de sistema, energía y red
@@ -191,8 +190,9 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
 9. **Verificación proporcionada.** Existe: `niri-config-check` (valida
    `config.kdl` en el build), `niri validate --config`, la aserción de tmpfiles
    multilínea (`modules/default.nix`) y tests unitarios de `pkgs/`
-   (loon-launch, pi-ssh-clipboard, equibop-voice-normalizer,
-   mpvpaper-wallpaper: motivos, procedencia y `resume`). Obligatorio al
+   (pi-ssh-clipboard, equibop-voice-normalizer,
+   mpvpaper-wallpaper: motivos, procedencia y `resume`). El launcher
+   (`loon-launch`) trae sus propios tests en su repo. Obligatorio al
    tocar un módulo compartido: validar ambos hosts (`rebuild dry` o
    `nixos-rebuild build --flake .#<host>`). Falta: `checks` en `flake.nix`, así
    que `nix flake check` no evalúa los hosts.
@@ -338,7 +338,7 @@ no debe rellenarlas con una versión fija por iniciativa propia.
      fastfetch
      ghostty
      vlc                # ← agregar aquí
-     (pkgs.callPackage ../../pkgs/loon-launch { })
+     loonLaunch         # paquete de otro flake: llega por specialArgs
      (import ../../pkgs/rebuild { inherit pkgs lib; })
    ];
    ```
@@ -362,14 +362,22 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 
 ### Editar el launcher Rust (loon-launch)
 
-- **Código**: `pkgs/loon-launch/src/main.rs` (Rust, GTK4 + libadwaita).
-- **Dependencias**: `pkgs/loon-launch/Cargo.toml` — usa `gtk4 = "0.11"`,
+- **El código NO vive en este repo.** Está en `~/Proyectos/loon-launch`,
+  publicado como `github:loonbac/loon-launch` y consumido aquí como input de
+  flake. En este repo no hay `pkgs/loon-launch/`; borrarlo fue deliberado.
+- **Código**: `src/main.rs`, `src/ui/`, `src/filter.rs`, `src/wallpapers.rs`
+  (Rust, GTK4 + libadwaita).
+- **Flujo de cambio**: editar en su repo → `nix develop --command cargo test` →
+  commit + push → aquí `nix flake update loon-launch` y `rebuild`. Sin mover el
+  input, el sistema sigue con el commit anterior: el lock lo fija.
+- **Dependencias**: `Cargo.toml` — usa `gtk4 = "0.11"`,
   `glib = "0.22"`, `libadwaita = "0.9"`. **No bajar a 0.9/0.20**: rompe la
   compatibilidad con libadwaita (conflicto de `gtk4-sys`).
 - **Al cambiar deps**: regenerar `Cargo.lock` con `cargo generate-lockfile`.
-- **Compilar localmente** (la máquina local tiene cargo): `cargo check` en
-  `pkgs/loon-launch/`. No subir el `target/` (está en `.gitignore`).
-- **Empaquetado**: `pkgs/loon-launch/default.nix` (buildRustPackage + cargoLock).
+- **Empaquetado**: `default.nix` de su repo (buildRustPackage + cargoLock) y un
+  `flake.nix` propio que expone `packages.default`.
+- **Por qué input y no ruta local**: una ruta `path:` no existe en `nixos-pc` y
+  una copia sucia impide escribir `flake.lock` (ver el aviso de PORT arriba).
 - **Bind**: `Super+Space` en `modules/wayland/niri/config.kdl`.
 - **Regla de ventana** (flotante centrado, no maximizada): window-rule de
   loon-launch en el config.kdl, **después** de la regla genérica.
@@ -764,7 +772,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   - `StyleManager::default()` devuelve `StyleManager` (no `Option`).
 - **greeter dms-greeter**: usa el compositor niri (instalado a nivel de
   sistema, no home-manager); `configHome = "/home/loonbac"` sincroniza el tema.
-- **El rebuild puede tardar** (compila niri, loon-launch, quickshell) — usar
+- **El rebuild puede tardar** (compila niri, quickshell) — usar
   timeouts generosos (600000 ms).
 - **Citron Nextendo**: upstream reemplaza y borra la release mutable
   `nightly-linux`. El flake externo conserva sus AppImages oficiales byte por

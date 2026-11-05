@@ -19,6 +19,14 @@
       url = "github:loonbac/port";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # loon-launch: app launcher Rust/GTK4 (Super+Space, Super+B). Vive en su
+    # propio repo para tener historia y cadencia propias. Canal movil: lo
+    # avanza `nix flake update loon-launch` (o `rebuild update`), nunca un rev
+    # fijado a mano.
+    loon-launch = {
+      url = "github:loonbac/loon-launch";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
@@ -62,7 +70,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -106,6 +114,10 @@
       # Wrapper de `cargo`: mueve `target/` a un caché por workspace fuera del
       # repositorio. Lo instala modules/programs/rust.
       cargoTargetCache = pkgs.callPackage ./pkgs/cargo-target-cache { };
+      # El launcher ya no vive en este repo: llega desde su propio flake. Se
+      # resuelve una sola vez y se comparte con los paquetes y con los modulos
+      # (via specialArgs), igual que `port`.
+      loonLaunch = loon-launch.packages.${system}.default;
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
       # (version + sha256 + url del tarball actualizado a diario por su CI).
@@ -180,6 +192,7 @@
           # PORT llega como paquete ya resuelto: el modulo no debe conocer
           # inputs del flake ni llamar a getFlake, que exigiria --impure.
           port = port.packages.${system}.default;
+          inherit loonLaunch;
         };
         modules = [
           ./hosts/${hostName}
@@ -215,7 +228,9 @@
       # Paquetes custom del flake (el "workspace" de binarios propios).
       packages.${system} = {
         rebuild = pkgs.callPackage ./pkgs/rebuild { };
-        loon-launch = pkgs.callPackage ./pkgs/loon-launch { };
+        # Reexportado desde su flake: mantiene `nix build .#loon-launch` y la
+        # cache binaria de CI apuntando a la derivacion real.
+        loon-launch = loonLaunch;
         niri-cycle = pkgs.callPackage ./pkgs/niri-cycle { };
         accent-wallpaper = pkgs.callPackage ./pkgs/accent-wallpaper { };
         mpvpaper-wallpaper = pkgs.callPackage ./pkgs/mpvpaper-wallpaper {

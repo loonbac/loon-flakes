@@ -1,7 +1,7 @@
 # Módulo "system/packages": catálogo de paquetes instalados a nivel de sistema
 # y los runtimes de desarrollo que consumen. No define configuración del
 # sistema: solo qué software global está disponible.
-{ lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, ... }:
+{ lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -138,8 +138,9 @@ in
     yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
-    # App launcher custom del flake (Super+Space en niri).
-    (pkgs.callPackage ../../pkgs/loon-launch { })
+    # App launcher custom (Super+Space en niri). Llega desde su propio flake
+    # como specialArg, no desde pkgs/ de este repo.
+    loonLaunch
     # Comando custom del flake: `rebuild` reconstruye esta config.
     (import ../../pkgs/rebuild { inherit pkgs lib; })
     # Herramienta de diferencia de versiones Nix/NixOS.
