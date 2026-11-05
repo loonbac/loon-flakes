@@ -320,6 +320,10 @@
         // {
           cargo-target-cache = cargoTargetCache.tests.focused;
           mpvpaper-wallpaper = self.packages.${system}.mpvpaper-wallpaper.tests.focused;
+          # omafiles: comprueba que el wrapper deja libwayland-client al
+          # alcance del dlopen de GPUI. Sin eso el binario compila y luego
+          # aborta con NoWaylandLib, cosa que ni el build ni la eval detectan.
+          omafiles = self.packages.${system}.omafiles.tests.smoke;
         };
     };
 }
