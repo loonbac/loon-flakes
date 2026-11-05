@@ -9,6 +9,15 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # Hibernación. La partición de swap (16.8 G) supera la RAM (15.3 G), así que
+  # el equipo puede congelar la imagen en disco. Declarar el dispositivo hace
+  # que NixOS añada `resume=` al cmdline (`systemd/initrd.nix:534`); sin esa
+  # marca el kernel no sabe de dónde restaurar y el sistema se apagaría sin
+  # recuperar la sesión. `loon-launch` exige las tres condiciones —`resume=`,
+  # swap no-zram y tamaño ≥ RAM— para ofrecer «Hibernar» en el menú de poder.
+  # nixos-pc no lo declara: solo tiene zram, que es volátil, y no puede hibernar.
+  boot.resumeDevice = "/dev/disk/by-uuid/bbb1deac-4592-4631-88d5-0f307639ff3b";
+
   # Early KMS de Intel para que Plymouth use la resolución nativa.
   boot.initrd.kernelModules = [ "i915" ];
 
