@@ -294,9 +294,19 @@ describe("vibe-token", () => {
     const workspace = await runCli(["header", "workspace"], baseEnv);
     assert.equal(workspace.stdout.trim(), "ws-test");
 
-    const bogus = await runCli(["header", "x-external-workspace-id"], baseEnv);
-    assert.equal(bogus.code, 2, "header must accept only the documented field names");
-    assert.equal(bogus.stdout, "");
+    // The long header names are exact aliases of the short ones: a provider
+    // declaration naturally writes them.
+    const workspaceHeader = await runCli(["header", "x-external-workspace-id"], baseEnv);
+    assert.equal(workspaceHeader.stdout.trim(), "ws-test");
+    const orgHeader = await runCli(["header", "x-external-organization-id"], baseEnv);
+    assert.equal(orgHeader.stdout.trim(), "org-test");
+
+    // Anything else is a typo, and must never be guessed at by substring.
+    for (const bogus of ["workspace-id", "x-external-workspace", "--help", "Organization"]) {
+      const refused = await runCli(["header", bogus], baseEnv);
+      assert.equal(refused.code, 2, `header must refuse "${bogus}"`);
+      assert.equal(refused.stdout, "", "a refused name must print no tenant id");
+    }
   });
 
   test("token prints a fresh bearer without touching the issuer", async () => {
