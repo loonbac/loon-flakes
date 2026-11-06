@@ -154,12 +154,13 @@ let
     # mapa declarado el adaptador usa `reasoning_effort`, que sí aceptan y que
     # es lo que devuelve bloques `thinking` y cobra `reasoning_tokens`.
     #
-    # El mapa no puede inventar granularidad: `/v1/models` marca `reasoning`
-    # en estos cuatro, y la API solo admite `high` y `none` (pedir `low`
-    # devuelve "reasoning_effort low is not supported for this model"). Los
-    # niveles intermedios de Pi caen a `high` por el fallback del adaptador.
-    # `mistral-large-latest` y `mistral-code-latest` no lo soportan
-    # ("reasoning_effort is not enabled for this model") y siguen en `false`.
+    # El mapa no puede inventar granularidad: la API solo admite `high` y
+    # `none` en todos sus modelos con razonamiento (pedir `low` o `medium`
+    # devuelve "not supported for this model"), y rechaza un presupuesto de
+    # tokens al estilo Anthropic (`thinking` → 422 extra_forbidden). Pi muestra
+    # sus siete niveles; cinco de ellos piensan con `high`.
+    # `mistral-large-4` sí razona y trae 1M de contexto, pero no tiene alias de
+    # Vibe, así que queda fuera de esta asignación.
     mistral-vibe = {
       name = "Mistral (Vibe Code)";
       baseUrl = "https://api.mistral.ai";
@@ -169,47 +170,28 @@ let
       # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
       # request, así que rotarla no exige rebuild.
       apiKey = "!cat /home/loonbac/.config/mistral-vibe/api-key";
+      # Un solo modelo a propósito: los alias `mistral-vibe-cli-latest`,
+      # `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven todos al
+      # mismo modelo (Mistral Medium 3.5) según `/v1/models`, así que ofrecerlos por
+      # separado solo llena el selector con duplicados. `mistral-vibe-cli-fast` es
+      # Mistral Small 4, el pequeño, y no compite por "el más capaz".
       models = [
         {
           id = "mistral-vibe-cli-latest";
-          name = "Mistral Vibe (default)";
+          name = "Mistral Vibe (Medium 3.5)";
           reasoning = true;
+          # La API expone solo `high` y `none`, no hay gradación real: Pi muestra
+          # sus siete niveles, pero cualquier nivel distinto de `off` piensa con
+          # `high`. Se declaran los siete para que la configuración diga la verdad
+          # en vez de depender del fallback del adaptador.
           thinkingLevelMap = {
             off = "none";
+            minimal = "high";
+            low = "high";
+            medium = "high";
             high = "high";
-          };
-          input = [ "text" "image" ];
-          contextWindow = 262144;
-        }
-        {
-          id = "mistral-vibe-cli-fast";
-          name = "Mistral Vibe (fast)";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "none";
-            high = "high";
-          };
-          input = [ "text" "image" ];
-          contextWindow = 262144;
-        }
-        {
-          id = "mistral-vibe-cli-with-tools";
-          name = "Mistral Vibe (tools)";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "none";
-            high = "high";
-          };
-          input = [ "text" "image" ];
-          contextWindow = 262144;
-        }
-        {
-          id = "mistral-medium-latest";
-          name = "Mistral Medium";
-          reasoning = true;
-          thinkingLevelMap = {
-            off = "none";
-            high = "high";
+            xhigh = "high";
+            max = "high";
           };
           input = [ "text" "image" ];
           cost = {
@@ -220,27 +202,6 @@ let
           };
           contextWindow = 262144;
           maxTokens = 262144;
-        }
-        {
-          id = "mistral-large-latest";
-          name = "Mistral Large";
-          reasoning = false;
-          input = [ "text" "image" ];
-          cost = {
-            input = 0.5;
-            output = 1.5;
-            cacheRead = 0.05;
-            cacheWrite = 0;
-          };
-          contextWindow = 262144;
-          maxTokens = 262144;
-        }
-        {
-          id = "mistral-code-latest";
-          name = "Mistral Code";
-          reasoning = false;
-          input = [ "text" "image" ];
-          contextWindow = 256000;
         }
       ];
     };
