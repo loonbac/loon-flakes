@@ -537,25 +537,17 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `/v1/models` responde 200 y los modelos `mistral-vibe-cli-*` funcionan sin
   `x-external-organization-id` ni `x-external-workspace-id`. Verificado con llamadas reales
   y ejecución de herramientas.
-- **`vibe-token` (`pkgs/mistral-vibe-auth`) es la vía OIDC**, alternativa a la clave: hace el
-  flujo de código + PKCE del CLI oficial (`login`, `token`, `status`, `logout`) y guarda los
-  tokens en `~/.config/mistral-vibe/credentials.json` (0600). El provider **no** la usa;
-  existe para reproducir el flujo del cliente oficial. `header organization|workspace`
-  imprime las cabeceras de tenant que ese flujo sí necesita, y acepta además los alias
-  exactos `x-external-organization-id` y `x-external-workspace-id`; cualquier otro valor se
-  rechaza con código 2, sin adivinar por subcadena.
-- **Las cabeceras de tenant son obligatorias solo en la vía OIDC**: con el `id_token`, la
-  misma petición sin ellas devuelve 401 «Invalid API Key» aunque el bearer sea válido. Con la
-  clave de Vibe no hacen falta.
-- **`reasoning = false` en los seis modelos, con cualquiera de las dos credenciales**:
-  `prompt_mode: "reasoning"` devuelve 400 código 3051 («Reasoning prompt mode is not enabled
-  for this model»), mientras `auto` responde 200. Es un límite de la cuenta, no del token;
-  cuando se habilite, se pone a `true`.
-- **Rotar la credencial**: para la clave, sobrescribir ese único archivo (no hay rebuild).
-  Para la vía OIDC, `vibe-token login`; el refresh token rota en cada uso y se refresca bajo
-  lock, porque dos procesos refrescando a la vez se lo quemarían mutuamente.
+- **La vía OIDC se retiró** (2026-11-06). Existió un helper `vibe-token`
+  (`pkgs/mistral-vibe-auth`, OIDC código + PKCE del CLI oficial) que sacaba el bearer de un
+  `id_token`; se eliminó porque la clave de Vibe resuelve lo mismo sin cabeceras, sin lock y
+  sin refresh token rotatorio. Si alguna vez hace falta reproducir el flujo del cliente
+  oficial, el diseño está en el historial de git (`git log --all -- pkgs/mistral-vibe-auth`).
+- **El estado OIDC en el home quedó huérfano**: `~/.config/mistral-vibe/credentials.json`,
+  `credentials.lock` y `signed-out.json` ya no los lee nadie. Solo
+  `~/.config/mistral-vibe/api-key` importa.
+- **Rotar la credencial**: sobrescribir ese único archivo; no hay rebuild.
 - Verificar: `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."` y
-  `vibe-token status` (esta última solo tiene sentido con la vía OIDC).
+  `curl -s -o /dev/null -w '%{http_code}' https://api.mistral.ai/v1/models -H "Authorization: Bearer $(cat ~/.config/mistral-vibe/api-key)"` → 200.
 
 ### MCP de Pi (built-in) y codemode
 
