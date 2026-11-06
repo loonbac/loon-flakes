@@ -163,11 +163,11 @@ let
       name = "Mistral (Vibe Code)";
       baseUrl = "https://api.mistral.ai";
       api = "mistral-conversations";
-      apiKey = "!${mistralVibeAuth}/bin/vibe-token token";
-      headers = {
-        x-external-organization-id = "!${mistralVibeAuth}/bin/vibe-token header organization";
-        x-external-workspace-id = "!${mistralVibeAuth}/bin/vibe-token header workspace";
-      };
+      # La «Clave API de Vibe» del panel de Mistral consume la asignación Vibe
+      # Code y basta por sí sola: no necesita cabeceras de tenant ni el flujo
+      # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
+      # request, así que rotarla no exige rebuild.
+      apiKey = "!cat /home/loonbac/.config/mistral-vibe/api-key";
       models = [
         {
           id = "mistral-vibe-cli-latest";

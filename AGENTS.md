@@ -528,34 +528,34 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 ### Usar la asignación Vibe Code de Mistral en Pi
 
 - **Qué separa las dos asignaciones**: Mistral factura por tipo de credencial, no por
-  endpoint. Una API key de Studio consume la asignación de API; el token de usuario del
-  sign-in del CLI oficial consume la de Vibe Code, contra el mismo `https://api.mistral.ai`.
-- **Comando**: `vibe-token` (`pkgs/mistral-vibe-auth`).
-- **`header` acepta cuatro nombres exactos**: `organization` y `workspace`, más sus
-  alias largos `x-external-organization-id` y `x-external-workspace-id`. Cualquier otro
-  valor se rechaza con código 2; no se adivina por subcadena, porque una errata metería
-  el id de organización donde va el de workspace y la API respondería 401. `login` abre el navegador y hace el
-  flujo OIDC (código + PKCE, cliente público) contra `auth.mistral.ai`, y guarda los tokens
-  en `~/.config/mistral-vibe/credentials.json` con modo 0600. `token` imprime el bearer
-  refrescándolo si hace falta, `header organization|workspace` imprime las cabeceras de
-  tenant, `status` no muestra secretos y `logout` borra el archivo.
-- **Provider de Pi**: `piModelProviders.mistral-vibe` en
-  `pkgs/gentle-ai-bootstrap/default.nix`, con `api = "mistral-conversations"`,
-  `baseUrl = "https://api.mistral.ai"` (sin `/v1`, el adaptador añade
-  `v1/chat/completions`) y `apiKey`/`headers` resueltos por `!vibe-token` en cada request.
-  Los modelos son los alias `mistral-vibe-cli-*` más medium, large y code.
-- **Las cabeceras de tenant son obligatorias**: `x-external-organization-id` y
-  `x-external-workspace-id`. Sin ellas la misma petición devuelve 401 «Invalid API Key»
-  aunque el bearer sea válido.
-- **`reasoning = false` en todos los modelos**: con `reasoning = true` el adaptador envía
-  `prompt_mode = "reasoning"` y la cuenta recibe 400 (código 3051, «Reasoning prompt mode
-  is not enabled»). Cuando la cuenta habilite ese modo, se vuelve a poner a `true`.
-- **El refresh token rota en cada uso**: dos procesos refrescando a la vez se quemarían el
-  token mutuamente, así que `vibe-token` refresca bajo un lock
-  (`~/.config/mistral-vibe/credentials.lock`) y re-lee el archivo dentro del lock.
-- Verificar: `vibe-token status` y
-  `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."`. El consumo aparece en
-  la asignación de Vibe Code del panel de Mistral, no en la de API.
+  endpoint. La **Clave API de Vibe** del panel de Vibe CLI consume la asignación Vibe Code
+  y tiene su propio contador «Uso mensual» con reinicio mensual; una API key de Studio
+  consume la asignación de API. Ambas van contra `https://api.mistral.ai`.
+- **Credencial del provider**: `pkgs/gentle-ai-bootstrap/default.nix` resuelve `apiKey` con
+  `!cat /home/loonbac/.config/mistral-vibe/api-key` (0600, fuera del store, leída en cada
+  request: rotarla no exige rebuild). La clave de Vibe **no necesita cabeceras de tenant**:
+  `/v1/models` responde 200 y los modelos `mistral-vibe-cli-*` funcionan sin
+  `x-external-organization-id` ni `x-external-workspace-id`. Verificado con llamadas reales
+  y ejecución de herramientas.
+- **`vibe-token` (`pkgs/mistral-vibe-auth`) es la vía OIDC**, alternativa a la clave: hace el
+  flujo de código + PKCE del CLI oficial (`login`, `token`, `status`, `logout`) y guarda los
+  tokens en `~/.config/mistral-vibe/credentials.json` (0600). El provider **no** la usa;
+  existe para reproducir el flujo del cliente oficial. `header organization|workspace`
+  imprime las cabeceras de tenant que ese flujo sí necesita, y acepta además los alias
+  exactos `x-external-organization-id` y `x-external-workspace-id`; cualquier otro valor se
+  rechaza con código 2, sin adivinar por subcadena.
+- **Las cabeceras de tenant son obligatorias solo en la vía OIDC**: con el `id_token`, la
+  misma petición sin ellas devuelve 401 «Invalid API Key» aunque el bearer sea válido. Con la
+  clave de Vibe no hacen falta.
+- **`reasoning = false` en los seis modelos, con cualquiera de las dos credenciales**:
+  `prompt_mode: "reasoning"` devuelve 400 código 3051 («Reasoning prompt mode is not enabled
+  for this model»), mientras `auto` responde 200. Es un límite de la cuenta, no del token;
+  cuando se habilite, se pone a `true`.
+- **Rotar la credencial**: para la clave, sobrescribir ese único archivo (no hay rebuild).
+  Para la vía OIDC, `vibe-token login`; el refresh token rota en cada uso y se refresca bajo
+  lock, porque dos procesos refrescando a la vez se lo quemarían mutuamente.
+- Verificar: `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."` y
+  `vibe-token status` (esta última solo tiene sentido con la vía OIDC).
 
 ### MCP de Pi (built-in) y codemode
 
