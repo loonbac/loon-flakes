@@ -624,12 +624,24 @@ async function commandToken() {
   process.stdout.write(`${bearer(store)}\n`);
 }
 
+// Accepted spellings, matched exactly. The long header names are what a provider
+// declaration naturally writes, and a config already in the wild asks for them;
+// anything else is a typo and must not be guessed at.
+const HEADER_FIELDS = new Map([
+  ["organization", "organization_id"],
+  ["workspace", "workspace_id"],
+  ["x-external-organization-id", "organization_id"],
+  ["x-external-workspace-id", "workspace_id"],
+]);
+
 async function commandHeader(name) {
-  if (name !== "organization" && name !== "workspace") {
-    throw new HelperError(`\`header\` accepts only organization|workspace, not "${name}"`, 2);
+  const field = HEADER_FIELDS.get(name);
+  if (!field) {
+    throw new HelperError(
+      `\`header\` accepts only organization|workspace, not "${name}"`,
+      2,
+    );
   }
-  const normalized = String(name || "").toLowerCase();
-  const field = normalized.includes("workspace") ? "workspace_id" : "organization_id";
   let store = readStore();
   if (!store) throw new HelperError("not signed in; run `vibe-token login`", 3);
   if (!store.tenant) {
