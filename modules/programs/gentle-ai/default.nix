@@ -38,6 +38,8 @@ let
   # as an exact `provider/model` key, so the threshold has to be derived from
   # the live catalogue instead of written by hand.
   piCompactionThreshold = pkgs.callPackage ../../../pkgs/pi-compaction-threshold { };
+  # Credencial de la asignación Vibe Code de Mistral para Pi (`vibe-token`).
+  mistralVibeAuth = pkgs.callPackage ../../../pkgs/mistral-vibe-auth { };
   gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
   piJevContextGuard = pkgs.callPackage ../../../pkgs/pi-jev-context-guard { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
@@ -49,6 +51,7 @@ let
       gentlePiSource
       piLauncher
       useGentleAiDevRuntime
+      mistralVibeAuth
       ;
     gentleAiRuntimeSource = core.gentleAi.source;
     engramSourceMode = core.engram.mode;

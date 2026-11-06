@@ -525,6 +525,34 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - Verificar con `ts-bypass status` y
   `tailscale ping --until-direct=false nixos-pc`.
 
+### Usar la asignación Vibe Code de Mistral en Pi
+
+- **Qué separa las dos asignaciones**: Mistral factura por tipo de credencial, no por
+  endpoint. Una API key de Studio consume la asignación de API; el token de usuario del
+  sign-in del CLI oficial consume la de Vibe Code, contra el mismo `https://api.mistral.ai`.
+- **Comando**: `vibe-token` (`pkgs/mistral-vibe-auth`). `login` abre el navegador y hace el
+  flujo OIDC (código + PKCE, cliente público) contra `auth.mistral.ai`, y guarda los tokens
+  en `~/.config/mistral-vibe/credentials.json` con modo 0600. `token` imprime el bearer
+  refrescándolo si hace falta, `header organization|workspace` imprime las cabeceras de
+  tenant, `status` no muestra secretos y `logout` borra el archivo.
+- **Provider de Pi**: `piModelProviders.mistral-vibe` en
+  `pkgs/gentle-ai-bootstrap/default.nix`, con `api = "mistral-conversations"`,
+  `baseUrl = "https://api.mistral.ai"` (sin `/v1`, el adaptador añade
+  `v1/chat/completions`) y `apiKey`/`headers` resueltos por `!vibe-token` en cada request.
+  Los modelos son los alias `mistral-vibe-cli-*` más medium, large y code.
+- **Las cabeceras de tenant son obligatorias**: `x-external-organization-id` y
+  `x-external-workspace-id`. Sin ellas la misma petición devuelve 401 «Invalid API Key»
+  aunque el bearer sea válido.
+- **`reasoning = false` en todos los modelos**: con `reasoning = true` el adaptador envía
+  `prompt_mode = "reasoning"` y la cuenta recibe 400 (código 3051, «Reasoning prompt mode
+  is not enabled»). Cuando la cuenta habilite ese modo, se vuelve a poner a `true`.
+- **El refresh token rota en cada uso**: dos procesos refrescando a la vez se quemarían el
+  token mutuamente, así que `vibe-token` refresca bajo un lock
+  (`~/.config/mistral-vibe/credentials.lock`) y re-lee el archivo dentro del lock.
+- Verificar: `vibe-token status` y
+  `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."`. El consumo aparece en
+  la asignación de Vibe Code del panel de Mistral, no en la de API.
+
 ### MCP de Pi (built-in) y codemode
 
 - **Dueño**: `pkgs/gentle-ai-bootstrap/default.nix`. Pi ≥ 0.99 trae MCP propio, así que
