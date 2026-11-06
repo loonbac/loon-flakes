@@ -546,8 +546,20 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `credentials.lock` y `signed-out.json` ya no los lee nadie. Solo
   `~/.config/mistral-vibe/api-key` importa.
 - **Rotar la credencial**: sobrescribir ese único archivo; no hay rebuild.
+- **Razonamiento**: `reasoning = true` a secas **no** basta y falla con 400 código 3051
+  («Reasoning prompt mode is not enabled for this model»). El adaptador
+  `mistral-conversations` manda `prompt_mode = "reasoning"` —el parámetro de la vía
+  Magistral antigua— solo cuando el modelo **no** declara `thinkingLevelMap`; con el mapa
+  declarado manda `reasoning_effort`, que es el que estos modelos aceptan y el que devuelve
+  bloques `thinking` y cobra `reasoning_tokens`. La API solo admite `high` y `none` en los
+  cuatro modelos que razonan; los niveles intermedios de Pi caen a `high`.
+  `mistral-large-latest` y `mistral-code-latest` no lo soportan («reasoning_effort is not
+  enabled for this model») y siguen en `false`. Comprobar la capacidad en
+  `/v1/models` → `capabilities.reasoning`, no en el catálogo de pi-ai.
 - Verificar: `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."` y
   `curl -s -o /dev/null -w '%{http_code}' https://api.mistral.ai/v1/models -H "Authorization: Bearer $(cat ~/.config/mistral-vibe/api-key)"` → 200.
+  Para el razonamiento, comparar salida con `--thinking off` y `--thinking high` en una
+  cuenta que exija pensar: el segundo gasta ~100 tokens de salida más y acierta.
 
 ### MCP de Pi (built-in) y codemode
 

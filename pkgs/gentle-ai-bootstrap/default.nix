@@ -148,14 +148,18 @@ let
     # `v1/chat/completions` por su cuenta, igual que el provider `mistral`
     # nativo de Pi.
     #
-    # Todos los modelos van con `reasoning = false` a propósito: con
-    # `reasoning = true` el adaptador envía `prompt_mode = "reasoning"` y esta
-    # cuenta recibe 400 "Reasoning prompt mode is not enabled for this model"
-    # (código 3051) en los seis modelos, incluido `mistral-medium-latest` que
-    # el catálogo de pi-ai marca como razonador. El resto de valores del enum
-    # (`auto`, `default`, `chat`, `agents`, `api`, `empty`) no los emite el
-    # adaptador; cuando la cuenta habilite el modo razonamiento se vuelve a
-    # poner a `true` aquí.
+    # Razonamiento: el adaptador emite `prompt_mode = "reasoning"` solo si el
+    # modelo no declara `thinkingLevelMap`, y ese parámetro es el de la vía
+    # Magistral antigua: estos modelos lo rechazan con 400 código 3051. Con el
+    # mapa declarado el adaptador usa `reasoning_effort`, que sí aceptan y que
+    # es lo que devuelve bloques `thinking` y cobra `reasoning_tokens`.
+    #
+    # El mapa no puede inventar granularidad: `/v1/models` marca `reasoning`
+    # en estos cuatro, y la API solo admite `high` y `none` (pedir `low`
+    # devuelve "reasoning_effort low is not supported for this model"). Los
+    # niveles intermedios de Pi caen a `high` por el fallback del adaptador.
+    # `mistral-large-latest` y `mistral-code-latest` no lo soportan
+    # ("reasoning_effort is not enabled for this model") y siguen en `false`.
     mistral-vibe = {
       name = "Mistral (Vibe Code)";
       baseUrl = "https://api.mistral.ai";
@@ -169,28 +173,44 @@ let
         {
           id = "mistral-vibe-cli-latest";
           name = "Mistral Vibe (default)";
-          reasoning = false;
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "none";
+            high = "high";
+          };
           input = [ "text" "image" ];
           contextWindow = 262144;
         }
         {
           id = "mistral-vibe-cli-fast";
           name = "Mistral Vibe (fast)";
-          reasoning = false;
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "none";
+            high = "high";
+          };
           input = [ "text" "image" ];
           contextWindow = 262144;
         }
         {
           id = "mistral-vibe-cli-with-tools";
           name = "Mistral Vibe (tools)";
-          reasoning = false;
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "none";
+            high = "high";
+          };
           input = [ "text" "image" ];
           contextWindow = 262144;
         }
         {
           id = "mistral-medium-latest";
           name = "Mistral Medium";
-          reasoning = false;
+          reasoning = true;
+          thinkingLevelMap = {
+            off = "none";
+            high = "high";
+          };
           input = [ "text" "image" ];
           cost = {
             input = 1.5;
