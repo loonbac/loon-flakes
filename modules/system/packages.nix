@@ -150,9 +150,6 @@ in
         # Toggle de autenticación SSH: `nixos-ssh` pregunta password/cert
         # y aplica la config (misma lógica que el comando `rebuild`).
         (pkgs.callPackage ../../pkgs/nixos-ssh { })
-        # Credencial de la asignación Vibe Code de Mistral para Pi: `vibe-token`
-        # hace el sign-in una vez y entrega el bearer bajo demanda.
-        (pkgs.callPackage ../../pkgs/mistral-vibe-auth { })
         # Alertas de batería baja crítica (<=10%)
         libnotify
         (pkgs.callPackage ../../pkgs/battery-notify { })

@@ -92,8 +92,6 @@
       };
       gptFastModeShared = pkgs.callPackage ./pkgs/pi/gpt-fast-mode-shared { };
       piCompactionThreshold = pkgs.callPackage ./pkgs/pi-compaction-threshold { };
-      # Credencial de la asignación Vibe Code de Mistral para Pi (`vibe-token`).
-      mistralVibeAuth = pkgs.callPackage ./pkgs/mistral-vibe-auth { };
       # El módulo de NixOS instancia el paquete con este argumento; sin él la
       # entrada de `packages` no evaluaba y `nix flake check` abortaba.
       piJevContextGuard = pkgs.callPackage ./pkgs/pi-jev-context-guard { };
@@ -101,7 +99,6 @@
         inherit
           piLauncher
           piCompactionThreshold
-          mistralVibeAuth
           gentleAiLauncher
           gentleAiRuntimeUpdater
           engramLauncher
@@ -246,7 +243,6 @@
         helium-browser = helium-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
-        mistral-vibe-auth = pkgs.callPackage ./pkgs/mistral-vibe-auth { };
         # La TUI de port tal como la usa el sistema. Se declara aquí para que la
         # caché binaria (Cachix) publique exactamente esta derivación: el flake
         # de port sigue nuestro nixpkgs, así que el store path coincide con el

@@ -10,7 +10,6 @@
 , libnotify
 , pipewire
 , piCompactionThreshold
-, mistralVibeAuth
 , piLauncher
 , gentleAiLauncher
 , gentleAiRuntimeUpdater
@@ -136,12 +135,10 @@ let
       ];
     };
 
-    # El bearer de este provider no es una API key de Studio: `vibe-token` lo
-    # saca del sign-in por navegador del CLI oficial de Mistral (OIDC, token
-    # guardado en ~/.config/mistral-vibe/credentials.json con modo 0600), y
-    # Mistral factura por tipo de credencial, no por endpoint. Por eso consume
-    # la asignación de Vibe Code en vez de la de API, contra el mismo
-    # https://api.mistral.ai.
+    # Mistral factura por tipo de credencial, no por endpoint: la «Clave API de
+    # Vibe» consume la asignación Vibe Code, mientras una clave de Studio consume
+    # la de API. Ambas van contra el mismo https://api.mistral.ai, y la de Vibe
+    # no necesita cabeceras de tenant.
     #
     # Las dos cabeceras de tenant son obligatorias: sin
     # `x-external-organization-id` y `x-external-workspace-id` la misma petición
