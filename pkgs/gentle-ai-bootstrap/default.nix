@@ -166,7 +166,7 @@ let
       apiKey = "!${mistralVibeAuth}/bin/vibe-token token";
       headers = {
         x-external-organization-id = "!${mistralVibeAuth}/bin/vibe-token header organization";
-        x-external-workspace-id = "!${mistralVibeAuth}/bin/vibe-token header x-external-workspace-id";
+        x-external-workspace-id = "!${mistralVibeAuth}/bin/vibe-token header workspace";
       };
       models = [
         {

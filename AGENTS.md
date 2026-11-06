@@ -530,7 +530,11 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Qué separa las dos asignaciones**: Mistral factura por tipo de credencial, no por
   endpoint. Una API key de Studio consume la asignación de API; el token de usuario del
   sign-in del CLI oficial consume la de Vibe Code, contra el mismo `https://api.mistral.ai`.
-- **Comando**: `vibe-token` (`pkgs/mistral-vibe-auth`). `login` abre el navegador y hace el
+- **Comando**: `vibe-token` (`pkgs/mistral-vibe-auth`).
+- **`header` acepta cuatro nombres exactos**: `organization` y `workspace`, más sus
+  alias largos `x-external-organization-id` y `x-external-workspace-id`. Cualquier otro
+  valor se rechaza con código 2; no se adivina por subcadena, porque una errata metería
+  el id de organización donde va el de workspace y la API respondería 401. `login` abre el navegador y hace el
   flujo OIDC (código + PKCE, cliente público) contra `auth.mistral.ai`, y guarda los tokens
   en `~/.config/mistral-vibe/credentials.json` con modo 0600. `token` imprime el bearer
   refrescándolo si hace falta, `header organization|workspace` imprime las cabeceras de
