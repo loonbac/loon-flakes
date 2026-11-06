@@ -396,6 +396,14 @@ async function currentStore({ refresh = true } = {}) {
     }
     const metadata = await discoverMetadata();
     const tokens = await refreshTokens(metadata, latest);
+    if (!tokens.id_token) {
+      // The bearer is the ID token, so this shape cannot extend the sign-in.
+      // Fail before persisting: the rotated refresh token is not worth keeping.
+      throw new HelperError(
+        "the issuer returned no fresh ID token, so the sign-in cannot be extended; run `vibe-token login`",
+        3,
+      );
+    }
     const updated = mergeTokens(latest, tokens);
     writeStore(updated);
     return updated;
@@ -441,12 +449,36 @@ function openBrowser(url) {
   }
 }
 
+/** Strict parser: an ignored option has already cost us a secret once. */
+function parseLoginArgs(argv) {
+  let noBrowser = false;
+  let port = REDIRECT_PORT;
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--no-browser") {
+      noBrowser = true;
+    } else if (arg === "--port" || arg.startsWith("--port=")) {
+      const raw = arg === "--port" ? argv[(index += 1)] : arg.slice("--port=".length);
+      if (raw === undefined) throw new HelperError("--port needs a port number", 2);
+      port = Number(raw);
+    } else if (arg === "--help" || arg === "-h") {
+      return null;
+    } else {
+      throw new HelperError(`\`login\` does not accept "${arg}"; run \`vibe-token help\``, 2);
+    }
+  }
+  if (!Number.isInteger(port) || port <= 0) throw new HelperError("--port needs a port number", 2);
+  return { noBrowser, port };
+}
+
 async function commandLogin(argv) {
   const startedAt = Date.now();
-  const noBrowser = argv.includes("--no-browser");
-  const portFlag = argv.indexOf("--port");
-  const port = portFlag === -1 ? REDIRECT_PORT : Number(argv[portFlag + 1]);
-  if (!Number.isInteger(port) || port <= 0) throw new HelperError("--port needs a port number");
+  const options = parseLoginArgs(argv);
+  if (!options) {
+    process.stdout.write(usage());
+    return;
+  }
+  const { noBrowser, port } = options;
 
   const metadata = await discoverMetadata();
   const verifier = base64url(randomBytes(64));
@@ -473,13 +505,10 @@ async function commandLogin(argv) {
   );
   store.subject = decodeJwtClaims(store.id_token)?.sub || null;
   const signedIn = await updateStore(() => {
+    // The marker is a durable watermark, not a one-shot flag: clearing it would
+    // let a login that started before the sign-out overwrite a later one.
     const signedOutAt = readSignedOutAt();
     if (signedOutAt !== null && signedOutAt > startedAt) return null;
-    try {
-      fs.unlinkSync(SIGNED_OUT_PATH);
-    } catch {
-      // No marker to clear.
-    }
     return store;
   });
   if (!signedIn) {
@@ -596,6 +625,9 @@ async function commandToken() {
 }
 
 async function commandHeader(name) {
+  if (name !== "organization" && name !== "workspace") {
+    throw new HelperError(`\`header\` accepts only organization|workspace, not "${name}"`, 2);
+  }
   const normalized = String(name || "").toLowerCase();
   const field = normalized.includes("workspace") ? "workspace_id" : "organization_id";
   let store = readStore();

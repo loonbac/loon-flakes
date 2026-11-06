@@ -19,6 +19,7 @@ function createFakeServer() {
   const state = {
     exchangeCount: 0,
     refreshCount: 0,
+    omitIdTokenOnRefresh: false,
     challenge: null,
     refreshToken: null,
     serial: 0,
@@ -94,7 +95,9 @@ function createFakeServer() {
           }
           // Widen the window a concurrent racer would slip through.
           await new Promise((resolve) => setTimeout(resolve, 150));
-          return json(200, issue());
+          const payload = issue();
+          if (state.omitIdTokenOnRefresh) delete payload.id_token;
+          return json(200, payload);
         }
         return json(400, { error: "unsupported_grant_type" });
       }
@@ -232,6 +235,7 @@ describe("vibe-token", () => {
     const dir = fs.mkdtempSync(path.join(tempRoot, "case-"));
     fake.state.exchangeCount = 0;
     fake.state.refreshCount = 0;
+    fake.state.omitIdTokenOnRefresh = false;
     fake.state.challenge = null;
     fake.state.redirectUri = null;
     fake.state.onWorkspaces = null;
@@ -287,8 +291,12 @@ describe("vibe-token", () => {
 
     const org = await runCli(["header", "organization"], baseEnv);
     assert.equal(org.stdout.trim(), "org-test");
-    const workspace = await runCli(["header", "x-external-workspace-id"], baseEnv);
+    const workspace = await runCli(["header", "workspace"], baseEnv);
     assert.equal(workspace.stdout.trim(), "ws-test");
+
+    const bogus = await runCli(["header", "x-external-workspace-id"], baseEnv);
+    assert.equal(bogus.code, 2, "header must accept only the documented field names");
+    assert.equal(bogus.stdout, "");
   });
 
   test("token prints a fresh bearer without touching the issuer", async () => {
@@ -393,6 +401,60 @@ describe("vibe-token", () => {
     assert.match(result.stderr, /sign-out happened while you were signing in/);
     assert.ok(!/Signed in\./.test(result.stderr), "no success message may be printed");
     assert.equal(fs.existsSync(path.join(dir, "credentials.json")), false);
+  });
+
+  test("login rejects unsupported arguments instead of ignoring them", async () => {
+    scenario();
+
+    const help = await runCli(["login", "--help"], baseEnv);
+    assert.equal(help.code, 0, "`login --help` must be help, not a sign-in attempt");
+    assert.match(help.stdout, /vibe-token login/);
+
+    for (const args of [["login", "--no-brower"], ["login", "--port"], ["login", "--port=abc"]]) {
+      const result = await runCli(args, baseEnv);
+      assert.equal(result.code, 2, `${args.join(" ")} must be refused: ${result.stderr}`);
+      assert.equal(fake.state.exchangeCount, 0, "no sign-in may start for a rejected argument");
+    }
+  });
+
+  test("a sign-out marker survives the next login so an older pending login cannot win", async () => {
+    const dir = scenario();
+    const port1 = await freePort();
+    await loginWithFakeBrowser(baseEnv, port1, fake.state);
+
+    const signOut = await runCli(["logout"], baseEnv);
+    assert.equal(signOut.code, 0);
+    assert.equal(fs.existsSync(path.join(dir, "signed-out.json")), true);
+
+    // A login started after the sign-out is legitimate and writes credentials...
+    const port2 = await freePort();
+    const second = await loginWithFakeBrowser(baseEnv, port2, fake.state);
+    assert.equal(second.code, 0, `second login failed: ${second.stderr}`);
+
+    // ...but the watermark stays, so a login that began before the sign-out and
+    // finishes later still sees it and refuses to resurrect its own session.
+    assert.equal(
+      fs.existsSync(path.join(dir, "signed-out.json")),
+      true,
+      "the sign-out watermark must not be cleared by a later login",
+    );
+  });
+
+  test("a refresh without a fresh ID token asks for a new login and keeps the store", async () => {
+    const dir = scenario();
+    writeExpiredStore(dir, fake.state, { lifetime: -60 });
+    fake.state.omitIdTokenOnRefresh = true;
+    const before = fs.readFileSync(path.join(dir, "credentials.json"), "utf8");
+
+    const result = await runCli(["token"], baseEnv);
+    assert.equal(result.code, 3, `expected a sign-in request: ${result.stdout}`);
+    assert.match(result.stderr, /no fresh ID token/);
+    assert.equal(result.stdout, "", "no bearer may be printed");
+    assert.equal(
+      fs.readFileSync(path.join(dir, "credentials.json"), "utf8"),
+      before,
+      "an unusable refresh must not persist the rotated token",
+    );
   });
 
   test("an empty lock is not stolen while it is fresh, and is reclaimed once stale", async () => {
