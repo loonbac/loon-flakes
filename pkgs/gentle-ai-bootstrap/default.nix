@@ -651,9 +651,16 @@ let
     const [nodeModulesDir] = process.argv.slice(2);
     if (!nodeModulesDir) process.exit(0);
 
+    // Host-provided packages must be declared as peerDependencies with a "*"
+    // range. A physical copy in dependencies bypasses Pi's extension module
+    // mapping (compiled ESM) and creates duplicate runtime modules, so Pi emits
+    // an extension warning. Upstream manifests keep regressing to dependencies,
+    // so this repo normalizes them on every activation instead of patching the
+    // installed tree by hand.
     const rules = [
       ["gentle-pi", "@earendil-works/pi-tui"],
       ["gentle-engram", "typebox"],
+      ["pi-antigravity", "typebox"],
     ];
 
     for (const [pkg, dep] of rules) {
