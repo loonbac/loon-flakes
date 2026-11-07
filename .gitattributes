@@ -1,2 +1,6 @@
+# Normalizar finales de línea: los archivos de texto se guardan como LF en el
+# índice, de modo que un CRLF introducido al editar no ensucie el diff entero.
+* text=auto
+
 pkgs/pi/skills/** whitespace=-trailing-space,-blank-at-eof
 pkgs/gga/** whitespace=-trailing-space,-blank-at-eof
