@@ -479,6 +479,13 @@ let
         cwd = "/home/loonbac/mcp/dataimpulse";
         description = "DataImpulse residential proxy: fetch_page (clean text/raw HTML, country/city/session) and check_exit_ip";
       };
+      voice-gen = {
+        command = "/home/loonbac/Proyectos/mcp-voice-gen/bin/mcp-voice-gen";
+        args = [ ];
+        cwd = "/home/loonbac/Proyectos/mcp-voice-gen";
+        description = "High-fidelity voice cloning & emotional speech synthesis using Fish Speech on Google Colab Pro G4 Blackwell";
+        timeout = 300;
+      };
     };
   });
 
