@@ -1,5 +1,6 @@
 # Módulo "programs": shells y programas de usuario.
-# Un "mod" que compone sub-programas.
+# Base de apariencia y terminal. El resto del catálogo original (gaming,
+# streaming, agentes, virtualización) queda fuera hasta que se pida.
 { config, lib, pkgs, ... }:
 
 {
@@ -9,22 +10,8 @@
     ./rust
     ./waybar
     ./swaync
-    ./equibop
-    ./omafiles
-    ./yazi
-    ./wine
     ./gtk
-    ./obs-studio
-    ./obs-pwvideo
     ./hyprlock
-    ./waydroid
-    ./virtualbox
-    ./gentle-ai
-    ./pi-ssh-clipboard
-    ./steam
-    ./steamidra
-    ./veadotube-mini
-    ./pear-desktop
-    ./anydesk
+    ./equibop
   ];
 }

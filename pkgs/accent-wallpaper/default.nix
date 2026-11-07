@@ -53,7 +53,7 @@ def main():
         sys.exit(1)
     
     img_path = sys.argv[1]
-    home = os.environ.get('HOME', '/home/loonbac')
+    home = os.environ.get('HOME', '/home/saito')
     magick_bin = sys.argv[2] if len(sys.argv) > 2 else "magick"
     
     cmd = [magick_bin, img_path, '-colors', '16', '-format', '%c', 'histogram:info:']

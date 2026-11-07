@@ -3,9 +3,9 @@
 { config, lib, pkgs, ... }:
 
 {
-  users.users."loonbac" = {
+  users.users."saito" = {
     isNormalUser = true;
-    description = "Joshua Rosales";
+    description = "Saito";
     # Grupos: networkmanager (GUI de red), wheel (sudo), storage (montaje sin sudo).
     extraGroups = [ "networkmanager" "wheel" "storage" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
@@ -20,16 +20,16 @@
   systemd.tmpfiles.rules = [
     # Esqueleto mínimo de un home nuevo. Los módulos de aplicaciones declaran
     # sus subdirectorios concretos; estas bases evitan padres creados como root.
-    "d /home/loonbac/.config 0755 loonbac users -"
-    "d /home/loonbac/.local 0755 loonbac users -"
-    "d /home/loonbac/.local/share 0755 loonbac users -"
-    "d /home/loonbac/Pictures 0755 loonbac users -"
-    "d /home/loonbac/Pictures/Wallpaper 0755 loonbac users -"
-    "d /home/loonbac/Videos 0755 loonbac users -"
-    "d /home/loonbac/Videos/Wallpapers 0755 loonbac users -"
-    "d /home/loonbac/.npm-global 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/lib 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/bin 0755 loonbac users -"
+    "d /home/saito/.config 0755 saito users -"
+    "d /home/saito/.local 0755 saito users -"
+    "d /home/saito/.local/share 0755 saito users -"
+    "d /home/saito/Pictures 0755 saito users -"
+    "d /home/saito/Pictures/Wallpaper 0755 saito users -"
+    "d /home/saito/Videos 0755 saito users -"
+    "d /home/saito/Videos/Wallpapers 0755 saito users -"
+    "d /home/saito/.npm-global 0755 saito users -"
+    "d /home/saito/.npm-global/lib 0755 saito users -"
+    "d /home/saito/.npm-global/bin 0755 saito users -"
   ];
 
   environment.sessionVariables = {

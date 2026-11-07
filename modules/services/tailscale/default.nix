@@ -35,7 +35,7 @@ let
     exec ${pkgs.openssh}/bin/ssh \
       -N \
       -D 127.0.0.1:1080 \
-      -i /home/loonbac/.ssh/id_ed25519 \
+      -i /home/saito/.ssh/id_ed25519 \
       -o ${lib.escapeShellArg "ProxyCommand=${pkgs.openssl}/bin/openssl s_client -connect 149.34.48.153:8443 -quiet 2>/dev/null"} \
       -o BatchMode=yes \
       -o ConnectTimeout=10 \
@@ -104,9 +104,9 @@ in
         };
         serviceConfig = {
           Type = "exec";
-          User = "loonbac";
+          User = "saito";
           Group = "users";
-          Environment = "HOME=/home/loonbac";
+          Environment = "HOME=/home/saito";
           ExecStart = "${tunnel}";
           ExecStartPost = [ "${tunnelCheck}" ];
           Restart = "always";
@@ -116,7 +116,7 @@ in
           PrivateTmp = true;
           ProtectSystem = "strict";
           ProtectHome = "read-only";
-          ReadOnlyPaths = [ "/home/loonbac/.ssh" ];
+          ReadOnlyPaths = [ "/home/saito/.ssh" ];
         };
       };
     })

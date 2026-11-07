@@ -183,11 +183,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793912805,
-        "narHash": "sha256-0oWK+Bw9dju1k7Ioq+t8lUiGQI34+kvQYzWYwk5znUs=",
+        "lastModified": 1794064710,
+        "narHash": "sha256-R0yavPiLdqVtMA3829s3KnyQBltT2kJSyIIQdKSxEME=",
         "owner": "loonbac",
         "repo": "loon-launch",
-        "rev": "fc6b5affa1ac74b2afb64b9f66a7d466a8b463b5",
+        "rev": "597d0ada4640a1fb97c819a4ea4f9372537ecf42",
         "type": "github"
       },
       "original": {
@@ -317,6 +317,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-unstable": {
+      "locked": {
+        "lastModified": 1793876309,
+        "narHash": "sha256-Wojg9lIH/hDH91iDVH2/EPw8oDSpxjxhXONbU1yf4Zg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f9a75f41be3a74eab55d3a7679d34ad6cc0da977",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs_2": {
       "locked": {
         "lastModified": 1791883866,
@@ -404,6 +420,7 @@
         "nix-flatpak": "nix-flatpak",
         "nix-tools-steam": "nix-tools-steam",
         "nixpkgs": "nixpkgs_2",
+        "nixpkgs-unstable": "nixpkgs-unstable",
         "port": "port",
         "space-theme-fix": "space-theme-fix",
         "zen-browser": "zen-browser"

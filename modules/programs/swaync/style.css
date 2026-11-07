@@ -3,7 +3,7 @@
    borde y detalles con el acento dinámico del wallpaper (accent.css).
    Ruta absoluta a propósito: style.css es un symlink a /etc/swaync/style.css
    y el @import relativo se resolvería contra el dir del archivo físico. */
-@import "/home/loonbac/.config/swaync/accent.css";
+@import "/home/saito/.config/swaync/accent.css";
 
 @define-color background #0f1416;    /* surface de matugen */
 @define-color surface #1b2023;       /* surface_container */

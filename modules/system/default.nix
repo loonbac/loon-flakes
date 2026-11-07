@@ -17,14 +17,13 @@
   imports = [
     ./theme.nix
     ./packages.nix
-    ./plymouth.nix
     ./brightness.nix
     ./coredump.nix
-    ./newtab-dashboard.nix
   ];
 
   # ---- Zona horaria y localización ----
-  time.timeZone = "America/Lima";
+  # mkDefault: cada host declara la suya y gana sobre este valor.
+  time.timeZone = lib.mkDefault "America/Lima";
 
   # Un proceso resuelve su zona una sola vez al arrancar y la cachea durante
   # toda su vida. ICU —Chromium, Electron, Node, Java— devuelve literalmente
@@ -42,7 +41,7 @@
   # sola vez y aquí no se fija ninguna zona concreta.
   environment.sessionVariables.TZ = config.time.timeZone;
 
-  i18n.defaultLocale = "es_PE.UTF-8";
+  i18n.defaultLocale = lib.mkDefault "es_PE.UTF-8";
   i18n.supportedLocales = [
     "C.UTF-8/UTF-8"
     "en_US.UTF-8/UTF-8"
@@ -63,16 +62,6 @@
 
   # ---- Configuración de Nix (Flakes y CLI moderno) ----
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-  # ---- Caché binaria propia (Cachix) ----
-  # Los paquetes de este repo (port, nixos-updates, loon-launch...) se publican
-  # en una caché pública para que la máquina los descargue en vez de compilarlos.
-  # La clave de escritura vive solo en CI (secreto CACHIX_AUTH_TOKEN); aquí va
-  # únicamente la clave pública de verificación.
-  nix.settings.extra-substituters = [ "https://loon-flakes.cachix.org" ];
-  nix.settings.extra-trusted-public-keys = [
-    "loon-flakes.cachix.org-1:xsVkmne14tAk2SnsB2PMh9G79tahiPEdytxugEDFoCE="
-  ];
 
   # ---- Compatibilidad FHS para scripts de Node/npm (ej. gentle-pi busca /bin/tar, cline busca /bin/bash) ----
   systemd.tmpfiles.rules = [
@@ -100,8 +89,8 @@
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
     SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
-    BROWSER = "zen-browser";
-    NPM_CONFIG_PREFIX = "/home/loonbac/.npm-global";
+    BROWSER = "firefox";
+    NPM_CONFIG_PREFIX = "/home/saito/.npm-global";
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
@@ -120,6 +109,6 @@
   # semántica git (solo archivos trackeados).
   environment.etc."gitconfig".text = ''
     [safe]
-    	directory = /home/loonbac/.nixos
+    	directory = /home/saito/.nixos
   '';
 }

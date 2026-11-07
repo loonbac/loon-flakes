@@ -35,11 +35,11 @@ in
 
   # Enlaces simbólicos en el home del usuario
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/hypr 0755 loonbac users -"
-    "L+ /home/loonbac/.config/hypr/hyprlock.conf - - - - /etc/hypr/hyprlock.conf"
-    "L+ /home/loonbac/.config/hypr/hypridle.conf - - - - /etc/hypr/hypridle.conf"
+    "d /home/saito/.config/hypr 0755 saito users -"
+    "L+ /home/saito/.config/hypr/hyprlock.conf - - - - /etc/hypr/hyprlock.conf"
+    "L+ /home/saito/.config/hypr/hypridle.conf - - - - /etc/hypr/hypridle.conf"
     # Acento dinámico: lo escribe accent-wallpaper; `C` instala el default
     # multilínea solo cuando el archivo todavía no existe.
-    "C /home/loonbac/.config/hypr/colors.conf 0644 loonbac users - ${defaultColors}"
+    "C /home/saito/.config/hypr/colors.conf 0644 saito users - ${defaultColors}"
   ];
 }

@@ -32,7 +32,7 @@ in
 
   # Ruta absoluta: systemd-tmpfiles no expande "~".
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/yazi 0755 loonbac users -"
-    "L+ /home/loonbac/.config/yazi/yazi.toml - - - - /etc/yazi/yazi.toml"
+    "d /home/saito/.config/yazi 0755 saito users -"
+    "L+ /home/saito/.config/yazi/yazi.toml - - - - /etc/yazi/yazi.toml"
   ];
 }

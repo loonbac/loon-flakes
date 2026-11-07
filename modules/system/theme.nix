@@ -1,12 +1,11 @@
 # Módulo "system/theme": lo que hace que el sistema se vea como se ve.
-# Fuentes del sistema, modo oscuro global de GTK/GNOME y asociaciones MIME
-# por defecto (navegador). Solo presentación; no define servicios ni el
-# catálogo de paquetes de trabajo.
+# Fuentes del sistema, modo oscuro global de GTK/GNOME y navegador por defecto.
+# Solo presentación; no define servicios ni el catálogo de paquetes de trabajo.
 { pkgs, ... }:
 
 {
   # ---- Modo oscuro global ----
-  # Las apps GTK abren en dark por defecto (Nautilus, loon-bar, etc.).
+  # Las apps GTK abren en dark por defecto (Nautilus, etc.).
   programs.dconf.profiles."user".databases = [
     {
       settings = {
@@ -27,29 +26,22 @@
     font-awesome
   ];
 
-  # ---- Navegador por defecto global (Zen Browser) ----
+  # ---- Navegador por defecto ----
   xdg.mime = {
     enable = true;
     defaultApplications = {
-      "text/html" = "zen.desktop";
-      "x-scheme-handler/http" = "zen.desktop";
-      "x-scheme-handler/https" = "zen.desktop";
-      "x-scheme-handler/chrome" = "zen.desktop";
-      "x-scheme-handler/about" = "zen.desktop";
-      "x-scheme-handler/unknown" = "zen.desktop";
-      "application/pdf" = "zen.desktop";
-      "application/json" = "zen.desktop";
-      "text/xml" = "zen.desktop";
-      "application/xml" = "zen.desktop";
-      "application/xhtml+xml" = "zen.desktop";
-      "application/x-extension-htm" = "zen.desktop";
-      "application/x-extension-html" = "zen.desktop";
-      "application/x-extension-shtml" = "zen.desktop";
-      "application/x-extension-xhtml" = "zen.desktop";
-      "application/x-extension-xht" = "zen.desktop";
-      "image/svg+xml" = "zen.desktop";
-      "image/webp" = "zen.desktop";
-      "application/vnd.mozilla.xul+xml" = "zen.desktop";
+      "text/html" = "firefox.desktop";
+      "x-scheme-handler/http" = "firefox.desktop";
+      "x-scheme-handler/https" = "firefox.desktop";
+      "x-scheme-handler/about" = "firefox.desktop";
+      "x-scheme-handler/unknown" = "firefox.desktop";
+      "application/pdf" = "firefox.desktop";
+      "application/json" = "firefox.desktop";
+      "application/xml" = "firefox.desktop";
+      "text/xml" = "firefox.desktop";
+      "application/xhtml+xml" = "firefox.desktop";
+      "image/svg+xml" = "firefox.desktop";
+      "image/webp" = "firefox.desktop";
     };
   };
 }

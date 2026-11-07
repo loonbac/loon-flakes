@@ -404,7 +404,7 @@ in
       Restart = "on-failure";
       RestartSec = "1s";
       Environment = [
-        "HOME=/home/loonbac"
+        "HOME=/home/saito"
         "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
       ];
     };
@@ -425,7 +425,7 @@ in
       KillMode = "control-group";
       TimeoutStopSec = "10s";
       Environment = [
-        "HOME=/home/loonbac"
+        "HOME=/home/saito"
         "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
       ];
     };
@@ -461,7 +461,7 @@ in
 
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/autostart 0755 loonbac users -"
-    "L+ /home/loonbac/.config/autostart/equibop.desktop - - - - /etc/equibop/autostart.desktop"
+    "d /home/saito/.config/autostart 0755 saito users -"
+    "L+ /home/saito/.config/autostart/equibop.desktop - - - - /etc/equibop/autostart.desktop"
   ];
 }

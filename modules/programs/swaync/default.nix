@@ -20,11 +20,11 @@
 
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/swaync 0755 loonbac users -"
-    "L+ /home/loonbac/.config/swaync/config.json - - - - /etc/swaync/config.json"
-    "L+ /home/loonbac/.config/swaync/style.css - - - - /etc/swaync/style.css"
+    "d /home/saito/.config/swaync 0755 saito users -"
+    "L+ /home/saito/.config/swaync/config.json - - - - /etc/swaync/config.json"
+    "L+ /home/saito/.config/swaync/style.css - - - - /etc/swaync/style.css"
     # Acento dinámico: lo escribe accent-wallpaper; este default (f = crea si
     # no existe, no pisa) evita que el @import falle en el primer boot.
-    "f /home/loonbac/.config/swaync/accent.css 0644 loonbac users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
+    "f /home/saito/.config/swaync/accent.css 0644 saito users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
   ];
 }
