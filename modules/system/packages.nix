@@ -16,8 +16,6 @@ in
     gh
     curl
     wget
-    vim
-    htop
     btop
     bat
     fastfetch
@@ -42,8 +40,10 @@ in
     antigravity-cli
 
     # ---- Navegadores ----
-    # Firefox lo instala programs.firefox.enable; Helium llega del flake
-    # (input helium-browser) sin versión fijada.
+    # Helium llega del flake (input helium-browser) sin versión fijada.
+    # Es el navegador por defecto: BROWSER (modules/system/default.nix) y las
+    # asociaciones MIME (modules/system/theme.nix) apuntan a helium.desktop.
+    # Firefox se retiró (programs.firefox.enable ya no se declara).
     helium-browser
 
     # ---- Comunicación ----
