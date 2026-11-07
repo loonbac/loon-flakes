@@ -437,10 +437,16 @@ let
 
   # Config que el bootstrap symlinka en ~/.pi/agent/mcp.json. Es el único
   # fichero de MCP que Pi lee a nivel de usuario, así que los servers
-  # declarados aquí tienen acceso en todas las sesiones. `lida` (asistente
+  # declarados aquí tienen acceso en todas las sesiones. `rakya` (relay de
   # Discord) y `google-flow` (automatización de flow.google.com sobre Chrome ya
   # autenticado) viven en el home porque sus bytes son mutables del usuario:
   # wrapper, dependencias npm, build y config quedan fuera de la store.
+  #
+  # El wrapper de `rakya` NO ejecuta una copia del repo: apunta al binario que
+  # produce `cargo build --release` en ~/Proyectos/rakya. La entrada anterior
+  # (`lida`) apuntaba a un snapshot en el home que nunca se reconstruyó, y las
+  # sesiones ejecutaban en silencio un binario de meses antes. Para actualizar
+  # el server basta con reconstruir el repo.
   #
   # `engram` no se declara a propósito: la extensión gentle-engram registra los
   # tools `mem_*` nativos y habla con Engram por HTTP, y su propio README pide
@@ -450,11 +456,11 @@ let
   # contexto, y Pi activa codemode cuando un server con esa exposición conecta.
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers = {
-      lida = {
-        command = "/home/loonbac/.local/share/loon-pi-mcp/run-lida-mcp";
+      rakya = {
+        command = "/home/loonbac/.local/share/loon-pi-mcp/run-rakya-mcp";
         args = [ ];
-        cwd = "/home/loonbac/.local/share/loon-pi-mcp/lida";
-        description = "Discord guild assistant: plans, guilds and messaging";
+        cwd = "/home/loonbac/.local/share/loon-pi-mcp";
+        description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
       google-flow = {
         command = "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp";
