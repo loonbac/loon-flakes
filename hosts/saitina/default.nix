@@ -93,6 +93,19 @@
   # Soporte para sistemas de archivos NTFS (discos secundarios y Windows).
   boot.supportedFilesystems = [ "ntfs" ];
 
+  # Windows deja los volumenes NTFS "dirty" al apagar sin desmontaje limpio
+  # (Inicio rapido) y el driver ntfs3 se niega a montarlos sin `force`: el
+  # usuario ve un error generico de "bad superblock" y el disco desaparece.
+  # Sin esto, cada sesion de Windows vuelve a dejar HELL (y DATA/NAH) fuera.
+  # `force` es opcion del driver ntfs3; la lista allow es la builtin completa
+  # mas esa opcion. El volumen del sistema Windows no se automonta (udisks
+  # lo marca HintSystem), asi que queda fuera de este camino.
+  environment.etc."udisks2/mount_options.conf".text = ''
+    [defaults]
+    ntfs:ntfs3_defaults=uid=$UID,gid=$GID,force
+    ntfs:ntfs3_allow=uid=$UID,gid=$GID,umask,dmask,fmask,iocharset,discard,nodiscard,sparse,nosparse,hidden,nohidden,sys_immutable,nosys_immutable,showmeta,noshowmeta,prealloc,noprealloc,hide_dot_files,nohide_dot_files,windows_names,nocase,case,force
+  '';
+
   # PORT compila los plugins en un árbol temporal y el [patch] del repo de
   # plugins apunta a `../port`: desde /tmp eso resuelve a /tmp/port. El clon
   # del código (tag v0.1.5, el que fija el workspace de plugins) vive en el
