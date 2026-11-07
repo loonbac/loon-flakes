@@ -454,6 +454,8 @@ let
   # por esa vía. Los campos `lifecycle`/`directTools` del formato del adaptador
   # no son de Pi: `exposure` por defecto (codemode) deja las tools fuera del
   # contexto, y Pi activa codemode cuando un server con esa exposición conecta.
+  mcpOnDemand = writeText "mcp-on-demand.mjs" (builtins.readFile ./mcp-on-demand.mjs);
+
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers = {
       rakya = {
@@ -463,8 +465,8 @@ let
         description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
       google-flow = {
-        command = "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp";
-        args = [ ];
+        command = "${nodejs}/bin/node";
+        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
         cwd = "/home/loonbac/.local/share/loon-pi-mcp/google-flow";
         description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
       };
@@ -474,14 +476,14 @@ let
       # reads DI_USER/DI_PASS from ~/mcp/dataimpulse/.env (0600) and exports
       # them into that single child process.
       dataimpulse = {
-        command = "/home/loonbac/mcp/dataimpulse/run.sh";
-        args = [ ];
+        command = "${nodejs}/bin/node";
+        args = [ "${mcpOnDemand}" "--name" "dataimpulse" "--" "/home/loonbac/mcp/dataimpulse/run.sh" ];
         cwd = "/home/loonbac/mcp/dataimpulse";
         description = "DataImpulse residential proxy: fetch_page (clean text/raw HTML, country/city/session) and check_exit_ip";
       };
       voice-gen = {
-        command = "/home/loonbac/Proyectos/mcp-voice-gen/bin/mcp-voice-gen";
-        args = [ ];
+        command = "${nodejs}/bin/node";
+        args = [ "${mcpOnDemand}" "--name" "voice-gen" "--" "/home/loonbac/Proyectos/mcp-voice-gen/bin/mcp-voice-gen" ];
         cwd = "/home/loonbac/Proyectos/mcp-voice-gen";
         description = "High-fidelity voice cloning & emotional speech synthesis using Fish Speech on Google Colab Pro G4 Blackwell";
         timeout = 300;
