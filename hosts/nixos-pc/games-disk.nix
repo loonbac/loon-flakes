@@ -3,7 +3,7 @@
 { ... }:
 
 {
-  fileSystems."/home/loonbac/Juegos" = {
+  fileSystems."/home/saito/Juegos" = {
     device = "/dev/disk/by-uuid/dd98ba9a-bcf5-4062-828c-099b51b4d7a4";
     fsType = "ext4";
     options = [
@@ -15,7 +15,7 @@
   # Los directorios raíz de ext4 nacen propiedad de root; tmpfiles ajusta la
   # propiedad después de montar para que el usuario pueda escribir en ellos.
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/Juegos 0755 loonbac users -"
-    "d /home/loonbac/Datos 0755 loonbac users -"
+    "d /home/saito/Juegos 0755 saito users -"
+    "d /home/saito/Datos 0755 saito users -"
   ];
 }

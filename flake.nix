@@ -68,9 +68,13 @@
       url = "github:nix-community/lanzaboote";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # OpenCode V2: nixos-26.05 todavía publica la rama 1.x, así que el CLI se
+    # toma de este canal móvil. Va aparte a propósito: sin `follows`, porque
+    # entonces heredaría el nixpkgs del sistema y volvería a la 1.x.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser, nixpkgs-unstable }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -192,6 +196,10 @@
           # PORT llega como paquete ya resuelto: el modulo no debe conocer
           # inputs del flake ni llamar a getFlake, que exigiria --impure.
           port = port.packages.${system}.default;
+          # OpenCode V2 viene del canal unstable (ver el input): el nombre
+          # declara el argumento del modulo y, dentro de `with pkgs;`, gana
+          # sobre pkgs.opencode de 26.05.
+          opencode = nixpkgs-unstable.legacyPackages.${system}.opencode;
           inherit loonLaunch;
         };
         modules = [
@@ -303,12 +311,10 @@
       };
 
       nixosConfigurations = {
-        "loon-laptop" = mkHost "loon-laptop" [ ];
-        "nixos-pc" = mkHost "nixos-pc" [
-          citron-nextendo.nixosModules.default
-          nix-flatpak.nixosModules.nix-flatpak
-          lanzaboote.nixosModules.lanzaboote
-        ];
+        # Este repo se usa hoy para una sola máquina. Los hosts originales
+        # (loon-laptop, nixos-pc) quedan en hosts/ como referencia, pero no se
+        # evalúan: dependían de módulos que este fork ya no importa.
+        "saitina" = mkHost "saitina" [ ];
       };
 
       # Un check de evaluación por cada host declarado arriba (una sola

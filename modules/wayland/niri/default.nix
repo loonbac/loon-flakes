@@ -14,11 +14,13 @@ let
     // Configuración editable generada por nwg-displays.
     include "monitor.kdl"
   '';
-  hostBacklightBinds = ''
-    // Brillo con Fn+F6 / Fn+F7 usando el backend específico del host.
-    XF86MonBrightnessDown { spawn-sh "${config.hardware.brightness.command} down 10"; }
-    XF86MonBrightnessUp { spawn-sh "${config.hardware.brightness.command} up 10"; }
-  '';
+  hostBacklightBinds =
+    if config.hardware.brightness.command == null then ""
+    else ''
+      // Brillo con Fn+F6 / Fn+F7 usando el backend específico del host.
+      XF86MonBrightnessDown { spawn-sh "${config.hardware.brightness.command} down 10"; }
+      XF86MonBrightnessUp { spawn-sh "${config.hardware.brightness.command} up 10"; }
+    '';
 
   defaultMonitorConfig = pkgs.writeText "niri-default-monitor.kdl" config.programs.niri.defaultMonitorConfig;
 
@@ -139,18 +141,18 @@ in
       # En un home recién creado no existe ~/.config/niri. Debe declararse antes
       # de crear los archivos; confiar en que una sesión anterior lo haya creado
       # hacía que `niri validate` fallara en instalaciones limpias.
-      "d /home/loonbac/.config/niri 0755 loonbac users -"
-      "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
+      "d /home/saito/.config/niri 0755 saito users -"
+      "L+ /home/saito/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
       # Acento dinámico: lo escribe accent-wallpaper. `C` copia el default
       # solamente si el destino no existe y permite usar un archivo multilínea
       # sin introducir líneas inválidas en la configuración de tmpfiles.
-      "C /home/loonbac/.config/niri/accent.kdl 0644 loonbac users - ${defaultAccent}"
+      "C /home/saito/.config/niri/accent.kdl 0644 saito users - ${defaultAccent}"
       # Archivo persistente y escribible que nwg-displays actualiza. `C` instala
       # la configuración inicial solo cuando aún no existe, sin pisar cambios.
-      "C /home/loonbac/.config/niri/monitor.kdl 0644 loonbac users - ${defaultMonitorConfig}"
+      "C /home/saito/.config/niri/monitor.kdl 0644 saito users - ${defaultMonitorConfig}"
       # El include relativo que nwg-displays reconoce se resuelve desde /etc/niri;
       # este enlace lo conecta al archivo persistente del usuario.
-      "L+ /etc/niri/monitor.kdl - - - - /home/loonbac/.config/niri/monitor.kdl"
+      "L+ /etc/niri/monitor.kdl - - - - /home/saito/.config/niri/monitor.kdl"
     ];
   };
 }

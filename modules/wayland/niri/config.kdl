@@ -75,10 +75,7 @@ spawn-at-startup "mpvpaper-wallpaper"
 spawn-at-startup "niri-backdrop"
 // Los procesos persistentes (Waybar, SwayNC, automontaje, portapapeles,
 // loon-launch e Hypridle) son servicios systemd de usuario supervisados en
-// session-services.nix. Aquí quedan solo inicializadores de wallpaper y el
-// monitor de batería, que pueden terminar normalmente si no aplican al host.
-// Daemon de alertas de batería baja crítica (<=10% cada 1 minuto).
-spawn-at-startup "battery-notify"
+// session-services.nix. Aquí quedan solo los inicializadores de wallpaper.
 
 binds {
     // Bloquear pantalla manualmente con Super+L
@@ -91,11 +88,6 @@ binds {
     Super+Space { spawn "loon-launch"; }
     // Explorador de archivos (Nautilus) con Super+E, como en Windows.
     Super+E { spawn "nautilus"; }
-    // Sidebar de spaces de kitty: ventana tileada a la izquierda del workspace
-    // "kitty". No arranca con la sesión; aparece solo al pulsar esto.
-    Super+M { spawn "/home/loonbac/.config/kitty/spaces/sidebar.sh"; }
-    // Android (Waydroid): arranca la sesión si no está y muestra la ventana.
-    Super+D { spawn "waydroid" "show-full-ui"; }
     Super+Q { close-window; }
     Super+F { maximize-column; }
     // Alternar la ventana enfocada entre el mosaico y el modo flotante.

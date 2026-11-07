@@ -64,7 +64,7 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${powerProfile}/bin/laptop-power-profile-session apply";
-      Environment = "HOME=/home/loonbac";
+      Environment = "HOME=/home/saito";
     };
   };
 

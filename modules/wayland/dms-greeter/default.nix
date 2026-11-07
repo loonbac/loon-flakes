@@ -114,7 +114,7 @@ in
       # AccountsService rechaza archivos demasiado grandes (>1MB), así que
       # se redimensiona a 512px (JPEG, <100KB típicamente).
       mkdir -p /var/lib/AccountsService/icons
-      profile=$(ls /home/loonbac/profile.* 2>/dev/null | head -n1)
+      profile=$(ls /home/saito/profile.* 2>/dev/null | head -n1)
       if [ -n "$profile" ]; then
         magick "$profile" -resize "512x512^" -gravity center -extent 512x512 \
           -quality 85 /var/lib/AccountsService/icons/loonbac
@@ -156,13 +156,13 @@ EOF
     path = [ pkgs.coreutils pkgs.imagemagick pkgs.matugen ];
     script = ''
       mkdir -p /var/lib/dms-greeter
-      state="/home/loonbac/.config/mpvpaper/backdrop.txt"
+      state="/home/saito/.config/mpvpaper/backdrop.txt"
       wallpaper=""
       if [ -f "$state" ]; then
         name="$(cat "$state")"
-        [ -f "/home/loonbac/Pictures/Wallpaper/$name" ] && wallpaper="/home/loonbac/Pictures/Wallpaper/$name"
+        [ -f "/home/saito/Pictures/Wallpaper/$name" ] && wallpaper="/home/saito/Pictures/Wallpaper/$name"
       fi
-      [ -z "$wallpaper" ] && wallpaper="$(ls /home/loonbac/Pictures/Wallpaper/*.{png,jpg,jpeg,webp} 2>/dev/null | head -n1)"
+      [ -z "$wallpaper" ] && wallpaper="$(ls /home/saito/Pictures/Wallpaper/*.{png,jpg,jpeg,webp} 2>/dev/null | head -n1)"
       # Un home recién creado aún no tiene wallpapers. El fallback declarativo
       # permite que el greeter arranque y conserva el tema oscuro del sistema.
       [ -n "$wallpaper" ] || wallpaper="${fallbackWallpaper}"

@@ -21,7 +21,7 @@ let
     Restart = "on-failure";
     RestartSec = "1s";
     Environment = [
-      "HOME=/home/loonbac"
+      "HOME=/home/saito"
       # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
       # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
       # del sistema completo, igual que los procesos lanzados por Niri.
@@ -77,6 +77,14 @@ in
       ExecStart = "${wallpaperVisibility}/bin/niri-wallpaper-visibility";
       ExecStopPost = "${mpvpaperWallpaper}/bin/mpvpaper-wallpaper resume opaque-window";
       Restart = "always";
+    };
+  };
+
+  systemd.user.services.polkit-gnome = sessionUnit // {
+    description = "Agente de autenticación Polkit para Niri";
+    serviceConfig = resilientService // {
+      ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+      Restart = "on-failure";
     };
   };
 

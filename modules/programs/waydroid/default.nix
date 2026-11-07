@@ -42,7 +42,7 @@ in
   # udev). El grupo "waydroid" se usa para los permisos de los dispositivos.
   users.groups.waydroid = { };
 
-  users.users.loonbac.extraGroups = [ "waydroid" ];
+  users.users.saito.extraGroups = [ "waydroid" ];
 
   environment.systemPackages = [ waydroidPkg waydroid-app ];
 

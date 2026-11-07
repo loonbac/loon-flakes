@@ -64,7 +64,7 @@ in
   # los buses I2C de la NVIDIA; este backend controla el monitor principal
   # GM3CC236 conectado a DP-2 y alimenta el indicador de Waybar.
   hardware.i2c.enable = true;
-  users.users.loonbac.extraGroups = [ "i2c" ];
+  users.users.saito.extraGroups = [ "i2c" ];
   environment.systemPackages = [
     # Diagnóstico, verificación y enrolamiento manual de Secure Boot.
     pkgs.sbctl
