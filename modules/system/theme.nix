@@ -27,21 +27,22 @@
   ];
 
   # ---- Navegador por defecto ----
+  # Firefox se retiró; Helium (helium-browser) es el navegador del sistema.
   xdg.mime = {
     enable = true;
     defaultApplications = {
-      "text/html" = "firefox.desktop";
-      "x-scheme-handler/http" = "firefox.desktop";
-      "x-scheme-handler/https" = "firefox.desktop";
-      "x-scheme-handler/about" = "firefox.desktop";
-      "x-scheme-handler/unknown" = "firefox.desktop";
-      "application/pdf" = "firefox.desktop";
-      "application/json" = "firefox.desktop";
-      "application/xml" = "firefox.desktop";
-      "text/xml" = "firefox.desktop";
-      "application/xhtml+xml" = "firefox.desktop";
-      "image/svg+xml" = "firefox.desktop";
-      "image/webp" = "firefox.desktop";
+      "text/html" = "helium.desktop";
+      "x-scheme-handler/http" = "helium.desktop";
+      "x-scheme-handler/https" = "helium.desktop";
+      "x-scheme-handler/about" = "helium.desktop";
+      "x-scheme-handler/unknown" = "helium.desktop";
+      "application/pdf" = "helium.desktop";
+      "application/json" = "helium.desktop";
+      "application/xml" = "helium.desktop";
+      "text/xml" = "helium.desktop";
+      "application/xhtml+xml" = "helium.desktop";
+      "image/svg+xml" = "helium.desktop";
+      "image/webp" = "helium.desktop";
     };
   };
 }

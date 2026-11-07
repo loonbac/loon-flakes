@@ -83,7 +83,7 @@
   };
 
   # Explorador de archivos (Super+E), utilidad de discos NTFS y navegador.
-  programs.firefox.enable = true;
+  # El navegador es Helium (modules/system/packages.nix); Firefox se retiró.
   environment.systemPackages = with pkgs; [
     nautilus
     gnome-disk-utility
