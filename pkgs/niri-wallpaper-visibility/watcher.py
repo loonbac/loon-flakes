@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pausa mpvpaper cuando una ventana opaca cubre un workspace visible."""
+"""Pausa mpvpaper salvo que el foco esté en un terminal o el workspace esté vacío."""
 
 from __future__ import annotations
 
@@ -10,11 +10,15 @@ import sys
 from typing import Any
 
 
-# Apps cuya superficie deja ver el fondo: pausarlo detrás de ellas no ahorra
-# GPU y sí corta el efecto. Debe coincidir con lo que de verdad es transparente:
-# el window-rule de ghostty en config.kdl (opacity 0.8 + xray) y la transparencia
-# propia de PORT (opacity 0.85 en su config.md). Una app opaca NO se añade aquí.
-TRANSPARENT_APP_IDS = frozenset({"com.mitchellh.ghostty", "port"})
+# Política: el wallpaper animado corre SOLO a pleno cuando el foco está en un
+# terminal o el workspace visible está vacío. Con cualquier otra ventana
+# enfocada se congela en el último frame, y ahí está el ahorro: mpv deja de
+# decodificar mientras el usuario mira el navegador o el chat. Por eso la
+# lista es cerrada y de terminales; una app translúcida NO se añade aunque
+# deje ver el fondo, porque detrás de ella el frame congelado apenas se nota
+# y el ahorro compensa. Debe coincidir con el window-rule de ghostty en
+# config.kdl (opacity 0.8 + xray), la única superficie que lo deja ver.
+ANIMATED_APP_IDS = frozenset({"com.mitchellh.ghostty"})
 PAUSE_REASON = "opaque-window"
 
 
@@ -23,8 +27,10 @@ class VisibilityState:
         self.workspaces: dict[int, dict[str, Any]] = {}
         self.windows: dict[int, dict[str, Any]] = {}
 
-    def opaque_window_visible(self) -> bool:
-        """Comprueba la ventana activa de cada workspace visible por salida."""
+    def should_freeze_wallpaper(self) -> bool:
+        """True si el wallpaper debe congelarse: hay una ventana enfocada que
+        no es terminal en algún workspace visible. Los workspaces vacíos no
+        cuentan: en el escritorio solo el fondo corre."""
         for workspace in self.workspaces.values():
             if not workspace.get("is_active"):
                 continue
@@ -32,9 +38,9 @@ class VisibilityState:
             if window_id is None:
                 continue
             window = self.windows.get(window_id)
-            # Durante actualizaciones no atómicas, pausar de forma conservadora
+            # Durante actualizaciones no atómicas, congelar de forma conservadora
             # hasta que llegue la descripción de la ventana.
-            if window is None or window.get("app_id") not in TRANSPARENT_APP_IDS:
+            if window is None or window.get("app_id") not in ANIMATED_APP_IDS:
                 return True
         return False
 
@@ -137,7 +143,7 @@ def main() -> int:
                 continue
             if not state.update(event):
                 continue
-            desired = state.opaque_window_visible()
+            desired = state.should_freeze_wallpaper()
             if desired == applied:
                 continue
             set_wallpaper_paused(desired)
