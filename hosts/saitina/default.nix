@@ -67,10 +67,6 @@
   # original (F13 → mute). Este host usa otro mouse: la unidad queda fuera.
   systemd.services.equibop-basilisk-mic-hotkey.enable = false;
 
-  # Máquina de escritorio: no pausar el fondo animado detrás de ventanas opacas
-  # (mantiene el video siempre en movimiento independientemente de las ventanas).
-  systemd.user.services.niri-wallpaper-visibility.enable = false;
-
   # Compartir pantalla: programs.niri (nixpkgs) apunta ScreenCast al backend
   # gnome, que en niri no completa la negociación con PipeWire y el reparto se
   # rompe en apps WebRTC (Discord/Equibop, Meet). Este host sí expone
