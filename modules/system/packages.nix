@@ -47,8 +47,9 @@ in
     helium-browser
 
     # ---- Comunicación ----
-    # equibop lo instala y configura su propio módulo.
-    discord
+    # equibop lo instala y configura su propio módulo
+    # (modules/programs/equibop). El cliente oficial `discord` se retiró:
+    # eran dos clientes Discord simultáneos y sumaba ~600M al cierre.
 
     # ---- Escritorio niri ----
     # waybar, swaync, hyprlock e hypridle los instala su propio módulo.
