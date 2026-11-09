@@ -9,9 +9,15 @@
 #   ~/.config/waybar/accent.css      -> compatibilidad de acento Waybar
 #   ~/.config/swaync/accent.css      -> acento de notificaciones (SwayNC)
 #
+# Regla de accent (decisión del dueño): SOLO los fondos animados (video)
+# actualizan el accent del sistema. Los backdrops estáticos (niri-backdrop)
+# se ignoran: la paleta anterior se conserva. El header del launcher lee el
+# accent de los animados desde ~/.config/mpvpaper/accent.txt (sin cambios).
+#
 # Uso:
-#   accent-wallpaper             # usa el wallpaper seteado (mpvpaper o backdrop)
-#   accent-wallpaper from VIDEO  # analiza un video/imagen específico
+#   accent-wallpaper             # usa el wallpaper seteado; no-op si es estático
+#   accent-wallpaper from VIDEO  # analiza un video específico y publica
+#   accent-wallpaper from IMAGEN # no-op intencional (el estático no publica)
 { pkgs, lib }:
 
 let
@@ -310,6 +316,18 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     *)
       TARGET="$(pick_target)"
       [ -z "$TARGET" ] && { echo "No se encontraron wallpapers en $DIR ni en $BACKDROP_DIR" >&2; exit 1; }
+      ;;
+  esac
+
+  # Regla de accent: solo los fondos animados publican. Un backdrop estático
+  # (o cualquier imagen) conserva la paleta anterior y sale con éxito, para
+  # que los setters estáticos (niri-backdrop) no necesiten distinguir.
+  case "''${TARGET##*.}" in
+    mp4|webm|mkv|mov|gif|MP4|WEBM|MKV|MOV|GIF)
+      ;;
+    *)
+      echo "accent-wallpaper: fondo estático ($TARGET); se conserva la paleta anterior"
+      exit 0
       ;;
   esac
 
