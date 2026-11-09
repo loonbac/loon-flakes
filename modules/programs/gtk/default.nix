@@ -34,5 +34,11 @@
     # El dir y el archivo deben ser del usuario (accent-wallpaper los escribe).
     "d /home/saito/.config/gtk-4.0 0755 saito users -"
     "f /home/saito/.config/gtk-4.0/gtk.css 0644 saito users -"
+    # GTK3 (blueman): el único archivo que GTK3 lee es el del home, no
+    # /etc/gtk-3.0/gtk.css (verificado: XDG_CONFIG_DIRS solo trae /etc/xdg).
+    # Sin este `f`, accent-wallpaper igual lo crea, pero un home nuevo tendría
+    # el path ausente hasta el primer cambio de wallpaper.
+    "d /home/saito/.config/gtk-3.0 0755 saito users -"
+    "f /home/saito/.config/gtk-3.0/gtk.css 0644 saito users -"
   ];
 }
