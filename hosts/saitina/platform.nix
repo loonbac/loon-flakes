@@ -12,6 +12,14 @@
   hardware.enableRedistributableFirmware = true;
   hardware.graphics.enable = true;
 
+  # Bluetooth de la placa: adaptador Intel 8087:0a2a (hci0).
+  # Vive aquí y no en /etc/nixos: ese archivo no tiene escritorio y un switch
+  # con él mata la sesión gráfica (pasó el 2026-11-07 a las 17:37).
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
+
   # GTX 1070 = Pascal. Los módulos abiertos de NVIDIA solo cubren Turing en
   # adelante, así que el driver propietario es el único válido aquí.
   # modesetting habilita KMS, necesario para niri sobre Wayland.

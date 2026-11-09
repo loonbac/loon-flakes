@@ -55,6 +55,38 @@
     };
   };
 
+  # GUI de Bluetooth: blueman (manager para emparejar/conectar + applet en la
+  # bandeja de Waybar, que es quien registra el agente de BlueZ). El servicio
+  # de usuario del applet vive en modules/wayland/niri/session-services.nix
+  # y solo arranca si esta opción está activa.
+  services.blueman.enable = true;
+
+  # La barra ya tiene el módulo nativo `bluetooth` a la derecha (con
+  # on-click → blueman-manager), que es el que se usa. El icono que el applet
+  # pone en el `tray` (izquierda) duplica esa función, así que se deshabilita.
+  #
+  # Hay que apagar ShowConnected además de StatusIcon: ShowConnected depende
+  # de StatusIcon y su carga lo arrastraría de vuelta aunque esté en la lista.
+  # Ambos siguen siendo unloadable (ningún plugin no-descargable depende de
+  # ellos), y PowerManager/KillSwitch ya guardan con "StatusIcon in
+  # get_loaded()", así que nada más se rompe.
+  #
+  # Va como default del file-db de dconf: el user-db va primero en el profile,
+  # así que si algún día se cambia un plugin desde el diálogo de Blueman, esa
+  # elección propia pisa este default (dconf no fusiona arrays).
+  programs.dconf.profiles."user".databases = [
+    {
+      settings = {
+        "org/blueman/general" = {
+          plugin-list = [
+            "!ShowConnected"
+            "!StatusIcon"
+          ];
+        };
+      };
+    }
+  ];
+
   # Audio: los binds de niri usan wpctl.
   services.pipewire = {
     enable = true;
@@ -116,5 +148,14 @@
     automatic = true;
     dates = "weekly";
     options = "--delete-older-than 30d";
+  };
+
+  # Deduplicación del store: reemplaza archivos idénticos por hardlinks.
+  # Sin esto (auto-optimise-store=false por defecto) cada paquete que repite
+  # un mismo binario o librería paga su copia completa. Semanal, a la par del
+  # GC, y con Nice/IO idle de fábrica: no compite con nada.
+  nix.optimise = {
+    automatic = true;
+    dates = "weekly";
   };
 }
