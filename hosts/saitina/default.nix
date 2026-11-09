@@ -111,7 +111,8 @@
   };
 
   # Explorador de archivos (Super+E), utilidad de discos NTFS y navegador.
-  # El navegador es Helium (modules/system/packages.nix); Firefox se retiró.
+  # El navegador por defecto es Helium; Firefox está declarado en
+  # modules/system/packages.nix, sin capturar BROWSER ni MIME.
   environment.systemPackages = with pkgs; [
     nautilus
     gnome-disk-utility

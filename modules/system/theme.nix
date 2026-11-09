@@ -46,7 +46,8 @@
   ];
 
   # ---- Navegador por defecto ----
-  # Firefox se retiró; Helium (helium-browser) es el navegador del sistema.
+  # Helium (helium-browser) es el navegador del sistema: Firefox está
+  # declarado en packages.nix pero no captura ningún MIME por defecto.
   xdg.mime = {
     enable = true;
     defaultApplications = {

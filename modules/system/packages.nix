@@ -43,8 +43,18 @@ in
     # Helium llega del flake (input helium-browser) sin versión fijada.
     # Es el navegador por defecto: BROWSER (modules/system/default.nix) y las
     # asociaciones MIME (modules/system/theme.nix) apuntan a helium.desktop.
-    # Firefox se retiró (programs.firefox.enable ya no se declara).
+    # Firefox vuelve declarado (AGENTS.md → "Instalar un paquete"): estaba
+    # solo en el perfil de usuario y ningún servicio de sesión lo resolvía
+    # ("firefox: command not found" desde loon-launch). No toca BROWSER ni
+    # los MIME, así que Helium sigue siendo el default.
     helium-browser
+    firefox
+
+    # ---- Editores ----
+    # nano es el EDITOR por defecto (EDITAR=y git sin -m); NotepadNext es el
+    # editor gráfico. Mismo caso que Firefox: instalado solo en el perfil de
+    # usuario, su .desktop no abría desde el launcher.
+    notepad-next
 
     # ---- Comunicación ----
     # equibop lo instala y configura su propio módulo
