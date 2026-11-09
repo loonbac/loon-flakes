@@ -2,7 +2,7 @@
 #
 # No se lanzan desde `spawn-at-startup`: systemd los supervisa, evita
 # duplicados, los reinicia tras un fallo y los detiene junto con la sesión.
-{ lib, pkgs, loonLaunch, ... }:
+{ config, lib, pkgs, loonLaunch, ... }:
 
 let
   accentWallpaper = pkgs.callPackage ../../../pkgs/accent-wallpaper { };
@@ -86,6 +86,46 @@ in
       ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
       Restart = "on-failure";
     };
+  };
+
+  # Blueman: sin applet no hay menú de bandeja ni notificaciones de emparejado
+  # (blueman-manager registra su propio agente, pero el estado y los avisos de
+  # conexión los gestiona el applet). Solo donde el host habilita blueman.
+  #
+  # El paquete ya publica su unidad (Type=dbus, BusName=org.blueman.Applet,
+  # ExecStart propio): declarar otro ExecStart la deja inválida ("more than
+  # one ExecStart"). Aquí solo se la adhiere a la sesión y se le dan
+  # reinicio/PATH, que es lo que aporta el patrón de este archivo.
+  systemd.user.services.blueman-applet = lib.mkIf config.services.blueman.enable (sessionUnit // {
+    description = "Applet de Bluetooth de la sesión Niri";
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "1s";
+      Environment = resilientService.Environment;
+    };
+  });
+
+  # services.blueman.enable instala su blueman.desktop en
+  # /run/current-system/sw/etc/xdg/autostart/, y
+  # systemd-xdg-autostart-generator lo convierte en app-blueman@autostart.
+  # Con la unidad de arriba eso deja DOS applets a la vez: ambos cargan
+  # plugins y ambos registran agentes, así que compiten por rfkill y por el
+  # estado del adaptador (pasó el 2026-11-07: PIDs 1267 y 1284).
+  #
+  # Se tapa con un .desktop en /etc/xdg, que va PRIMERO en XDG_CONFIG_DIRS y
+  # por eso gana al del paquete. Hidden=true es lo que la spec XDG y el
+  # generador de systemd entienden por "no arranques esto" (verificado con y
+  # sin la sombra: la unidad solo se genera cuando la sombra no existe).
+  # Se queda la de arriba por ser la supervisada, con reinicio y atada a
+  # loon-niri-session.target, que es el patrón de este archivo.
+  environment.etc."xdg/autostart/blueman.desktop" = lib.mkIf config.services.blueman.enable {
+    text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Blueman
+      Exec=${pkgs.blueman}/bin/blueman-applet
+      Hidden=true
+    '';
   };
 
   systemd.user.services.udiskie = sessionUnit // {
