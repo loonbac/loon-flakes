@@ -41,6 +41,7 @@ let
     "npm:pi-btw"
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
+    "npm:pi-secrets"
     "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
     "@HOME@/.local/share/loon-pi-packages/pi-ghost-tools"
   ];
@@ -55,6 +56,7 @@ let
     "pi-btw"
     "pi-antigravity"
     "pi-commandcode-provider"
+    "pi-secrets"
     "pi-jev-context-guard"
     "pi-ghost-tools"
   ];
