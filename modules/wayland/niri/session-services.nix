@@ -25,7 +25,13 @@ let
       # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
       # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
       # del sistema completo, igual que los procesos lanzados por Niri.
-      "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+      #
+      # Los perfiles de usuario van explícitos: loon-launch ejecuta cada
+      # .desktop con `systemd-run --scope sh -c`, que hereda ESTE entorno de
+      # servicio, y apps como firefox o NotepadNext solo viven en
+      # ~/.nix-profile/bin (no en /run/current-system/sw/bin). Sin esta línea
+      # el launcher fallaba con "firefox: command not found" (2026-11-09).
+      "PATH=/run/wrappers/bin:/run/current-system/sw/bin:/home/saito/.nix-profile/bin:/etc/profiles/per-user/saito/bin:/home/saito/.local/bin"
     ];
   };
 in
