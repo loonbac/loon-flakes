@@ -1,6 +1,7 @@
 # Módulo "programs": shells y programas de usuario.
 # Base de apariencia y terminal. El resto del catálogo original (gaming,
-# streaming, agentes, virtualización) queda fuera hasta que se pida.
+# streaming, virtualización) queda fuera hasta que se pida; el stack de
+# agentes (gentle-ai/Pi/Engram) se pidió el 2026-11-08 y ya entra.
 { config, lib, pkgs, ... }:
 
 {
@@ -13,5 +14,6 @@
     ./gtk
     ./hyprlock
     ./equibop
+    ./gentle-ai
   ];
 }
