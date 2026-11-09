@@ -1,0 +1,55 @@
+diff --git a/src/ui/keys.rs b/src/ui/keys.rs
+index 6cd0ccb..b0bf43a 100644
+--- a/src/ui/keys.rs
++++ b/src/ui/keys.rs
+@@ -173,24 +173,40 @@ fn start_hold(hold: &Rc<RefCell<HoldRun>>, state: &KeyState) {
+     let refs = state.grid_refs.clone();
+     let sel = state.sel_idx.clone();
+     let ticker = glib::timeout_add_local(Duration::from_millis(16), move || {
+-        let Some(started) = hold_tick.borrow().started else {
+-            return glib::ControlFlow::Break;
++        // Pinta el avance y decide si la fuente sigue viva. El préstamo se
++        // suelta al terminar la expresión: retirar el SourceId de abajo
++        // necesita un préstamo mutuo del mismo `HoldRun`.
++        let keep_running = match hold_tick.borrow().started {
++            None => false,
++            Some(started) => {
++                let elapsed = started.elapsed().as_millis() as u64;
++                refs.set_hold_progress(*sel.borrow(), hold_progress(elapsed));
++                // Umbral alcanzado: la barra queda llena y se deja de animar.
++                // El disparo real ocurre al soltar, para no ejecutar dos veces.
++                !hold_is_armed(elapsed)
++            }
+         };
+-        let elapsed = started.elapsed().as_millis() as u64;
+-        let pct = hold_progress(elapsed);
+-        refs.set_hold_progress(*sel.borrow(), pct);
+-        if hold_is_armed(elapsed) {
+-            // Umbral alcanzado: la barra queda llena y se deja de animar. El
+-            // disparo real ocurre al soltar, para no ejecutar dos veces.
+-            return glib::ControlFlow::Break;
++        if keep_running {
++            return glib::ControlFlow::Continue;
+         }
+-        glib::ControlFlow::Continue
++        // La fuente termina aquí, así que hay que retirar su `SourceId` de
++        // `HoldRun`. Si quedara guardado, `finish_hold` intentaría remover una
++        // fuente ya destruida: `SourceId::remove()` paniquea dentro de glib y,
++        // al correr en el trampolín C de `key-released`, ese panic no puede
++        // desenrollarse, el launcher aborta y la acción de poder nunca se
++        // ejecuta (así fallaba Apagar/Reiniciar/Suspender/Bloquear).
++        hold_tick.borrow_mut().ticker = None;
++        glib::ControlFlow::Break
+     });
+     let mut h = hold.borrow_mut();
+     h.ticker = Some(ticker);
+ }
+ 
+ /// Resuelve la pulsación al soltar: ejecuta si llegó al umbral, cancela si no.
++///
++/// `ticker` sólo se guarda mientras la fuente siga viva: el propio ticker lo
++/// retira al terminar, así que `remove()` de abajo sólo corre sobre una fuente
++/// que todavía existe.
+ fn finish_hold(hold: &Rc<RefCell<HoldRun>>, state: &KeyState) {
+     let (started, ticker) = {
+         let mut h = hold.borrow_mut();

@@ -121,7 +121,19 @@
       # El launcher ya no vive en este repo: llega desde su propio flake. Se
       # resuelve una sola vez y se comparte con los paquetes y con los modulos
       # (via specialArgs), igual que `port`.
-      loonLaunch = loon-launch.packages.${system}.default;
+      #
+      # Parche temporal de upstream (quito cuando loonbac/loon-launch lo traiga):
+      # el ticker de la pulsación sostenida se destruye solo al llegar al umbral
+      # de 900 ms, pero `finish_hold` seguía guardando su SourceId y al soltar
+      # Enter intentaba remover una fuente ya destruida. `SourceId::remove()`
+      # paniquea dentro de glib y, al correr en el trampolín C de
+      # `key-released`, el panic no puede desenrollarse: el launcher abortaba y
+      # la acción nunca se ejecutaba. Por eso Apagar/Reiniciar/Suspender/
+      # Bloquear no hacían nada (journal 2026-11-07 16:51:32 y 16:51:47).
+      loonLaunch =
+        loon-launch.packages.${system}.default.overrideAttrs (old: {
+          patches = (old.patches or [ ]) ++ [ ./patches/loon-launch-fix-hold-panic.patch ];
+        });
 
       # VS Code Insiders: el flake upstream solo provee el meta.json
       # (version + sha256 + url del tarball actualizado a diario por su CI).
