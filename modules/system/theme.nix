@@ -6,17 +6,36 @@
 {
   # ---- Modo oscuro global ----
   # Las apps GTK abren en dark por defecto (Nautilus, etc.).
+  #
+  # Estos dos son el ÚNICO mando que gobierna a GTK3 y a GTK4 (verificado con
+  # probe sobre theme_bg_color: Adwaita => #F6F5F4, Adwaita-dark => #353535),
+  # y `color-scheme` es el que siguen Chromium/Equibop/Electron.
+  #
+  # Ojo: aquí NO va `gtk-application-prefer-dark-theme`. Esa clave no existe en
+  # gsettings-desktop-schemas 50.1 (la sustituyó `color-scheme`), así que
+  # escribirla creaba un valor fantasma que nadie leía.
+  #
+  # accent-wallpaper sobreescribe estos valores en el user-db según el brillo
+  # del wallpaper (por defecto oscuro). Como el profile de dconf lista
+  # user-db primero, lo que escriba ese script manda; esto queda como default
+  # mientras no haya corrido ningún cambio de fondo.
   programs.dconf.profiles."user".databases = [
     {
       settings = {
         "org/gnome/desktop/interface" = {
           color-scheme = "prefer-dark";
           gtk-theme = "Adwaita-dark";
-          gtk-application-prefer-dark-theme = true;
         };
       };
     }
   ];
+
+  # gtk-theme = "Adwaita-dark" solo funciona si el directorio del tema existe:
+  # GTK3 lo busca en XDG_DATA_DIRS/themes y, si falta, cae al Adwaita claro
+  # (#F6F5F4) pese a que todo el sistema pide oscuro. El shim aporta ese
+  # directorio importando el CSS oscuro embebido en libgtk-3.so.
+  # Sin él, blueman y el resto de apps GTK3 se ven claros (verificado 2026-11-07).
+  environment.systemPackages = [ (pkgs.callPackage ../../pkgs/adwaita-dark-theme { }) ];
 
   # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para Waybar) ----
   fonts.packages = with pkgs; [

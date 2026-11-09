@@ -39,8 +39,14 @@
     # Para apps GTK/Qt/Electron que leen su propio cursor.
     GTK_CURSOR_THEME = "Win11OSX";
     GTK_CURSOR_SIZE = "32";
-    # Modo oscuro para apps Electron/Chromium (Equibop, VS Code) que leen
-    # GTK_THEME en vez de dconf.
-    GTK_THEME = "Adwaita-dark";
+    # GTK_THEME se quitó el 2026-11-08. Con él puesto, GTK3/GTK4 ignoran
+    # `dconf gtk-theme` (el env manda sobre dconf), lo que bloqueaba cualquier
+    # cambio de tema en caliente y de paso hacía que Adwaita-dark no resolviera
+    # (verificó: dconf=Adwaita + GTK_THEME=Adwaita:dark => #353535, es decir
+    # el env ganaba). Chromium/Equibop NO dependen de él: siguen
+    # `dconf color-scheme` (comprobado A/B con la misma instancia:
+    # prefer-light => LIGHT, prefer-dark => DARK). El modo oscuro por defecto
+    # lo fija modules/system/theme.nix.
+    # NOTA: al ser sessionVariables solo surten efecto en el PRÓXIMO login.
   };
 }
