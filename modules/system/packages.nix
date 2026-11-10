@@ -1,7 +1,7 @@
 # Módulo "system/packages": catálogo de paquetes instalados a nivel de sistema
 # y los runtimes de desarrollo que consumen. No define configuración del
 # sistema: solo qué software global está disponible.
-{ lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, ... }:
+{ lib, pkgs, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, opencode, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -60,6 +60,11 @@ in
 {
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
+    # OpenCode V2: llega por specialArgs desde el input nixpkgs-unstable
+    # (el canal del sistema aun no publica la 2.x). Sin pin manual.
+    opencode
+    # Explorador de archivos: el bind Super+E de niri hace spawn "nautilus".
+    nautilus
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
     git
     gh
@@ -106,11 +111,9 @@ in
     # como el perfil del sistema va antes en el PATH, tapaba esa instalación:
     # instalar la nueva no cambiaba nada porque nunca ganaba. Si alguna unidad
     # de sistema necesita el binario, se declara en esa unidad, no aquí.
-    zen-browser
+    # Navegador por defecto: Helium (BROWSER y los MIME de theme.nix).
+    # Zen Browser, Chromium y Google Chrome se retiraron el 2026-11-10.
     helium-browser
-    chromium           # para E2E (Playwright/Puppeteer) en esta máquina
-    google-chrome      # Chrome real (con claves de Google): login de Google y
-                       # MCP google-flow, que se conecta a Flow por CDP
     vscode-insiders
     antigravity
     antigravity-cli
@@ -118,7 +121,6 @@ in
     codexLatest
     (pkgs.callPackage ../../pkgs/cline-launcher { })
     zoom-us
-    prismlauncher
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
@@ -132,9 +134,8 @@ in
     # automáticamente (socket activation, display :0) si está en PATH.
     xwayland-satellite
     # fish no se declara aquí: lo instala `programs.fish` (modules/programs/fish)
-    # y, además, `users.users.loonbac.shell`. Una sola dueña por paquete.
+    # y, además, `users.users.saito.shell`. Una sola dueña por paquete.
     psmisc             # killall, pstree, fuser
-    lzip               # compresión lz (requisito de waydroid_script)
     yazi
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })

@@ -3,9 +3,9 @@
 { config, lib, pkgs, ... }:
 
 {
-  users.users."loonbac" = {
+  users.users."saito" = {
     isNormalUser = true;
-    description = "Joshua Rosales";
+    description = "Saito";
     # Grupos: networkmanager (GUI de red), wheel (sudo), storage (montaje sin sudo).
     extraGroups = [ "networkmanager" "wheel" "storage" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
@@ -20,16 +20,16 @@
   systemd.tmpfiles.rules = [
     # Esqueleto mínimo de un home nuevo. Los módulos de aplicaciones declaran
     # sus subdirectorios concretos; estas bases evitan padres creados como root.
-    "d /home/loonbac/.config 0755 loonbac users -"
-    "d /home/loonbac/.local 0755 loonbac users -"
-    "d /home/loonbac/.local/share 0755 loonbac users -"
-    "d /home/loonbac/Pictures 0755 loonbac users -"
-    "d /home/loonbac/Pictures/Wallpaper 0755 loonbac users -"
-    "d /home/loonbac/Videos 0755 loonbac users -"
-    "d /home/loonbac/Videos/Wallpapers 0755 loonbac users -"
-    "d /home/loonbac/.npm-global 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/lib 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/bin 0755 loonbac users -"
+    "d /home/saito/.config 0755 saito users -"
+    "d /home/saito/.local 0755 saito users -"
+    "d /home/saito/.local/share 0755 saito users -"
+    "d /home/saito/Pictures 0755 saito users -"
+    "d /home/saito/Pictures/Wallpaper 0755 saito users -"
+    "d /home/saito/Videos 0755 saito users -"
+    "d /home/saito/Videos/Wallpapers 0755 saito users -"
+    "d /home/saito/.npm-global 0755 saito users -"
+    "d /home/saito/.npm-global/lib 0755 saito users -"
+    "d /home/saito/.npm-global/bin 0755 saito users -"
   ];
 
   environment.sessionVariables = {
@@ -39,8 +39,14 @@
     # Para apps GTK/Qt/Electron que leen su propio cursor.
     GTK_CURSOR_THEME = "Win11OSX";
     GTK_CURSOR_SIZE = "32";
-    # Modo oscuro para apps Electron/Chromium (Equibop, VS Code) que leen
-    # GTK_THEME en vez de dconf.
-    GTK_THEME = "Adwaita-dark";
+    # GTK_THEME se quitó el 2026-11-08. Con él puesto, GTK3/GTK4 ignoran
+    # `dconf gtk-theme` (el env manda sobre dconf), lo que bloqueaba cualquier
+    # cambio de tema en caliente y de paso hacía que Adwaita-dark no resolviera
+    # (verificó: dconf=Adwaita + GTK_THEME=Adwaita:dark => #353535, es decir
+    # el env ganaba). Chromium/Equibop NO dependen de él: siguen
+    # `dconf color-scheme` (comprobado A/B con la misma instancia:
+    # prefer-light => LIGHT, prefer-dark => DARK). El modo oscuro por defecto
+    # lo fija modules/system/theme.nix.
+    # NOTA: al ser sessionVariables solo surten efecto en el PRÓXIMO login.
   };
 }

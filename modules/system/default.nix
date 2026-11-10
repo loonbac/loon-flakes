@@ -100,8 +100,8 @@
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
     SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
-    BROWSER = "zen-browser";
-    NPM_CONFIG_PREFIX = "/home/loonbac/.npm-global";
+    BROWSER = "helium";
+    NPM_CONFIG_PREFIX = "/home/saito/.npm-global";
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
@@ -120,6 +120,6 @@
   # semántica git (solo archivos trackeados).
   environment.etc."gitconfig".text = ''
     [safe]
-    	directory = /home/loonbac/.nixos
+    	directory = /home/saito/.nixos
   '';
 }

@@ -15,8 +15,8 @@ let
   # El escritorio lo genera `accent-wallpaper`; este servicio lo vuelve a correr cuando
   # cambia el fondo de pantalla para que el acento de la página siga al del escritorio en
   # lugar de esperar al siguiente ciclo del temporizador.
-  user = "loonbac";
-  home = "/home/loonbac";
+  user = "saito";
+  home = "/home/saito";
   pagePath = "${home}/.local/share/newtab/index.html";
 in
 {
