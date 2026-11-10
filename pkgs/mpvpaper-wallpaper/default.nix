@@ -67,26 +67,35 @@ let
     # mpvpaper reenvía estas opciones a la instancia libmpv que renderiza el
     # wallpaper. El socket queda en el runtime privado del usuario, nunca en
     # /tmp, y permite pausar sin destruir la superficie layer-shell.
-    # hwdec=auto-safe descarga la decodificación de vídeo a la GPU (VAAPI/CUDA
-    # según el hardware) en lugar de hacerlo por CPU; sin esto un wallpaper
-    # en loop consume un núcleo entero de forma permanente. "auto-safe" cae a
-    # software si ningún método acelerado es viable, así que es inocuo en
-    # hardware sin aceleración.
+    # hwdec queda en software (no) por una razón de estabilidad, no de coste.
+    #
+    # Con auto-safe la decodificación iba a NVDEC y el driver NVIDIA podía
+    # morir encadenado: x86/PAT "conflicting memory types" →
+    # "Failed to ioremap_wc NvKmsKapiMemory" → Xid 32 → Xid 154
+    # "Node Reboot Required" → pantalla congelada y reinicio forzado. El hilo
+    # av:h264 de NVDEC aparece en los dos crashes registrados (2026-11-08 y
+    # 2026-11-09), así que se elimina del medio.
+    #
+    # Coste medido en el Ryzen 5 5500 con el wallpaper 1080p30/4.9 Mbps:
+    # 13.3 % de un núcleo en software frente a 3.0 % con NVDEC, es decir
+    # ~0.85 % de la CPU total (12 hilos). Despreciable.
     flags="no-audio --loop-file=inf --panscan=1 --profile=fast --no-cache --osc=no --input-ipc-server=$socket"
     if [ "$transition" = fade ]; then
       # El proceso nuevo se compone sobre el anterior. El filtro genera alpha
       # y hace un fade-in desde transparente; al terminar se elimina para no
       # mantener el coste del filtro durante toda la reproducción.
       #
-      # OJO: el filtro lavfi no puede configurarse con hwdec activo (falla el
-      # interop y mpv descarta el filtro entero, dejando un corte seco en lugar
-      # del fade), así que el proceso nuevo nace en software y acelera al
-      # terminar la transición, vía IPC en transition_wallpaper.
+      # El filtro lavfi no puede configurarse con hwdec activo (falla el
+      # interop y mpv descarta el filtro entero, dejando un corte seco en
+      # lugar del fade). Con hwdec fijo en software ya no hay nada que
+      # acelerar al terminar, así que el fade y la reproducción normal
+      # comparten el mismo camino.
       transition_graph="format=rgba,split=2[clear][live];[clear]lutrgb=a=0[transparent];[transparent][live]xfade=transition=fade:duration=$FADE_DURATION:offset=0"
       flags="$flags --hwdec=no --background=none --vf=lavfi=[$transition_graph]"
     else
-      # Sin transición (arranque de sesión) no hay filtro que impida acelerar.
-      flags="$flags --hwdec=auto-safe"
+      # Sin transición (arranque de sesión): igualmente en software, ver el
+      # comentario de hwdec más arriba.
+      flags="$flags --hwdec=no"
     fi
     setsid "$MPVPAPER" -o "$flags" ALL "$video" >/dev/null 2>&1 &
     STARTED_PID=$!
@@ -379,10 +388,10 @@ let
     rm -f "$IPC"
     mv "$next_ipc" "$IPC"
     send_ipc_to "$IPC" '{"command":["set_property","vf",""]}' >/dev/null || true
-    # El fade corrió en software (el filtro lavfi no convive con hwdec); con el
-    # filtro fuera ya se vuelve a decodificar en la GPU, que es donde el
-    # wallpaper pasa el resto del tiempo.
-    send_ipc_to "$IPC" '{"command":["set_property","hwdec","auto-safe"]}' >/dev/null || true
+    # Sin nada que acelerar: hwdec queda en software de forma permanente
+    # (ver el comentario de hwdec en start_wallpaper). Antes aquí se volvía a
+    # auto-safe tras el fade, lo que reinstalaba NVDEC en cada cambio de
+    # wallpaper y reproducía el riesgo de crash de la GPU.
     apply_pause_reasons "$IPC"
   }
 
