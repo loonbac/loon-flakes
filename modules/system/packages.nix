@@ -131,6 +131,10 @@ in
     codexLatest
     (pkgs.callPackage ../../pkgs/cline-launcher { })
     zoom-us
+    # Eglantine: emulador de Nintendo Switch 2 (fork de Eden/Yuzu). Es un
+    # launcher mutable — el AppImage vive en ~/.local/share/eglantine y no se
+    # actualiza en un rebuild; ver pkgs/eglantine para el porqué.
+    (pkgs.callPackage ../../pkgs/eglantine { })
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt

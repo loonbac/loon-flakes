@@ -253,6 +253,8 @@
         battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
         # Control de brillo con suelo mínimo del 10% remapeado a 0%
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
+        # Emulador de Switch 2: launcher mutable (el AppImage vive en el home)
+        eglantine = pkgs.callPackage ./pkgs/eglantine { };
         gentle-ai = gentleAiLauncher;
         gentle-ai-runtime-update = gentleAiRuntimeUpdater;
         engram = engramLauncher;
