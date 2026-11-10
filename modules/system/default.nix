@@ -24,7 +24,8 @@
   ];
 
   # ---- Zona horaria y localización ----
-  time.timeZone = "America/Lima";
+  # mkDefault: cada host declara la suya y gana sobre este valor.
+  time.timeZone = lib.mkDefault "America/Lima";
 
   # Un proceso resuelve su zona una sola vez al arrancar y la cachea durante
   # toda su vida. ICU —Chromium, Electron, Node, Java— devuelve literalmente
@@ -42,7 +43,7 @@
   # sola vez y aquí no se fija ninguna zona concreta.
   environment.sessionVariables.TZ = config.time.timeZone;
 
-  i18n.defaultLocale = "es_PE.UTF-8";
+  i18n.defaultLocale = lib.mkDefault "es_PE.UTF-8";
   i18n.supportedLocales = [
     "C.UTF-8/UTF-8"
     "en_US.UTF-8/UTF-8"

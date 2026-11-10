@@ -27,8 +27,11 @@ background-opacity = 1
 keybind = ctrl+shift+t=new_tab
 keybind = ctrl+shift+w=close_tab
 
-# Shader personalizado para animación y desplazamiento suave del cursor
-custom-shader = /home/saito/.config/ghostty/shaders/smooth_cursor.glsl
+# Shader personalizado para animación y desplazamiento suave del cursor.
+# Ruta gestionada por NixOS (modules/programs/ghostty/default.nix la publica en
+# /etc/ghostty/shaders/): no apunta al home para que el config sirva a cualquier
+# usuario y no dependa de quién lo lea.
+custom-shader = /etc/ghostty/shaders/smooth_cursor.glsl
 custom-shader-animation = always
 
 # Los plugins de preguntas de Pi emiten BEL como señal de atención. Se anulan

@@ -872,13 +872,26 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   dueño, y es la primera parada cuando el fondo se queda parado. Prueba:
   `nix build .#mpvpaper-wallpaper.tests.focused` (incluye un servidor IPC falso
   que comprueba qué comandos se envían y cuáles no).
-- **Ventanas transparentes y `opaque-window`**: `pkgs/niri-wallpaper-visibility`
-  pausa el fondo cuando la ventana activa de un workspace visible es opaca. La
-  lista `TRANSPARENT_APP_IDS` del watcher debe coincidir con lo que de verdad
-  deja ver el fondo: ghostty (`opacity 0.8` + `xray` en `config.kdl`) y PORT
-  (`opacity 0.85` en su `config.md`). Si la lista se queda corta, el fondo se
-  congela detrás de una terminal transparente; si sobra una app opaca, se
-  decodifica video que nadie ve.
+- **Fondo animado solo en terminales (`opaque-window`)**: `pkgs/niri-wallpaper-visibility`
+  congela el wallpaper en el último frame salvo que el foco esté en un terminal
+  o el workspace visible esté vacío. La lista `ANIMATED_APP_IDS` del watcher es
+  cerrada y de terminales: ghostty (`opacity 0.8` + `xray` en `config.kdl`).
+  Una app translúcida NO se añade aunque deje ver el fondo: detrás de ella el
+  frame congelado apenas se nota y el ahorro de decodificación compensa. Si la
+  lista se queda corta, el fondo se congela detrás de una terminal; si sobra
+  una app, se decodifica vídeo que nadie ve. En `hosts/saitina` el servicio
+  estaba deshabilitado a propósito (el vídeo corría siempre); se habilitó el
+  2026-11-08 al adoptar la política de animar solo en terminales.
+- **El fade de cambio de fondo no convive con `hwdec`**: el filtro
+  `lavfi`/`xfade` falla al configurarse con decodificación por hardware y mpv
+  descarta el filtro entero, dejando un corte seco en lugar de la transición,
+  **sin ningún error visible** (los logs de mpvpaper van a `/dev/null`). Por
+  eso el proceso nuevo nace con `--hwdec=no` y `transition_wallpaper` lo
+  acelera por IPC (`set_property hwdec auto-safe`) justo después de retirar el
+  filtro. Volver a poner `hwdec` en los flags del fade reproduce la
+  desaparición silenciosa de la transición. Verificación:
+  `mpv --hwdec=auto-safe --vf='lavfi=[...]' --msg-level=all=v --log-file=…`
+  muestra `failed to configure the filter graph`.
 
 ---
 

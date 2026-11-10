@@ -68,6 +68,12 @@ in
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
     git
     gh
+    # Utilidades base de la línea de comandos que el fork declara en el
+    # catálogo: sin ellas hay que recurrir a `nix shell` para lo cotidiano.
+    curl
+    wget
+    unzip
+    file
     # Google Cloud CLI. Da `gcloud` (con `gsutil` y `bq`), que es lo que hace
     # falta para `gcloud auth application-default login`: el archivo
     # application_default_credentials.json que genera (tipo authorized_user) es
@@ -114,6 +120,10 @@ in
     # Navegador por defecto: Helium (BROWSER y los MIME de theme.nix).
     # Zen Browser, Chromium y Google Chrome se retiraron el 2026-11-10.
     helium-browser
+    # Firefox: el fork lo declara en el catálogo para que loon-launch pueda
+    # lanzarlo sin fallar con "command not found". No captura ningún MIME ni
+    # BROWSER, así que Helium sigue siendo el navegador por defecto.
+    firefox
     vscode-insiders
     antigravity
     antigravity-cli
@@ -137,6 +147,10 @@ in
     # y, además, `users.users.saito.shell`. Una sola dueña por paquete.
     psmisc             # killall, pstree, fuser
     yazi
+    # Generador de la configuración de monitores: escribe ~/.config/niri/
+    # monitor.kdl (el include de config.kdl). Declarado en el catálogo para
+    # que esté en el PATH además de como dependencia de niri.
+    nwg-displays
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
     # App launcher custom (Super+Space en niri). Llega desde su propio flake
