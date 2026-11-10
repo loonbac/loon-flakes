@@ -2,6 +2,10 @@
   description = "Configuración modular multi-host de NixOS — loon-flakes";
 
   inputs = {
+    # OpenCode V2: nixos-26.05 aun publica la rama 1.x, asi que el CLI sale
+    # de este canal movil. Sin `follows`: si lo tuviera heredaria el nixpkgs
+    # del sistema y volveria a la 1.x.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     # Citron Nextendo: empaqueta los AppImages Linux oficiales en URLs
     # inmutables y expone un módulo NixOS reutilizable; no recompila Citron.
@@ -25,11 +29,6 @@
     # fijado a mano.
     loon-launch = {
       url = "github:loonbac/loon-launch";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).
-    zen-browser = {
-      url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Helium Browser (no está en nixpkgs; navegador enfocado en privacidad basado en Chromium).
@@ -70,7 +69,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser, nixpkgs-unstable }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -180,11 +179,14 @@
 
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
-      # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
+      # `specialArgs` pasa paquetes de otros flakes (helium-browser) a los módulos.
       mkHost = hostName: hostModules: lib.nixosSystem {
         inherit system;
         specialArgs = {
-          zen-browser = zen-browser.packages.${system}.default;
+          # OpenCode V2 desde el canal unstable (ver el input). El nombre
+          # declara el argumento del modulo y, dentro de `with pkgs;`, gana
+          # sobre pkgs.opencode de 26.05.
+          opencode = nixpkgs-unstable.legacyPackages.${system}.opencode;
           helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
@@ -239,7 +241,6 @@
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
-        zen-browser = zen-browser.packages.${system}.default;
         helium-browser = helium-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
@@ -250,8 +251,6 @@
         port = port.packages.${system}.default;
         # Notificador de batería baja crítica (<=10%)
         battery-notify = pkgs.callPackage ./pkgs/battery-notify { };
-        # Lanza apps de Android (Waydroid) levantando contenedor+sesión bajo demanda.
-        waydroid-app = pkgs.callPackage ./pkgs/waydroid-app { };
         # Control de brillo con suelo mínimo del 10% remapeado a 0%
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
         gentle-ai = gentleAiLauncher;
@@ -309,6 +308,7 @@
           nix-flatpak.nixosModules.nix-flatpak
           lanzaboote.nixosModules.lanzaboote
         ];
+        "saitina" = mkHost "saitina" [ ];
       };
 
       # Un check de evaluación por cada host declarado arriba (una sola
