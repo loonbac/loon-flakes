@@ -93,9 +93,7 @@ binds {
     Super+E { spawn "nautilus"; }
     // Sidebar de spaces de kitty: ventana tileada a la izquierda del workspace
     // "kitty". No arranca con la sesión; aparece solo al pulsar esto.
-    Super+M { spawn "/home/loonbac/.config/kitty/spaces/sidebar.sh"; }
-    // Android (Waydroid): arranca la sesión si no está y muestra la ventana.
-    Super+D { spawn "waydroid" "show-full-ui"; }
+    Super+M { spawn "/home/saito/.config/kitty/spaces/sidebar.sh"; }
     Super+Q { close-window; }
     Super+F { maximize-column; }
     // Alternar la ventana enfocada entre el mosaico y el modo flotante.
@@ -153,7 +151,7 @@ binds {
 // sólido, para no tapar la transparencia de las ventanas.
 window-rule {
     match app-id=".*"
-    exclude app-id=r#"^(waydroid(\..*)?|com\.waydroid\..*|loon-launch|dev\.loonbac\.loonlaunch|windowkill.*|kitty-spaces-panel)$"#
+    exclude app-id=r#"^(loon-launch|dev\.loonbac\.loonlaunch|windowkill.*|kitty-spaces-panel)$"#
     open-maximized true
 
     geometry-corner-radius 12
@@ -232,6 +230,21 @@ window-rule {
     background-effect {
         xray true
     }
+}
+
+// blueman-manager: la ventana de gestión de Bluetooth es un diálogo chico;
+// la regla genérica la abriría maximizada en una columna entera.
+// El app-id real es `.blueman-manager-wrapped` (el wrapper de Nix de Python);
+// se acepta también el nombre sin envolver por si cambia el empaquetado.
+window-rule {
+    match app-id=r#"^(\.?blueman-manager(-wrapped)*)$"#
+
+    open-floating true
+    open-maximized false
+    default-column-width { fixed 420; }
+    default-window-height { fixed 520; }
+    min-width 360
+    min-height 400
 }
 
 // mpvpaper: el video va en la capa background de CADA workspace (animado,

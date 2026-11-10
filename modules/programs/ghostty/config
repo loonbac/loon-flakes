@@ -28,7 +28,7 @@ keybind = ctrl+shift+t=new_tab
 keybind = ctrl+shift+w=close_tab
 
 # Shader personalizado para animación y desplazamiento suave del cursor
-custom-shader = /home/loonbac/.config/ghostty/shaders/smooth_cursor.glsl
+custom-shader = /home/saito/.config/ghostty/shaders/smooth_cursor.glsl
 custom-shader-animation = always
 
 # Los plugins de preguntas de Pi emiten BEL como señal de atención. Se anulan

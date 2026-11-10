@@ -6,7 +6,7 @@
   virtualisation.docker.enable = true;
 
   # Usuario con acceso al socket del daemon sin sudo (misma pauta que waydroid).
-  users.users.loonbac.extraGroups = [ "docker" ];
+  users.users.saito.extraGroups = [ "docker" ];
 
   # Compose v2 para declarar stacks de contenedores.
   environment.systemPackages = with pkgs; [

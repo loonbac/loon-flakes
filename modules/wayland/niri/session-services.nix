@@ -2,7 +2,7 @@
 #
 # No se lanzan desde `spawn-at-startup`: systemd los supervisa, evita
 # duplicados, los reinicia tras un fallo y los detiene junto con la sesión.
-{ lib, pkgs, loonLaunch, ... }:
+{ config, lib, pkgs, loonLaunch, ... }:
 
 let
   accentWallpaper = pkgs.callPackage ../../../pkgs/accent-wallpaper { };
@@ -21,11 +21,17 @@ let
     Restart = "on-failure";
     RestartSec = "1s";
     Environment = [
-      "HOME=/home/loonbac"
+      "HOME=/home/saito"
       # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
       # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
       # del sistema completo, igual que los procesos lanzados por Niri.
-      "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+      #
+      # Los perfiles de usuario van explícitos: loon-launch ejecuta cada
+      # .desktop con `systemd-run --scope sh -c`, que hereda ESTE entorno de
+      # servicio, y apps como NotepadNext o Helium solo viven en
+      # ~/.nix-profile/bin (no en /run/current-system/sw/bin). Sin esta línea
+      # el launcher fallaba con "firefox: command not found" (2026-11-09).
+      "PATH=/run/wrappers/bin:/run/current-system/sw/bin:/home/saito/.nix-profile/bin:/etc/profiles/per-user/saito/bin:/home/saito/.local/bin"
     ];
   };
 in
@@ -105,6 +111,58 @@ in
     description = "Historial de imágenes del portapapeles Wayland";
     serviceConfig = resilientService // {
       ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store";
+    };
+  };
+
+  # Blueman: sin applet no hay menú de bandeja ni notificaciones de emparejado
+  # (blueman-manager registra su propio agente, pero el estado y los avisos de
+  # conexión los gestiona el applet). Solo donde el host habilita blueman.
+  #
+  # El paquete ya publica su unidad (Type=dbus, BusName=org.blueman.Applet,
+  # ExecStart propio): declarar otro ExecStart la deja inválida ("more than
+  # one ExecStart"). Aquí solo se la adhiere a la sesión y se le dan
+  # reinicio/PATH, que es lo que aporta el patrón de este archivo.
+  systemd.user.services.blueman-applet = lib.mkIf config.services.blueman.enable (sessionUnit // {
+    description = "Applet de Bluetooth de la sesión Niri";
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "1s";
+      Environment = resilientService.Environment;
+    };
+  });
+
+  # services.blueman.enable instala su blueman.desktop en
+  # /run/current-system/sw/etc/xdg/autostart/, y
+  # systemd-xdg-autostart-generator lo convierte en app-blueman@autostart.
+  # Con la unidad de arriba eso deja DOS applets a la vez: ambos cargan
+  # plugins y ambos registran agentes, así que compiten por rfkill y por el
+  # estado del adaptador (pasó el 2026-11-07: PIDs 1267 y 1284).
+  #
+  # Se tapa con un .desktop en /etc/xdg, que va PRIMERO en XDG_CONFIG_DIRS y
+  # por eso gana al del paquete. Hidden=true es lo que la spec XDG y el
+  # generador de systemd entienden por "no arranques esto" (verificado con y
+  # sin la sombra: la unidad solo se genera cuando la sombra no existe).
+  # Se queda la de arriba por ser la supervisada, con reinicio y atada a
+  # loon-niri-session.target, que es el patrón de este archivo.
+  environment.etc."xdg/autostart/blueman.desktop" = lib.mkIf config.services.blueman.enable {
+    text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Blueman
+      Exec=${pkgs.blueman}/bin/blueman-applet
+      Hidden=true
+    '';
+  };
+
+  # Agente de autenticación Polkit de la sesión. Sin él, cualquier acción que
+  # pida autorización (montar un disco con Disks, instalar un paquete desde un
+  # .desktop, gestionar red) no tiene con qué responder al usuario y falla en
+  # silencio.
+  systemd.user.services.polkit-gnome = sessionUnit // {
+    description = "Agente de autenticación Polkit para Niri";
+    serviceConfig = resilientService // {
+      ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+      Restart = "on-failure";
     };
   };
 }

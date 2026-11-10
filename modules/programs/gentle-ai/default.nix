@@ -184,19 +184,19 @@ in
     systemd.services.gentle-ai-bootstrap = {
       description = "Reconcile the declared Gentle AI core for Pi";
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" ];
+      wants = [ "network-online.target" "nss-lookup.target" ];
+      after = [ "network-online.target" "nss-lookup.target" ];
       serviceConfig = {
         Type = "oneshot";
-        User = "loonbac";
+        User = "saito";
         Group = "users";
         ExecStart = "${bootstrap}/bin/gentle-ai-bootstrap";
         RemainAfterExit = true;
-        WorkingDirectory = "/home/loonbac";
+        WorkingDirectory = "/home/saito";
         Environment = [
-          "HOME=/home/loonbac"
-          "PI_CODING_AGENT_DIR=/home/loonbac/.pi/agent"
-          "GENTLE_AI_NIXOS_REPO=/home/loonbac/.nixos"
+          "HOME=/home/saito"
+          "PI_CODING_AGENT_DIR=/home/saito/.pi/agent"
+          "GENTLE_AI_NIXOS_REPO=/home/saito/.nixos"
         ];
       };
     };

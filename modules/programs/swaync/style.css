@@ -2,14 +2,17 @@
    Lenguaje visual igual a waybar: fondo surface_container, esquinas de 20px,
    borde y detalles con el acento dinámico del wallpaper (accent.css).
    Ruta absoluta a propósito: style.css es un symlink a /etc/swaync/style.css
-   y el @import relativo se resolvería contra el dir del archivo físico. */
-@import "/home/loonbac/.config/swaync/accent.css";
+   y el @import relativo se resolvería contra el dir del archivo físico.
 
-@define-color background #0f1416;    /* surface de matugen */
-@define-color surface #1b2023;       /* surface_container */
-@define-color surface_high #252b2d;  /* surface_container_high */
-@define-color text #dee3e6;          /* on_surface */
-@define-color text_dim #bfc8cc;      /* on_surface_variant */
+   accent.css es EL ÚNICO origen de colores: lo genera accent-wallpaper con la
+   paleta del wallpaper (accent, on_accent, background, surface, surface_high,
+   text, text_dim). Aquí NO se redefine ninguno de esos: en GTK CSS gana la
+   ÚLTIMA definición, así que cualquier @define-color posterior al @import
+   pisaría al generador y el modo claro/oscuro no llegaría a las notificaciones
+   (verificado con probe: la segunda definición gana). El default mientras no
+   haya corrido accent-wallpaper lo instala el módulo con una regla tmpfiles C. */
+@import "/home/saito/.config/swaync/accent.css";
+
 @define-color critical #f38ba8;      /* mismo rojo que state.css de waybar */
 
 * {
