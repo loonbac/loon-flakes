@@ -3,7 +3,7 @@
 { pkgs, ... }:
 
 {
-  fileSystems."/home/loonbac/Proyectos" = {
+  fileSystems."/home/saito/Proyectos" = {
     device = "/dev/disk/by-uuid/98648f36-b315-406b-b84d-65c1865544af";
     fsType = "ext4";
     options = [
@@ -25,8 +25,8 @@
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.coreutils}/bin/chown loonbac:users /home/loonbac/Proyectos
-      ${pkgs.coreutils}/bin/chmod 0755 /home/loonbac/Proyectos
+      ${pkgs.coreutils}/bin/chown saito:users /home/saito/Proyectos
+      ${pkgs.coreutils}/bin/chmod 0755 /home/saito/Proyectos
     '';
   };
 }

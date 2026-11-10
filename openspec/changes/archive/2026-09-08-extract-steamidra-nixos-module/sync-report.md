@@ -54,8 +54,8 @@ The delta specification for domain `steamidra` has been synchronized into canoni
 - `changeName`: `extract-steamidra-nixos-module`
 - `artifactStore`: `openspec`
 - `actionContext.mode`: `repo-local`
-- `actionContext.workspaceRoot`: `/home/loonbac/.nixos`
-- `actionContext.allowedEditRoots`: `[/home/loonbac/.nixos]`
+- `actionContext.workspaceRoot`: `/home/saito/.nixos`
+- `actionContext.allowedEditRoots`: `[/home/saito/.nixos]`
 - `dependencies.apply`: `all_done`
 - `dependencies.verify`: `all_done`
 - `dependencies.sync`: `synced`

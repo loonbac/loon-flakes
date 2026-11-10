@@ -105,7 +105,7 @@ activación (el lock no se modifica):
 
 ```bash
 sudo nixos-rebuild switch --flake .#$(hostname) \
-  --override-input port git+file:///home/loonbac/Proyectos/port
+  --override-input port git+file:///home/saito/Proyectos/port
 ```
 
 **No apuntar el input del `flake.nix` a una copia local sucia.** Nix no puede
@@ -532,7 +532,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   y tiene su propio contador «Uso mensual» con reinicio mensual; una API key de Studio
   consume la asignación de API. Ambas van contra `https://api.mistral.ai`.
 - **Credencial del provider**: `pkgs/gentle-ai-bootstrap/default.nix` resuelve `apiKey` con
-  `!cat /home/loonbac/.config/mistral-vibe/api-key` (0600, fuera del store, leída en cada
+  `!cat /home/saito/.config/mistral-vibe/api-key` (0600, fuera del store, leída en cada
   request: rotarla no exige rebuild). La clave de Vibe **no necesita cabeceras de tenant**:
   `/v1/models` responde 200 y los modelos `mistral-vibe-cli-*` funcionan sin
   `x-external-organization-id` ni `x-external-workspace-id`. Verificado con llamadas reales
@@ -659,7 +659,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   sin soporte) y `compat` con `maxTokensField: max_completion_tokens` +
   `supportsDeveloperRole: false`.
   - **La API key no está en el repo ni en el store**: `apiKey` se resuelve con
-    `!cat /home/loonbac/.config/inception/api-key` (archivo 0600) en tiempo de request. Nunca
+    `!cat /home/saito/.config/inception/api-key` (archivo 0600) en tiempo de request. Nunca
     escribir la clave en `models.json` versionado, en Nix, ni en `AGENTS.md`; el repo es público.
   - Verificado: `GET /v1/models` lista `mercury-2, mercury-2.5, mercury-3, mercury-decide`;
     `pi -p --provider inception --model mercury-3` responde exacto y usa tools (leyó
@@ -787,10 +787,10 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **"Git tree is dirty"**: aviso normal cuando hay cambios sin commitear; el
   rebuild funciona igual. Desaparece al commitear.
 - **tmpfiles**: `L+` NO reemplaza un archivo regular existente (solo actúa si
-  no existe o ya es symlink). Usar **ruta absoluta** (`/home/loonbac/...`),
+  no existe o ya es symlink). Usar **ruta absoluta** (`/home/saito/...`),
   systemd no expande `~` en tmpfiles.
 - **Home nuevo + tmpfiles**: antes de cualquier regla `L+` o `f` bajo el home,
-  declarar el directorio padre con `d ... 0755 loonbac users -`. No depender
+  declarar el directorio padre con `d ... 0755 saito users -`. No depender
   de que una aplicación o una sesión previa haya creado `~/.config/*`.
 - **Contenido multilínea + tmpfiles**: no insertar saltos de línea en una
   regla raw. Declarar el default en `/etc` y copiarlo solo si falta con `C`;
@@ -803,7 +803,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   No volver a duplicarlos con `spawn-at-startup`; comprobarlos con
   `systemctl --user status loon-niri-session.target`.
 - **scp**: no expande `~` en el destino → usar rutas completas
-  (`loonbac@192.168.0.2:/home/loonbac/.nixos/...`).
+  (`loonbac@192.168.0.2:/home/saito/.nixos/...`).
 - **niri KDL**: los booleanos se escriben `prop true` (no `prop=true`); los
   `match` son regex (usar `.*`, no `*`).
 - **GTK4 (Rust)**:
@@ -817,7 +817,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `.downcast::<ListBoxRow>()` antes de `select_row`.
   - `StyleManager::default()` devuelve `StyleManager` (no `Option`).
 - **greeter dms-greeter**: usa el compositor niri (instalado a nivel de
-  sistema, no home-manager); `configHome = "/home/loonbac"` sincroniza el tema.
+  sistema, no home-manager); `configHome = "/home/saito"` sincroniza el tema.
 - **El rebuild puede tardar** (compila niri, quickshell) — usar
   timeouts generosos (600000 ms).
 - **Citron Nextendo**: upstream reemplaza y borra la release mutable
@@ -907,7 +907,7 @@ nix flake show
 nix flake update
 
 # Subir archivos al repo remoto
-scp -i ~/.ssh/id_ed25519 <archivo> loonbac@192.168.0.2:/home/loonbac/.nixos/<ruta>
+scp -i ~/.ssh/id_ed25519 <archivo> loonbac@192.168.0.2:/home/saito/.nixos/<ruta>
 ```
 
 ---

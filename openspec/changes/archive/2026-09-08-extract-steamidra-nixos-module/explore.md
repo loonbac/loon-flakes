@@ -20,7 +20,7 @@ The goal of this change is to extract **SteaMidra** ([Midrags/SFF](https://githu
 - **Runtime prerequisites boundaries**:
   - Runtime prerequisites (functional OpenGL/Vulkan acceleration and an X11/XWayland display environment) belong exclusively to consumer documentation and clear option descriptions.
   - Activation must not depend on host-specific assumptions or trigger side-effects across the consumer's configuration.
-- **No personal/host assumptions**: Zero hardcoded usernames (`loonbac`), user home paths (`/home/loonbac`), or host-specific hardware paths.
+- **No personal/host assumptions**: Zero hardcoded usernames (`loonbac`), user home paths (`/home/saito`), or host-specific hardware paths.
 - **Existing consumer compatibility**: Keep `nixos-pc` working identically as a consumer.
 - **Strict non-goals**:
   - Do NOT refactor other personal modules (`modules/system`, `modules/networking`, `modules/services`, `modules/wayland`, `modules/users`, or other programs in `modules/programs`).

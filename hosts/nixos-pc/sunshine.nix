@@ -54,7 +54,7 @@ let
 
   # El escritorio usa otra instancia: los permisos de entrada de Sunshine
   # son globales por instancia, no por aplicación o cliente emparejado.
-  desktopStateDir = "/home/loonbac/.config/sunshine-desktop";
+  desktopStateDir = "/home/saito/.config/sunshine-desktop";
   desktopApps = pkgs.writeText "sunshine-desktop-apps.json" (builtins.toJSON {
     env = { };
     apps = [ { name = "Escritorio"; image = "desktop.png"; } ];
@@ -148,7 +148,7 @@ in
 
   # El servicio de usuario se instala globalmente; esta condición evita que el
   # greeter u otra cuenta intente ocupar los mismos puertos.
-  systemd.user.services.sunshine.unitConfig.ConditionUser = "loonbac";
+  systemd.user.services.sunshine.unitConfig.ConditionUser = "saito";
 
   # Instancia privada del escritorio accesible por LAN / túnel y tailnet.
   networking.firewall = {
@@ -162,7 +162,7 @@ in
     partOf = [ "graphical-session.target" ];
     after = [ "graphical-session.target" ];
     unitConfig = {
-      ConditionUser = "loonbac";
+      ConditionUser = "saito";
       StartLimitIntervalSec = 0;
     };
     serviceConfig = {
@@ -185,5 +185,5 @@ in
     };
   };
 
-  users.users.loonbac.extraGroups = [ "input" ];
+  users.users.saito.extraGroups = [ "input" ];
 }

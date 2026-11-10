@@ -2,7 +2,7 @@
 
 Initialized: 2026-09-08
 Artifact Store: openspec
-Workspace Root: /home/loonbac/.nixos
+Workspace Root: /home/saito/.nixos
 
 ## Architecture & Stack Overview
 
