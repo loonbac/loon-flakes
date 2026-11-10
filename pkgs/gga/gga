@@ -11,7 +11,7 @@ set -e
 
 VERSION="2.10.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="/home/loonbac/.local/share/gga/lib"
+LIB_DIR="/home/saito/.local/share/gga/lib"
 
 resolve_lib_dir() {
   local configured_lib_dir="$1"

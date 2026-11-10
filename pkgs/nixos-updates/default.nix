@@ -37,8 +37,7 @@ PLUMBING = [
 ]
 
 # Propios, unfree (Hydra no los construye) y flakes externos sin cache pública.
-# Se comparan contra el nombre de la DERIVACIÓN, no del paquete: zen-browser
-# llega como "zen.linux-x86_64.tar.xz" y "zen-browser-unwrapped-*". Ojo:
+# Se comparan contra el nombre de la DERIVACIÓN, no del paquete. Ojo:
 # linux-*-modules y rustc-* no van aquí; deben seguir bloqueando (Hydra los
 # publica con retraso). mpvpaper SÍ va: pkgs/mpvpaper-fixed le cambia src y
 # version, así que ese hash nunca existirá en cache.nixos.org.
@@ -46,9 +45,9 @@ THIRD_PARTY = [
     r"antigravity", r"^loon-", r"^loon$", r"citron", r"millennium", r"^accela",
     r"sls-steam", r"veadotube-mini", r"^obs-", r"^wrapped-obs-", r"^steamidra",
     r"newtab-dashboard", r"^gentle-", r"^engram", r"^pi-", r"^pi$", r"cline",
-    r"better-claude", r"^zen[.-]", r"^helium", r"code-insiders", r"vscode",
-    r"equibop", r"pear-desktop", r"cargo-target-cache", r"anydesk",
-    r"google-chrome", r"^port-", r"lanzaboote", r"lzbt", r"^steam",
+    r"better-claude", r"^helium", r"code-insiders", r"vscode",
+    r"equibop", r"pear-desktop", r"cargo-target-cache",
+    r"^port-", r"lanzaboote", r"lzbt", r"^steam",
     r"win11osx-cursor", r"mpv-with-scripts", r"heroic",
     r"^mpvpaper",
 ]
@@ -312,7 +311,6 @@ COMMON_NAMES = {
     "fish": "Fish",
     "openssh": "OpenSSH",
     "openssl": "OpenSSL",
-    "zen-browser": "Zen Browser",
     "code-insiders": "Code Insiders",
     "obs-studio": "OBS Studio",
     "antigravity": "Antigravity",

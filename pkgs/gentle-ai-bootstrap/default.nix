@@ -103,7 +103,7 @@ let
       name = "Inception Labs";
       baseUrl = "https://api.inceptionlabs.ai/v1";
       api = "openai-completions";
-      apiKey = "!cat /home/loonbac/.config/inception/api-key";
+      apiKey = "!cat /home/saito/.config/inception/api-key";
       compat = {
         maxTokensField = "max_completion_tokens";
         supportsDeveloperRole = false;
@@ -171,7 +171,7 @@ let
       # Code y basta por sí sola: no necesita cabeceras de tenant ni el flujo
       # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
       # request, así que rotarla no exige rebuild.
-      apiKey = "!cat /home/loonbac/.config/mistral-vibe/api-key";
+      apiKey = "!cat /home/saito/.config/mistral-vibe/api-key";
       # Un solo modelo a propósito: los alias `mistral-vibe-cli-latest`,
       # `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven todos al
       # mismo modelo (Mistral Medium 3.5) según `/v1/models`, así que ofrecerlos por
@@ -461,15 +461,15 @@ let
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
     mcpServers = {
       rakya = {
-        command = "/home/loonbac/.local/share/loon-pi-mcp/run-rakya-mcp";
+        command = "/home/saito/.local/share/loon-pi-mcp/run-rakya-mcp";
         args = [ ];
-        cwd = "/home/loonbac/.local/share/loon-pi-mcp";
+        cwd = "/home/saito/.local/share/loon-pi-mcp";
         description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
       google-flow = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
-        cwd = "/home/loonbac/.local/share/loon-pi-mcp/google-flow";
+        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "/home/saito/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
+        cwd = "/home/saito/.local/share/loon-pi-mcp/google-flow";
         description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
       };
       # Residential proxy for pages that block this host or change by region.
@@ -479,14 +479,14 @@ let
       # them into that single child process.
       dataimpulse = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "dataimpulse" "--" "/home/loonbac/mcp/dataimpulse/run.sh" ];
-        cwd = "/home/loonbac/mcp/dataimpulse";
+        args = [ "${mcpOnDemand}" "--name" "dataimpulse" "--" "/home/saito/mcp/dataimpulse/run.sh" ];
+        cwd = "/home/saito/mcp/dataimpulse";
         description = "DataImpulse residential proxy: fetch_page (clean text/raw HTML, country/city/session) and check_exit_ip";
       };
       voice-gen = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "voice-gen" "--" "/home/loonbac/Proyectos/mcp-voice-gen/bin/mcp-voice-gen" ];
-        cwd = "/home/loonbac/Proyectos/mcp-voice-gen";
+        args = [ "${mcpOnDemand}" "--name" "voice-gen" "--" "/home/saito/Proyectos/mcp-voice-gen/bin/mcp-voice-gen" ];
+        cwd = "/home/saito/Proyectos/mcp-voice-gen";
         description = "High-fidelity voice cloning & emotional speech synthesis using Fish Speech on Google Colab Pro G4 Blackwell";
         timeout = 300;
       };

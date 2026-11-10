@@ -214,7 +214,7 @@ test("saveToEngramDirect: resolves project, registers session, saves observation
   try {
     const res = await saveToEngramDirect({
       sessionId: "sess-1",
-      cwd: "/home/loonbac/.nixos",
+      cwd: "/home/saito/.nixos",
       title: "t",
       content: "c",
     });
