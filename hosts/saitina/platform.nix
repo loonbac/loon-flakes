@@ -20,6 +20,23 @@
     powerOnBoot = true;
   };
 
+  # Acceso a /dev/hidraw de los Joy-Con para Eglantine (fork de Yuzu/Eden).
+  #
+  # Su "joycon driver" (enable_joycon_driver=true) abre el mando por hidraw en
+  # vez de por /dev/input, y hidraw nace 0600 root: sin esta regla el log
+  # repite "Yuzu can't gain access to this device: ID 057E:2006/2007" y el
+  # emulador no lista los mandos. Ryujinx sí los ve sin nada extra porque usa
+  # el motor SDL, que lee /dev/input/js* (con uaccess desde 70-uaccess.rules).
+  #
+  # Via Bluetooth el Joy-Con no es un dispositivo USB: es un uhid virtual
+  # creado por hidp, sin idVendor/idProduct en sysfs (por eso no sirve
+  # ATTRS{idVendor}). Su DEVPATH sí lleva el identificador, y el HID padre
+  # expone modalias, así que se matchea por DEVPATH.
+  services.udev.extraRules = ''
+    KERNEL=="hidraw*", DEVPATH=="*057E:2006*", MODE="0660", GROUP="input", TAG+="uaccess"
+    KERNEL=="hidraw*", DEVPATH=="*057E:2007*", MODE="0660", GROUP="input", TAG+="uaccess"
+  '';
+
   # GTX 1070 = Pascal. Los módulos abiertos de NVIDIA solo cubren Turing en
   # adelante, así que el driver propietario es el único válido aquí.
   # modesetting habilita KMS, necesario para niri sobre Wayland.
