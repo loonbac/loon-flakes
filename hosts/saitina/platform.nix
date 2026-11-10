@@ -37,6 +37,19 @@
     KERNEL=="hidraw*", DEVPATH=="*057E:2007*", MODE="0660", GROUP="input", TAG+="uaccess"
   '';
 
+  # La regla de arriba deja los hidraw en 0660 root:input, así que el usuario
+  # necesita el grupo para abrirlos. Sin él solo queda el ACL de uaccess, y
+  # logind NO lo aplica de forma fiable cada vez que el Joy-Con se reconecta:
+  # pasó tres veces (2026-11-09 22:22, 2026-11-10 09:19 y 09:24) y en todas
+  # hubo que forzarlo con `udevadm trigger`, con Eglantine fallando
+  # "Yuzu can't gain access to this device" mientras SDL veía js0 sin más.
+  #
+  # Con el grupo, la apertura no depende del ACL y sobrevive a cualquier
+  # reconexión. Mismo patrón que hosts/nixos-pc/sunshine.nix.
+  #
+  # OJO: los grupos nuevos solo se aplican en el próximo login.
+  users.users.saito.extraGroups = [ "input" ];
+
   # GTX 1070 = Pascal. Los módulos abiertos de NVIDIA solo cubren Turing en
   # adelante, así que el driver propietario es el único válido aquí.
   # modesetting habilita KMS, necesario para niri sobre Wayland.
