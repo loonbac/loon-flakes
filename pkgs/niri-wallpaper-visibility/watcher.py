@@ -123,12 +123,14 @@ def wallpaper_status() -> str:
     return result.stdout.strip()
 
 
-def pause_reasons() -> list[str]:
-    """Motivos de pausa presentes, como 'manual (3h2m, cli)'.
+def pause_reasons() -> list[tuple[str, str, str]]:
+    """Motivos de pausa presentes como (motivo, antigüedad, dueño).
 
     Se listan todos, incluido el propio `opaque-window`: si después de pedir
     animación sigue ahí, es información útil (otra instancia lo puso o el
-    `resume` no llegó), no algo que deba esconderse.
+    `resume` no llegó), no algo que deba esconderse. La antigüedad se devuelve
+    aparte del motivo: si entrara en la firma de deduplicación, cambiaría cada
+    segundo y el aviso se repetiría en todos los eventos.
     """
     try:
         result = subprocess.run(
@@ -139,14 +141,14 @@ def pause_reasons() -> list[str]:
         )
     except OSError:
         return []
-    reasons: list[str] = []
+    reasons: list[tuple[str, str, str]] = []
     for line in result.stdout.splitlines():
         fields = line.split("\t")
         # reason<TAB>age<TAB>owner
         if len(fields) < 2:
             continue
         owner = fields[2] if len(fields) > 2 else "desconocido"
-        reasons.append(f"{fields[0]} ({fields[1]}, {owner})")
+        reasons.append((fields[0], fields[1], owner))
     return reasons
 
 
@@ -172,12 +174,16 @@ def warn_if_still_paused(desired_freeze: bool) -> None:
         _paused_warning = None
         return
     reasons = pause_reasons()
-    signature = tuple(reasons)
+    # Firma sin la antigüedad: ésta cambia cada segundo y el dedupe dejaría de
+    # servir (se vio en vivo: cinco avisos en siete segundos).
+    signature = tuple((reason, owner) for reason, _age, owner in reasons)
     if signature == _paused_warning:
         return
     _paused_warning = signature
     if reasons:
-        detail = f"por: {', '.join(reasons)}"
+        detail = "por: " + ", ".join(
+            f"{reason} ({age}, {owner})" for reason, age, owner in reasons
+        )
     else:
         detail = (
             "sin ningún motivo registrado: es una pausa directa sobre el IPC de "
