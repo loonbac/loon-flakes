@@ -110,6 +110,87 @@ def set_wallpaper_paused(paused: bool) -> None:
     subprocess.run(args, check=False, stdout=subprocess.DEVNULL)
 
 
+def wallpaper_status() -> str:
+    try:
+        result = subprocess.run(
+            ["mpvpaper-wallpaper", "status"],
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return ""
+    return result.stdout.strip()
+
+
+def pause_reasons() -> list[str]:
+    """Motivos de pausa presentes, como 'manual (3h2m, cli)'.
+
+    Se listan todos, incluido el propio `opaque-window`: si después de pedir
+    animación sigue ahí, es información útil (otra instancia lo puso o el
+    `resume` no llegó), no algo que deba esconderse.
+    """
+    try:
+        result = subprocess.run(
+            ["mpvpaper-wallpaper", "reasons"],
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return []
+    reasons: list[str] = []
+    for line in result.stdout.splitlines():
+        fields = line.split("\t")
+        # reason<TAB>age<TAB>owner
+        if len(fields) < 2:
+            continue
+        owner = fields[2] if len(fields) > 2 else "desconocido"
+        reasons.append(f"{fields[0]} ({fields[1]}, {owner})")
+    return reasons
+
+
+_paused_warning: tuple[str, ...] | None = None
+
+
+def warn_if_still_paused(desired_freeze: bool) -> None:
+    """Avisa en el journal cuando el fondo sigue pausado pese a querer animarlo.
+
+    Sin este aviso una pausa ajena es invisible: `status` solo dice 'paused' y el
+    fondo se queda en el último frame hasta que alguien piense en correr
+    `mpvpaper-wallpaper reasons`. Pasó el 2026-11-10: un motivo 'manual' de
+    origen 'cli' congeló el fondo tres horas y ningún cambio de foco lo retiró,
+    porque los motivos ajenos solo los retira una orden explícita `resume`.
+    Se avisa una sola vez por conjunto de motivos para no inundar el journal
+    con cada cambio de foco.
+    """
+    global _paused_warning
+    if desired_freeze:
+        return
+    if wallpaper_status() != "paused":
+        # Dejó de estar pausado: si vuelve a ocurrir, volverá a avisar.
+        _paused_warning = None
+        return
+    reasons = pause_reasons()
+    signature = tuple(reasons)
+    if signature == _paused_warning:
+        return
+    _paused_warning = signature
+    if reasons:
+        detail = f"por: {', '.join(reasons)}"
+    else:
+        detail = (
+            "sin ningún motivo registrado: es una pausa directa sobre el IPC de "
+            "mpv, y el próximo `pause` la conservará como motivo 'manual'"
+        )
+    print(
+        "niri-wallpaper-visibility: el fondo animado sigue pausado "
+        f"{detail}. Reanuda con: mpvpaper-wallpaper resume",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def main() -> int:
     if not os.environ.get("NIRI_SOCKET"):
         print("niri-wallpaper-visibility: NIRI_SOCKET no está definido", file=sys.stderr)
@@ -144,10 +225,12 @@ def main() -> int:
             if not state.update(event):
                 continue
             desired = state.should_freeze_wallpaper()
-            if desired == applied:
-                continue
-            set_wallpaper_paused(desired)
-            applied = desired
+            if desired != applied:
+                set_wallpaper_paused(desired)
+                applied = desired
+            # Se comprueba también cuando no hubo que actuar: una pausa ajena
+            # puede aparecer (o desaparecer) sin que cambie la visibilidad.
+            warn_if_still_paused(desired)
     finally:
         # El motivo se conserva si niri corta el stream; systemd reiniciará el
         # watcher y reconciliará el estado completo recibido al reconectar.
