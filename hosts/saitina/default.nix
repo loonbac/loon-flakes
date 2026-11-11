@@ -7,6 +7,7 @@
     ./hardware-configuration.nix
     ./platform.nix
     ./gaming.nix
+    ./games-disk.nix
   ];
 
   networking.hostName = "saitina";
