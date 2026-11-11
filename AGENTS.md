@@ -882,6 +882,16 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   una app, se decodifica vídeo que nadie ve. En `hosts/saitina` el servicio
   estaba deshabilitado a propósito (el vídeo corría siempre); se habilitó el
   2026-11-08 al adoptar la política de animar solo en terminales.
+- **Fondo congelado sin causa aparente → el journal del watcher**: cuando
+  quiere animar y mpv sigue pausado, `niri-wallpaper-visibility` escribe en su
+  journal el motivo con antigüedad y dueño y el comando para retirarlo
+  (`journalctl --user -u niri-wallpaper-visibility`). Un aviso por conjunto de
+  motivos, no por evento: la firma deduplicada es `(motivo, dueño)` y la
+  antigüedad se muestra pero **no** entra en ella, porque cambia cada segundo
+  y convertiría el aviso en una línea por evento (cinco en siete segundos, el
+  2026-11-10). Ese mismo día un motivo `manual` de origen `cli` dejó el fondo
+  tres horas en el último frame y no había nada en el journal que lo
+  explicara: `mpvpaper-wallpaper reasons` sigue siendo la primera parada.
 - **El fade de cambio de fondo no convive con `hwdec`**: el filtro
   `lavfi`/`xfade` falla al configurarse con decodificación por hardware y mpv
   descarta el filtro entero, dejando un corte seco en lugar de la transición,
