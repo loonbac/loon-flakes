@@ -280,6 +280,8 @@
         cline = pkgs.callPackage ./pkgs/cline-launcher { };
         # Explorador de archivos GPUI/Wayland (no está en nixpkgs).
         omafiles = pkgs.callPackage ./pkgs/omafiles { };
+        # Launcher de juegos anime (Tauri/WebKitGTK) empaquetado desde su .deb oficial.
+        twintaillauncher = pkgs.callPackage ./pkgs/twintaillauncher { };
       };
 
       overlays = {

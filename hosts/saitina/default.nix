@@ -6,6 +6,7 @@
   imports = [
     ./hardware-configuration.nix
     ./platform.nix
+    ./gaming.nix
   ];
 
   networking.hostName = "saitina";
