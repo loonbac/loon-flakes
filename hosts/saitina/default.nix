@@ -165,6 +165,28 @@
       }
     ];
   };
+
+  # Al desconectar los audífonos Bluetooth la salida debe volver al monitor,
+  # no al jack del PD100X. WirePlumber elige el fallback por `priority.session`
+  # y el jack del micrófono (1109) le ganaba al HDMI del monitor (696). Bajarlo
+  # deja el orden natural Bluetooth (1010) > monitor (696) > PD100X (600); una
+  # selección manual del PD100X se sigue respetando porque WirePlumber suma
+  # 30000 al nodo que el usuario configuró como predeterminado.
+  services.pipewire.wireplumber.extraConfig."51-monitor-default-sink" = {
+    "monitor.alsa.rules" = [
+      {
+        matches = [
+          {
+            "node.name" =
+              "alsa_output.usb-352f_PD100X_Podcast_Microphone_214b206000000178-00.analog-stereo";
+          }
+        ];
+        actions.update-props = {
+          "priority.session" = 600;
+        };
+      }
+    ];
+  };
   # PORT compila los plugins en un arbol temporal y el [patch] del repo de
   # plugins apunta a ../port, que desde /tmp resuelve a /tmp/port. El clon del
   # codigo (tag que fija el workspace de plugins) vive en el home y este
