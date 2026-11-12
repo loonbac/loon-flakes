@@ -1200,7 +1200,10 @@ writeShellApplication {
       export GENTLE_PI_GENTLE_AI_DEV_BINARY="''${GENTLE_AI_DEV_INSTALL_ROOT:-$HOME/.local/share/loon-gentle-ai-dev}/gentle-ai"
       export GENTLE_PI_SKIP_GENTLE_AI_INSTALL=1
     ''}
-    engram update --if-needed
+    # Engram tracks the latest release on every activation. The updater keeps
+    # the installed version when the registry is unreachable, so a failure
+    # here means a genuine download or verification problem.
+    engram update
 
     # `gentle-shell` prefix reconciliation. It is declarative in one direction
     # only: a build converges the prefix on programs.gentle-ai.gentleShell and
