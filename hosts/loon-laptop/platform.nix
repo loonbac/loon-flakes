@@ -7,6 +7,7 @@
   ];
 
   boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot.configurationLimit = 3;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Hibernación. La partición de swap (16.8 G) supera la RAM (15.3 G), así que

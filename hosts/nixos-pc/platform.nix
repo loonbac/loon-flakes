@@ -15,9 +15,9 @@ in
     enable = true;
     pkiBundle = "/var/lib/sbctl";
     autoGenerateKeys.enable = true;
-    # La ESP es de 196 MiB; conservar rollbacks suficientes sin saturarla con
-    # initrds de generaciones antiguas.
-    configurationLimit = 10;
+    # La ESP es de 196 MiB: solo 3 generaciones para no saturarla con
+    # initrds antiguos.
+    configurationLimit = 3;
   };
   boot.loader.efi.canTouchEfiVariables = true;
 
