@@ -7,6 +7,8 @@
 , fd
 , gzip
 , nodejs
+, pnpm
+, go
 , libnotify
 , pipewire
 , piCompactionThreshold
@@ -31,6 +33,12 @@
 , gentleAiRuntimeSource ? null
 , engramSourceMode ? "release"
 , engramSourceRef ? null
+# Declarative state of the managed npm-global prefix that provides
+# `gentle-shell` (programs.gentle-ai.gentleShell). The bootstrap converges the
+# prefix on these values; it never follows its own update lane.
+, gentleShellEnable ? true
+, gentleShellChannel ? "release"
+, gentleShellVersion ? null
 }:
 
 let
@@ -1152,6 +1160,11 @@ writeShellApplication {
     fd
     gzip
     nodejs
+    # The `main` channel of gentle-shell packs Shell with pnpm and builds the
+    # Gentle AI companion with Go. Both come from this closure so a rebuild
+    # never depends on a toolchain the user happened to install.
+    pnpm
+    go
     piCompactionThreshold
     piLauncher
     gentleAiLauncher
@@ -1170,6 +1183,12 @@ writeShellApplication {
     core_sources_state="$agent_dir/nix/gentle-core-sources.json"
     core_observed_state="$agent_dir/nix/gentle-core-observed.json"
     engram_install_root="''${ENGRAM_INSTALL_ROOT:-$HOME/.local/share/loon-engram}"
+    # Managed npm-global prefix that provides `gentle-shell` (Path A of the
+    # upstream installer). It is the Arch-like lane: the bytes are mutable and
+    # the declaration below decides which of them should be there.
+    managed_shell_root="''${LOON_GENTLE_SHELL_ROOT:-$HOME/.local/share/loon-gentle-shell}"
+    managed_shell_channel=${lib.escapeShellArg gentleShellChannel}
+    managed_shell_version=${lib.escapeShellArg (if gentleShellVersion == null then "" else gentleShellVersion)}
 
     mkdir -p "$npm_node_modules" "$HOME/.gentle-ai" "$npm_prefix"
 
@@ -1182,6 +1201,124 @@ writeShellApplication {
       export GENTLE_PI_SKIP_GENTLE_AI_INSTALL=1
     ''}
     engram update --if-needed
+
+    # `gentle-shell` prefix reconciliation. It is declarative in one direction
+    # only: a build converges the prefix on programs.gentle-ai.gentleShell and
+    # never advances a version the user changed by hand (`gentle-shell upgrade`
+    # keeps that lane), never touches Pi settings, keys or profiles, and carries
+    # no credentials.
+    installed_shell_version() {
+      if [ -f "$managed_shell_root/lib/node_modules/gentle-pi/package.json" ]; then
+        node -p 'require(process.argv[1]).version' \
+          "$managed_shell_root/lib/node_modules/gentle-pi/package.json" 2>/dev/null || true
+      fi
+    }
+    # True (exit 0) only when the first version is strictly newer, comparing
+    # the numeric release part. A `-main.<sha>` suffix reads as its base
+    # version, so callers must handle a main build separately instead of
+    # treating `4.7.1-main.abc` as newer than `4.7.0`.
+    version_is_newer() {
+      node -e '
+        const parse = (value) => String(value).replace(/^v/, "").split(/[.+-]/).slice(0, 3)
+          .map((part) => Number.parseInt(part, 10) || 0);
+        const left = parse(process.argv[1]);
+        const right = parse(process.argv[2]);
+        for (let index = 0; index < 3; index += 1) {
+          if (left[index] !== right[index]) process.exit(left[index] > right[index] ? 0 : 1);
+        }
+        process.exit(1);
+      ' "$1" "$2"
+    }
+    reconcile_gentle_shell() {
+      managed_bin="$managed_shell_root/bin/gentle-shell"
+      declared_record="$managed_shell_root/.nix-declared"
+      declared_key="$managed_shell_channel ''${managed_shell_version:-latest}"
+      # `version` only means something in the release channel; declaring it in
+      # main must not force a source rebuild of unchanged upstream commits.
+      if [ "$managed_shell_channel" = "main" ]; then
+        declared_key="main"
+      fi
+      previous_declared=""
+      if [ -f "$declared_record" ]; then
+        previous_declared="$(cat "$declared_record")"
+      fi
+      installed_version="$(installed_shell_version)"
+
+      if [ "$managed_shell_channel" = "main" ]; then
+        # Following main means compiling Shell and Gentle AI from source, so it
+        # runs only when the declaration changed or the install is missing. A
+        # rebuild that kept the same declaration must not rebuild Go artifacts.
+        if [ -x "$managed_bin" ] && [ -n "$installed_version" ] \
+          && [ "$previous_declared" = "$declared_key" ]; then
+          return 0
+        fi
+        mkdir -p "$managed_shell_root"
+        # `upgrade --channel main` needs a Shell to run: repair a missing or
+        # release install first, exactly as the upstream rebuild path does.
+        if [ ! -x "$managed_bin" ]; then
+          if ! npm install --global --prefix "$managed_shell_root" \
+            --no-audit --no-fund --loglevel=error gentle-pi@latest >/dev/null; then
+            echo "gentle-ai-bootstrap: could not install the gentle-pi launcher needed to build the main channel" >&2
+            exit 1
+          fi
+        fi
+        echo "gentle-shell: building the main channel from upstream sources (pnpm + go)"
+        if ! (cd "$HOME" && "$managed_bin" upgrade --channel main); then
+          echo "gentle-ai-bootstrap: the main channel build failed; the installed gentle-shell was left in place" >&2
+          exit 1
+        fi
+        printf '%s\n' "$declared_key" > "$declared_record"
+        return 0
+      fi
+
+      wanted_version="$managed_shell_version"
+      if [ -z "$wanted_version" ]; then
+        # Null means "latest published", read from the registry at activation
+        # time so a rebuild picks up new releases without editing Nix.
+        wanted_version="$(npm view gentle-pi version 2>/dev/null | tail -1 | tr -d '[:space:]' || true)"
+        if [ -z "$wanted_version" ]; then
+          if [ -n "$installed_version" ]; then
+            echo "gentle-ai-bootstrap: could not read the latest published gentle-pi; keeping $installed_version" >&2
+            return 0
+          fi
+          echo "gentle-ai-bootstrap: the npm registry is unreachable and no gentle-shell is installed; skipping it for this activation" >&2
+          return 0
+        fi
+        # The latest release is normally the newest, but a hand upgrade may run
+        # ahead of the registry, and a rebuild must never downgrade it. A main
+        # build is not a release at all: switching back to `release` installs
+        # over it even when its base version sorts higher.
+        case "$installed_version" in
+          *-main.*) ;;
+          *)
+            if [ -n "$installed_version" ] && [ "$installed_version" != "$wanted_version" ] \
+              && version_is_newer "$installed_version" "$wanted_version"; then
+              printf '%s\n' "$declared_key" > "$declared_record"
+              return 0
+            fi
+            ;;
+        esac
+      fi
+
+      if [ -x "$managed_bin" ] && [ "$installed_version" = "$wanted_version" ]; then
+        printf '%s\n' "$declared_key" > "$declared_record"
+        return 0
+      fi
+
+      echo "gentle-shell: installing gentle-pi@$wanted_version into $managed_shell_root"
+      mkdir -p "$managed_shell_root"
+      if ! npm install --global --prefix "$managed_shell_root" \
+        --no-audit --no-fund --loglevel=error "gentle-pi@$wanted_version" >/dev/null; then
+        echo "gentle-ai-bootstrap: npm could not install gentle-pi@$wanted_version; the installed gentle-shell was left in place" >&2
+        exit 1
+      fi
+      if [ ! -x "$managed_bin" ]; then
+        echo "gentle-ai-bootstrap: gentle-pi@$wanted_version did not provide the gentle-shell command" >&2
+        exit 1
+      fi
+      printf '%s\n' "$declared_key" > "$declared_record"
+    }
+    ${lib.optionalString gentleShellEnable "reconcile_gentle_shell"}
 
     # Raiz de los paquetes locales de Pi. Solo el guard de contexto Jev queda
     # enlazado aqui: los bytes son del flake y el home guarda la identidad.
@@ -1375,8 +1512,13 @@ writeShellApplication {
     # The runtime choice now comes only from programs.gentle-ai.core. Retire an
     # older hand-written registration; branch mode uses the process environment
     # and therefore does not need to write this local configuration file.
+    #
+    # Exception: the `main` channel of gentle-shell registers its own Gentle AI
+    # binary in this exact file, so retiring it there would drop the build the
+    # channel just made. The file is only retired under the release channel.
     dev_binary_config="$HOME/.pi/gentle-ai/dev-binary.json"
-    if [ -e "$dev_binary_config" ] || [ -L "$dev_binary_config" ]; then
+    if [ "$managed_shell_channel" != "main" ] \
+      && { [ -e "$dev_binary_config" ] || [ -L "$dev_binary_config" ]; }; then
       mkdir -p "$backup_dir/gentle-ai"
       mv "$dev_binary_config" "$backup_dir/gentle-ai/dev-binary.json"
     fi

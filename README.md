@@ -391,6 +391,12 @@ solo repara lo que falte y nunca toca tus sesiones, tu `~/.engram/` ni tus
 claves. Los detalles finos de providers y respaldos viven en el código del
 módulo, no aquí.
 
+Gentle Shell también viene declarado: por defecto siempre lo último
+(`programs.gentle-ai.gentleShell`, canal `release`); `version = "x.y.z"` lo fija
+ y `channel = "main"` lo compila desde fuente. `gentle-shell upgrade`
+avanza, `--channel X` cambia (apunta el .nix para que dure) y `--rollback`
+vuelve a la versión anterior.
+
 ### Veadotube Mini
 
 Veadotube Mini 2.2 viene como binario externo, solo para `nixos-pc`. Su ZIP de

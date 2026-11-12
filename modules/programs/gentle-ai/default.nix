@@ -17,6 +17,10 @@ let
       "git/github.com/Gentleman-Programming/gentle-pi";
 
   gga = pkgs.callPackage ../../../pkgs/gga { };
+  # Wrapper over the mutable npm-global prefix that holds `gentle-pi`
+  # (Path A: `npm i -g gentle-pi`). The bootstrap reconciles the prefix; the
+  # launcher only adds upgrade/rollback and the main-channel build tools.
+  gentleShellPackage = pkgs.callPackage ../../../pkgs/gentle-shell { };
   codegraphLauncher = pkgs.callPackage ../../../pkgs/codegraph-launcher { };
   gentleAiRuntimeUpdater = pkgs.callPackage ../../../pkgs/gentle-ai-runtime-updater {
     source = core.gentleAi.source;
@@ -54,10 +58,13 @@ let
     engramSourceMode = core.engram.mode;
     engramSourceRef = core.engram.ref;
     inherit gptFastModeShared piJevContextGuard;
-  loonHome = config.loon.home;
-  personalPiProviders = config.loon.personal.piProviders;
-  personalJudges = config.loon.personal.judges;
-  personalMcpServers = config.loon.personal.mcpServers;
+    loonHome = config.loon.home;
+    personalPiProviders = config.loon.personal.piProviders;
+    personalJudges = config.loon.personal.judges;
+    personalMcpServers = config.loon.personal.mcpServers;
+    gentleShellEnable = cfg.gentleShell.enable;
+    gentleShellChannel = cfg.gentleShell.channel;
+    gentleShellVersion = cfg.gentleShell.version;
     inherit piCompactionThreshold;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
@@ -134,6 +141,46 @@ in
         };
       };
     };
+
+    # The Arch-like install of Gentle AI: the `gentle-pi` npm global that
+    # provides the `gentle-shell` command, reconciled from Nix instead of
+    # tracked by the Nix store. `channel`/`version` are the single source of
+    # truth: the bootstrap converges the prefix on every activation, so a
+    # channel changed by hand with `gentle-shell upgrade --channel` reverts at
+    # the next rebuild unless it is also declared here.
+    gentleShell = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Install `gentle-pi` as a mutable npm-global prefix under
+          ~/.local/share/loon-gentle-shell and expose the `gentle-shell`
+          launcher. Disable to keep only the store-managed Gentle layer.
+        '';
+      };
+
+      channel = lib.mkOption {
+        type = lib.types.enum [ "release" "main" ];
+        default = "release";
+        description = ''
+          Update channel of the managed prefix. `release` installs published
+          `gentle-pi` versions; `main` builds Gentle Shell and Gentle AI from
+          the latest upstream main commits (needs network, pnpm and Go, both
+          provided by the wrapper).
+        '';
+      };
+
+      version = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "4.7.0";
+        description = ''
+          Exact `gentle-pi` version to keep installed in release channel. Null
+          follows the latest published version and never downgrades a version
+          the user already upgraded by hand. Ignored in the main channel.
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -163,6 +210,16 @@ in
           || builtins.match "^v[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$" core.engram.ref != null;
         message = "programs.gentle-ai.core.engram.ref must be a version tag such as v2.0.0 in release mode.";
       }
+      {
+        assertion = cfg.gentleShell.version == null || cfg.gentleShell.version != "";
+        message = "programs.gentle-ai.gentleShell.version must be null or non-empty.";
+      }
+      {
+        assertion =
+          cfg.gentleShell.version == null
+          || builtins.match "^[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$" cfg.gentleShell.version != null;
+        message = "programs.gentle-ai.gentleShell.version must be an npm version such as 4.7.0.";
+      }
     ];
 
     # Only these launchers and core reconcilers belong to the Gentle layer.
@@ -179,7 +236,8 @@ in
       piCompactionThreshold
       bootstrap
       stackUpdate
-    ];
+    ]
+    ++ lib.optional cfg.gentleShell.enable gentleShellPackage;
 
     # A system service running as the primary user is intentional: NixOS
     # switch tracks and restarts changed system units, while already-active

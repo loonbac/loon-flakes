@@ -667,6 +667,14 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `pi -p --provider inception --model mercury-3` responde exacto y usa tools (leyó
     `/etc/hostname`); el provider sobrevive al rebuild.
   - Rotar la key = editar ese único archivo; no hay que rebuildear.
+- **`gentle-shell` (instalación estilo Arch, declarada)**: `programs.gentle-ai.gentleShell`
+  (`enable`, `channel = "release"|"main"`, `version = null|"x.y.z"`). Por defecto lo último
+  publicado; `version` fija, `main` compila Shell+AI desde fuente (pnpm+Go los pone Nix).
+  El bootstrap converge el prefijo mutable `~/.local/share/loon-gentle-shell` (Path A upstream:
+  `npm i -g gentle-pi`), nunca degrada lo que subiste a mano y sin red conserva lo instalado.
+  Comandos: `gentle-shell upgrade` (avanza en el canal), `--channel X` (cambia ya e imprime el
+  cambio .nix para hacerlo permanente —si no, el bootstrap lo revierte al entrar),
+  `--rollback` (reinstala la versión anterior guardada). Rollback de lo declarado = generación NixOS.
 - **Proveedor `alibaba-token-plan` retirado (2026-11-04)**: la declaración salió de
   `piModelProviders` por decisión del dueño. `mergeModels` hace `Object.assign` sin lista de
   retiro, así que quitar el manifiesto **no** borra la clave del JSON: el proveedor se quita a
