@@ -39,6 +39,10 @@
   # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
   loon.devPorts = [ 5173 8080 ];
 
+  # Gentle Shell desde fuente: compila Shell (pnpm) + Gentle AI (Go) con los
+  # últimos commits de main en cada activación que cambie la declaración.
+  programs.gentle-ai.gentleShell.channel = "main";
+
   # Minecraft: el mundo abierto al LAN desde PrismLauncher escucha en *:25565.
   # Se abre solo a la tailnet, no a la LAN ni a internet: la regla se limita a
   # la interfaz tailscale0 en vez de sumar el puerto a allowedTCPPorts, que lo

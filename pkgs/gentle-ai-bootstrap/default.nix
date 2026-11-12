@@ -5,6 +5,7 @@
 , bash
 , git
 , fd
+, gnutar
 , gzip
 , nodejs
 , pnpm
@@ -1152,12 +1153,14 @@ in
 writeShellApplication {
   name = "gentle-ai-bootstrap";
   # bash supplies `sh` for the one explicitly approved npm lifecycle script.
-  # gzip is required by gentle-pi's trusted `/usr/bin/tar -xzf` extractor.
+  # The main-channel shell pack is extracted with `tar -xzf` (gzip-compressed),
+  # so both tools come from this closure: there is no /usr/bin/tar on NixOS.
   runtimeInputs = [
     coreutils
     bash
     git
     fd
+    gnutar
     gzip
     nodejs
     # The `main` channel of gentle-shell packs Shell with pnpm and builds the
@@ -1266,7 +1269,9 @@ writeShellApplication {
           fi
         fi
         echo "gentle-shell: building the main channel from upstream sources (pnpm + go)"
-        if ! (cd "$HOME" && "$managed_bin" upgrade --channel main); then
+        # `upgrade --channel` resolves npm ownership through `npm root -g`, so it
+        # only recognizes this prefix when npm's own prefix points at it.
+        if ! (cd "$HOME" && NPM_CONFIG_PREFIX="$managed_shell_root" "$managed_bin" upgrade --channel main); then
           echo "gentle-ai-bootstrap: the main channel build failed; the installed gentle-shell was left in place" >&2
           exit 1
         fi
