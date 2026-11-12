@@ -89,7 +89,7 @@
     type = lib.types.bool;
     default = config.loon.personal.enable;
     description = ''
-      Servidores MCP del home de loonbac (rakya, google-flow, dataimpulse,
+      Servidores MCP del home de loonbac (rakya, flow-mcp, dataimpulse,
       voice-gen): wrappers y datos mutables que solo existen en su máquina.
     '';
   };

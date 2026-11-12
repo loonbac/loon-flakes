@@ -457,9 +457,9 @@ let
   # Config que el bootstrap symlinka en ~/.pi/agent/mcp.json. Es el único
   # fichero de MCP que Pi lee a nivel de usuario, así que los servers
   # declarados aquí tienen acceso en todas las sesiones. `rakya` (relay de
-  # Discord) y `google-flow` (automatización de flow.google.com sobre Chrome ya
+  # Discord) y `flow-mcp` (automatización de flow.google.com sobre Chrome ya
   # autenticado) viven en el home porque sus bytes son mutables del usuario:
-  # wrapper, dependencias npm, build y config quedan fuera de la store.
+  # wrapper, dependencias, build y config quedan fuera de la store.
   #
   # El wrapper de `rakya` NO ejecuta una copia del repo: apunta al binario que
   # produce `cargo build --release` en ~/Proyectos/rakya. La entrada anterior
@@ -484,11 +484,10 @@ let
         cwd = "${loonHome}/.local/share/loon-pi-mcp";
         description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
-      google-flow = {
-        command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "${loonHome}/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
-        cwd = "${loonHome}/.local/share/loon-pi-mcp/google-flow";
-        description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
+      flow-mcp = {
+        command = "${loonHome}/.local/bin/flow-mcp";
+        args = [ ];
+        description = "Google Flow via the Go single-daemon MCP over headed-Chrome CDP: images, characters, scenes (video spends credits)";
       };
       # Residential proxy for pages that block this host or change by region.
       # The proxy is used ONLY inside this server: the store holds no
