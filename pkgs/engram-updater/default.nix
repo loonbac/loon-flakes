@@ -66,7 +66,7 @@ writeShellApplication {
     [ ! -f "$resolved_record" ] || current_resolved="$(cat "$resolved_record")"
 
     # A fixed release or Git ref only needs network access when the declaration
-    # changes. Moving refs are refreshed explicitly through `engram update`.
+    # changes. Moving refs are refreshed by a plain `engram update`.
     if [ "$if_needed" -eq 1 ] && [ "$current_request" = "$request" ] \
       && [ -x "$current_link" ]; then
       exit 0
@@ -89,10 +89,20 @@ writeShellApplication {
       else
         api_url="https://api.github.com/repos/Gentleman-Programming/engram/releases/latest"
       fi
-      curl --fail --silent --show-error --location \
+      # An unreachable registry must not break an activation when a good
+      # install already exists; anything after a successful metadata fetch
+      # (assets, checksums, version check) stays fatal.
+      if ! curl --fail --silent --show-error --location \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "$api_url" --output "$stage/release.json"
+        "$api_url" --output "$stage/release.json"; then
+        if [ -x "$current_link" ]; then
+          echo "engram-update: warning: the release registry is unreachable; keeping the installed version" >&2
+          exit 0
+        fi
+        echo "engram-update: the release registry is unreachable and no engram is installed" >&2
+        exit 1
+      fi
 
       tag="$(jq -er '.tag_name' "$stage/release.json")"
       if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
