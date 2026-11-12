@@ -546,30 +546,32 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `credentials.lock` y `signed-out.json` ya no los lee nadie. Solo
   `~/.config/mistral-vibe/api-key` importa.
 - **Rotar la credencial**: sobrescribir ese único archivo; no hay rebuild.
+- **La cuota de Vibe cubre cualquier modelo** (2026-11-12). La clave de Vibe acepta
+  `mistral-large-4` sin 403 ni 402, y 40 000 tokens de salida contra ese modelo movieron
+  el contador «Uso mensual» de Vibe (~0.06 %). No hay endpoint de facturación
+  (`/v1/usage`, `/v1/credits`, `/v1/balance` → 404): el panel es el único oráculo. Pista
+  indirecta: cada clave tiene su límite de tokens/minuto en cabeceras (`1M` la de Vibe,
+  `15M` la de API).
 - **Razonamiento**: `reasoning = true` a secas **no** basta y falla con 400 código 3051
   («Reasoning prompt mode is not enabled for this model»). El adaptador
   `mistral-conversations` manda `prompt_mode = "reasoning"` —el parámetro de la vía
   Magistral antigua— solo cuando el modelo **no** declara `thinkingLevelMap`; con el mapa
   declarado manda `reasoning_effort`, que es el que estos modelos aceptan y el que devuelve
-  bloques `thinking` y cobra `reasoning_tokens`. La API solo admite `high` y `none` en los
-  cuatro modelos que razonan; los niveles intermedios de Pi caen a `high`.
-  `mistral-large-latest` y `mistral-code-latest` no lo soportan («reasoning_effort is not
-  enabled for this model») y siguen en `false`. Comprobar la capacidad en
+  bloques `thinking` y cobra `reasoning_tokens`. Comprobar la capacidad en
   `/v1/models` → `capabilities.reasoning`, no en el catálogo de pi-ai.
-- **Un solo modelo en el selector, y es correcto**: los alias `mistral-vibe-cli-latest`,
-  `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven al **mismo** modelo
-  (Mistral Medium 3.5) según el campo `aliases` de `/v1/models`; `mistral-vibe-cli-fast` es
-  Mistral Small 4. Declararlos por separado llenaba el selector de duplicados.
-- **No hay gradación real de razonamiento**: la API solo acepta `high` y `none` en todos sus
-  modelos, y rechaza el presupuesto de tokens al estilo Anthropic (`thinking` → 422
-  `extra_forbidden`). Los siete niveles de Pi se declaran en el mapa, pero solo dos estados
-  viajan: `off` y todo lo demás con `high`. `mistral-large-4` sí razona y trae 1M de
-  contexto, pero **no tiene alias de Vibe**: usarlo probablemente salga de la asignación de
-  API.
-- Verificar: `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."` y
+- **Un solo modelo en el selector, y es Large 4**: `mistral-large-4` (1M de contexto,
+  $0.70/$2.10) es más capaz y más barato que el alias de Vibe (Medium 3.5, 262k,
+  $1.50/$7.50). Los alias `mistral-vibe-cli-latest`, `mistral-vibe-cli-with-tools` y
+  `mistral-medium-latest` resolvían todos a Medium 3.5 según `aliases` de `/v1/models`.
+- **Gradación real de razonamiento en Large 4**: la API acepta `low`, `medium` y `high`;
+  rechaza `none`, `minimal` y `xhigh`, y el presupuesto de tokens al estilo Anthropic
+  (`thinking` → 422 `extra_forbidden`). El modelo razona por defecto incluso sin el
+  parámetro, así que `off` cae a `low` (el nivel más barato) en vez de a un `none` que
+  devuelve 400. (Medium 3.5 solo admitía `high` y `none`: sin gradación.)
+- Verificar: `pi -p --provider mistral-vibe --model mistral-large-4 "..."` y
   `curl -s -o /dev/null -w '%{http_code}' https://api.mistral.ai/v1/models -H "Authorization: Bearer $(cat ~/.config/mistral-vibe/api-key)"` → 200.
-  Para el razonamiento, comparar salida con `--thinking off` y `--thinking high` en una
-  cuenta que exija pensar: el segundo gasta ~100 tokens de salida más y acierta.
+  Para el razonamiento, probar `--thinking off|low|medium|high`: ninguno devuelve 400 y
+  todos resuelven la cuenta de control (tren 14:20+95min → 15:55).
 
 ### MCP de Pi (built-in) y codemode
 

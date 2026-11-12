@@ -172,37 +172,38 @@ let
       # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
       # request, así que rotarla no exige rebuild.
       apiKey = "!cat /home/loonbac/.config/mistral-vibe/api-key";
-      # Un solo modelo a propósito: los alias `mistral-vibe-cli-latest`,
-      # `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven todos al
-      # mismo modelo (Mistral Medium 3.5) según `/v1/models`, así que ofrecerlos por
-      # separado solo llena el selector con duplicados. `mistral-vibe-cli-fast` es
-      # Mistral Small 4, el pequeño, y no compite por "el más capaz".
+      # Un solo modelo a propósito: la cuota de Vibe cubre cualquier modelo de la
+      # API (verificado en vivo: 40k tokens de `mistral-large-4` movieron el
+      # contador de Vibe), así que se ofrece el más capaz, no el alias de Vibe.
+      # Los alias `mistral-vibe-cli-latest`, `mistral-vibe-cli-with-tools` y
+      # `mistral-medium-latest` resuelven todos a Mistral Medium 3.5 según
+      # `/v1/models`: más caro ($1.50/$7.50) y más débil que Large 4 ($0.70/$2.10).
       models = [
         {
-          id = "mistral-vibe-cli-latest";
-          name = "Mistral Vibe (Medium 3.5)";
+          id = "mistral-large-4";
+          name = "Mistral Vibe (Large 4)";
           reasoning = true;
-          # La API expone solo `high` y `none`, no hay gradación real: Pi muestra
-          # sus siete niveles, pero cualquier nivel distinto de `off` piensa con
-          # `high`. Se declaran los siete para que la configuración diga la verdad
-          # en vez de depender del fallback del adaptador.
+          # Large 4 acepta `low`, `medium` y `high` (gradación real), pero ni
+          # `none` ni `minimal`: el modelo razona por defecto incluso sin el
+          # parámetro, así que `off` cae a `low`, el nivel más barato, en vez de
+          # a un `none` que la API rechaza con 400.
           thinkingLevelMap = {
-            off = "none";
-            minimal = "high";
-            low = "high";
-            medium = "high";
+            off = "low";
+            minimal = "low";
+            low = "low";
+            medium = "medium";
             high = "high";
             xhigh = "high";
             max = "high";
           };
           input = [ "text" "image" ];
           cost = {
-            input = 1.5;
-            output = 7.5;
-            cacheRead = 0.15;
+            input = 0.7;
+            output = 2.1;
+            cacheRead = 0.07;
             cacheWrite = 0;
           };
-          contextWindow = 262144;
+          contextWindow = 1048576;
           maxTokens = 262144;
         }
       ];
