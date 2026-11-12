@@ -117,6 +117,38 @@ nixos-ssh        # menú: password | cert | cancelar
 
 ---
 
+## Clonar este flake para tu propia máquina
+
+Este repo es personal pero forkable: tu configuración vive solo en
+`hosts/<tu-host>/` + una línea en el flake, y todo lo demás se actualiza con
+`git pull` sin tocar lo tuyo.
+
+```bash
+# 1. Copia la plantilla y genera el hardware real de tu máquina
+cp -r hosts/ejemplo hosts/mi-pc
+nixos-generate-config --show-hardware-config > hosts/mi-pc/hardware-configuration.nix
+
+# 2. En hosts/mi-pc/default.nix: pon tu hostname, tu loon.username y qué
+#    áreas personales enciendes (todo apagado por defecto)
+# 3. En flake.nix, nixosConfigurations: añade "mi-pc" = mkHost "mi-pc" [ ];
+# 4. Si enciendes providers de Pi, crea TUS claves (0600) en tu home:
+#    ~/.config/inception/api-key, ~/.config/mistral-vibe/api-key, ...
+# 5. Instala: sudo nixos-rebuild switch --flake .#mi-pc
+```
+
+- Con `loon.personal.enable = false` (el default de la plantilla) obtienes el
+  sistema completo sin ningún dato de loonbac: ni su usuario, ni sus
+  providers, ni sus MCPs. Cada área se enciende por separado (`piProviders`,
+  `judges`, `mcpServers`) cuando copias esa área con tus propios archivos.
+- Si construyes un host fuera de `loon.knownHosts` sin poner tu `loon.username`,
+  la evaluación falla con un mensaje que te dice exactamente qué personalizar.
+  Es a propósito: mejor un error claro que el usuario de otro instalado en silencio.
+- Actualizar sin miedo: tus cambios viven en `hosts/<tu-host>/` y tu línea del
+  flake. Un `git pull` solo puede rozar esos dos puntos; si hay conflicto, es
+  ahí y se resuelve en un minuto.
+
+---
+
 ## `loon-launch` — launcher propio (Super+Space) y fondos (Super+B)
 
 Launcher Wayland en Rust (GTK4 + libadwaita) para niri. **No vive en este

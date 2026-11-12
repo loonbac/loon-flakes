@@ -16,6 +16,6 @@
     enableExtensionPack = false;
   };
 
-  # Agrega al usuario loonbac al grupo vboxusers para acceder a los dispositivos de virtualización
-  users.extraGroups.vboxusers.members = [ "loonbac" ];
+  # Agrega al usuario principal al grupo vboxusers para acceder a los dispositivos de virtualización
+  users.extraGroups.vboxusers.members = [ config.loon.username ];
 }

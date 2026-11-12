@@ -17,6 +17,14 @@
 
 , gptFastModeShared
 , piJevContextGuard
+# Home del usuario principal: el módulo NixOS siempre lo pasa
+# explícito; el default conserva la máquina actual standalone.
+, loonHome ? "/home/loonbac"
+# Catálogo personal de loonbac: el módulo NixOS los pone a `false` cuando
+# `loon.personal.*` lo pide. Defaults `true` = comportamiento actual.
+, personalPiProviders ? true
+, personalJudges ? true
+, personalMcpServers ? true
 , gentlePiSource ? "npm:gentle-pi"
 , gentlePiPackageSubpath ? "npm/node_modules/gentle-pi"
 , useGentleAiDevRuntime ? false
@@ -98,12 +106,13 @@ let
   # Ningún valor secreto va aquí: el repo es público. `apiKey` se resuelve con
   # `!command` contra un archivo 0600 del home, así que la credencial vive solo
   # en ~/.config/inception/api-key y nunca entra al repo ni al store.
-  piModelProviders = {
+  # Providers con las credenciales de loonbac (inception, mistral-vibe).
+  piModelProviders = lib.optionalAttrs personalPiProviders {
     inception = {
       name = "Inception Labs";
       baseUrl = "https://api.inceptionlabs.ai/v1";
       api = "openai-completions";
-      apiKey = "!cat /home/loonbac/.config/inception/api-key";
+      apiKey = "!cat ${loonHome}/.config/inception/api-key";
       compat = {
         maxTokensField = "max_completion_tokens";
         supportsDeveloperRole = false;
@@ -171,7 +180,7 @@ let
       # Code y basta por sí sola: no necesita cabeceras de tenant ni el flujo
       # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
       # request, así que rotarla no exige rebuild.
-      apiKey = "!cat /home/loonbac/.config/mistral-vibe/api-key";
+      apiKey = "!cat ${loonHome}/.config/mistral-vibe/api-key";
       # Un solo modelo a propósito: los alias `mistral-vibe-cli-latest`,
       # `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven todos al
       # mismo modelo (Mistral Medium 3.5) según `/v1/models`, así que ofrecerlos por
@@ -258,7 +267,8 @@ let
   # a reason to substitute it: the owner was told and chose this model deliberately, and a
   # judge that is briefly unavailable is still better than one that is permanently mediocre.
   # Do not "fix" it by downgrading — re-read this paragraph before touching the value.
-  subagentModelProfiles = {
+  # Jueces atados a los logins de loonbac (antigravity/*).
+  subagentModelProfiles = lib.optionalAttrs personalJudges {
     # Anthropic. The strongest reasoning model the account can reach, which is the point of a
     # role that only runs when someone explicitly asks for a second opinion.
     jd-judge-a = { model = "antigravity/claude-opus-5-5"; effort = "high"; };
@@ -459,17 +469,18 @@ let
   mcpOnDemand = writeText "mcp-on-demand.mjs" (builtins.readFile ./mcp-on-demand.mjs);
 
   mcpConfig = writeText "mcp.json" (builtins.toJSON {
-    mcpServers = {
+    # Servidores MCP del home de loonbac: solo existen en su máquina.
+    mcpServers = lib.optionalAttrs personalMcpServers {
       rakya = {
-        command = "/home/loonbac/.local/share/loon-pi-mcp/run-rakya-mcp";
+        command = "${loonHome}/.local/share/loon-pi-mcp/run-rakya-mcp";
         args = [ ];
-        cwd = "/home/loonbac/.local/share/loon-pi-mcp";
+        cwd = "${loonHome}/.local/share/loon-pi-mcp";
         description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
       google-flow = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "/home/loonbac/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
-        cwd = "/home/loonbac/.local/share/loon-pi-mcp/google-flow";
+        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "${loonHome}/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
+        cwd = "${loonHome}/.local/share/loon-pi-mcp/google-flow";
         description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
       };
       # Residential proxy for pages that block this host or change by region.
@@ -479,14 +490,14 @@ let
       # them into that single child process.
       dataimpulse = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "dataimpulse" "--" "/home/loonbac/mcp/dataimpulse/run.sh" ];
-        cwd = "/home/loonbac/mcp/dataimpulse";
+        args = [ "${mcpOnDemand}" "--name" "dataimpulse" "--" "${loonHome}/mcp/dataimpulse/run.sh" ];
+        cwd = "${loonHome}/mcp/dataimpulse";
         description = "DataImpulse residential proxy: fetch_page (clean text/raw HTML, country/city/session) and check_exit_ip";
       };
       voice-gen = {
         command = "${nodejs}/bin/node";
-        args = [ "${mcpOnDemand}" "--name" "voice-gen" "--" "/home/loonbac/Proyectos/mcp-voice-gen/bin/mcp-voice-gen" ];
-        cwd = "/home/loonbac/Proyectos/mcp-voice-gen";
+        args = [ "${mcpOnDemand}" "--name" "voice-gen" "--" "${loonHome}/Proyectos/mcp-voice-gen/bin/mcp-voice-gen" ];
+        cwd = "${loonHome}/Proyectos/mcp-voice-gen";
         description = "High-fidelity voice cloning & emotional speech synthesis using Fish Speech on Google Colab Pro G4 Blackwell";
         timeout = 300;
       };

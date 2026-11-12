@@ -50,7 +50,7 @@ in
     # be selected by the user.
     security.sudo.extraRules = [
       {
-        users = [ "loonbac" ];
+        users = [ config.loon.username ];
         commands = [
           {
             command = "${systemctl} start moonlight-power-root.service";

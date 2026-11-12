@@ -54,6 +54,10 @@ let
     engramSourceMode = core.engram.mode;
     engramSourceRef = core.engram.ref;
     inherit gptFastModeShared piJevContextGuard;
+  loonHome = config.loon.home;
+  personalPiProviders = config.loon.personal.piProviders;
+  personalJudges = config.loon.personal.judges;
+  personalMcpServers = config.loon.personal.mcpServers;
     inherit piCompactionThreshold;
   };
   stackUpdate = pkgs.callPackage ../../../pkgs/gentle-stack-update {
@@ -177,10 +181,13 @@ in
       stackUpdate
     ];
 
-    # A system service running as loonbac is intentional: NixOS switch tracks
-    # and restarts changed system units, while already-active user oneshots are
-    # only reloaded. This makes an edited source declaration take effect during
-    # the same rebuild without requiring a login or a manual user-unit restart.
+    # A system service running as the primary user is intentional: NixOS
+    # switch tracks and restarts changed system units, while already-active
+    # user oneshots are only reloaded. This makes an edited source declaration
+    # take effect during the same rebuild without requiring a login or a
+    # manual user-unit restart. Who that user is comes from
+    # `loon.username`/`loon.home`, so a fork installs its own identity
+    # instead of loonbac's.
     systemd.services.gentle-ai-bootstrap = {
       description = "Reconcile the declared Gentle AI core for Pi";
       wantedBy = [ "multi-user.target" ];
@@ -188,15 +195,15 @@ in
       after = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
-        User = "loonbac";
+        User = config.loon.username;
         Group = "users";
         ExecStart = "${bootstrap}/bin/gentle-ai-bootstrap";
         RemainAfterExit = true;
-        WorkingDirectory = "/home/loonbac";
+        WorkingDirectory = config.loon.home;
         Environment = [
-          "HOME=/home/loonbac"
-          "PI_CODING_AGENT_DIR=/home/loonbac/.pi/agent"
-          "GENTLE_AI_NIXOS_REPO=/home/loonbac/.nixos"
+          "HOME=${config.loon.home}"
+          "PI_CODING_AGENT_DIR=${config.loon.home}/.pi/agent"
+          "GENTLE_AI_NIXOS_REPO=${config.loon.home}/.nixos"
         ];
       };
     };

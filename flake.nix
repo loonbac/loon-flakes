@@ -309,6 +309,12 @@
           nix-flatpak.nixosModules.nix-flatpak
           lanzaboote.nixosModules.lanzaboote
         ];
+        # Para tu propia máquina: copia `hosts/ejemplo/` a `hosts/<tu-host>/`,
+        # genera su hardware-configuration y declara aquí una línea igual que
+        # las de arriba. Ver «Clonar este flake para tu propia máquina» en el
+        # README. `hosts/ejemplo/` no se declara a propósito: es plantilla, no
+        # un host evaluable.
+        # "mi-pc" = mkHost "mi-pc" [ ];
       };
 
       # Un check de evaluación por cada host declarado arriba (una sola

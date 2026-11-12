@@ -32,7 +32,7 @@
 
   systemd.tmpfiles.rules = [
     # El dir y el archivo deben ser del usuario (accent-wallpaper los escribe).
-    "d /home/loonbac/.config/gtk-4.0 0755 loonbac users -"
-    "f /home/loonbac/.config/gtk-4.0/gtk.css 0644 loonbac users -"
+    "d ${config.loon.home}/.config/gtk-4.0 0755 ${config.loon.username} users -"
+    "f ${config.loon.home}/.config/gtk-4.0/gtk.css 0644 ${config.loon.username} users -"
   ];
 }

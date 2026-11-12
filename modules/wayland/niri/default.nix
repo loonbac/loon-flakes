@@ -48,7 +48,10 @@ let
         ${lib.escapeShellArg hostOutputConfig} \
       --replace-fail \
         '// HOST_BACKLIGHT_BINDS' \
-        ${lib.escapeShellArg hostBacklightBinds}
+        ${lib.escapeShellArg hostBacklightBinds} \
+      --replace-fail \
+        '/home/loonbac' \
+        '${config.loon.home}'
     cp ${defaultMonitorConfig} "$out/monitor.kdl"
   '';
   niriConfig = "${niriConfigDir}/config.kdl";
@@ -139,18 +142,18 @@ in
       # En un home recién creado no existe ~/.config/niri. Debe declararse antes
       # de crear los archivos; confiar en que una sesión anterior lo haya creado
       # hacía que `niri validate` fallara en instalaciones limpias.
-      "d /home/loonbac/.config/niri 0755 loonbac users -"
-      "L+ /home/loonbac/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
+      "d ${config.loon.home}/.config/niri 0755 ${config.loon.username} users -"
+      "L+ ${config.loon.home}/.config/niri/config.kdl - - - - /etc/niri/config.kdl"
       # Acento dinámico: lo escribe accent-wallpaper. `C` copia el default
       # solamente si el destino no existe y permite usar un archivo multilínea
       # sin introducir líneas inválidas en la configuración de tmpfiles.
-      "C /home/loonbac/.config/niri/accent.kdl 0644 loonbac users - ${defaultAccent}"
+      "C ${config.loon.home}/.config/niri/accent.kdl 0644 ${config.loon.username} users - ${defaultAccent}"
       # Archivo persistente y escribible que nwg-displays actualiza. `C` instala
       # la configuración inicial solo cuando aún no existe, sin pisar cambios.
-      "C /home/loonbac/.config/niri/monitor.kdl 0644 loonbac users - ${defaultMonitorConfig}"
+      "C ${config.loon.home}/.config/niri/monitor.kdl 0644 ${config.loon.username} users - ${defaultMonitorConfig}"
       # El include relativo que nwg-displays reconoce se resuelve desde /etc/niri;
       # este enlace lo conecta al archivo persistente del usuario.
-      "L+ /etc/niri/monitor.kdl - - - - /home/loonbac/.config/niri/monitor.kdl"
+      "L+ /etc/niri/monitor.kdl - - - - ${config.loon.home}/.config/niri/monitor.kdl"
     ];
   };
 }

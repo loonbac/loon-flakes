@@ -34,10 +34,10 @@ in
     # La carpeta se llama `Steam` porque ese es el identificador interno que
     # declara skin.json y que Millennium guarda en activeTheme.
     systemd.tmpfiles.rules = [
-      "d /home/loonbac/.local/share/Steam 0755 loonbac users -"
-      "d /home/loonbac/.local/share/Steam/millennium 0755 loonbac users -"
-      "d /home/loonbac/.local/share/Steam/millennium/themes 0755 loonbac users -"
-      "L+ /home/loonbac/.local/share/Steam/millennium/themes/Steam - - - - ${theme}"
+      "d ${config.loon.home}/.local/share/Steam 0755 ${config.loon.username} users -"
+      "d ${config.loon.home}/.local/share/Steam/millennium 0755 ${config.loon.username} users -"
+      "d ${config.loon.home}/.local/share/Steam/millennium/themes 0755 ${config.loon.username} users -"
+      "L+ ${config.loon.home}/.local/share/Steam/millennium/themes/Steam - - - - ${theme}"
     ];
   };
 }

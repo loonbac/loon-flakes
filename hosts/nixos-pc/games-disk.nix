@@ -1,9 +1,9 @@
 # Almacenamiento ext4 exclusivo de nixos-pc. Se identifica por UUID para no
 # depender del nombre que el kernel asigne a cada disco en un arranque.
-{ ... }:
+{ config, ... }:
 
 {
-  fileSystems."/home/loonbac/Juegos" = {
+  fileSystems."${config.loon.home}/Juegos" = {
     device = "/dev/disk/by-uuid/dd98ba9a-bcf5-4062-828c-099b51b4d7a4";
     fsType = "ext4";
     options = [
@@ -15,7 +15,7 @@
   # Los directorios raíz de ext4 nacen propiedad de root; tmpfiles ajusta la
   # propiedad después de montar para que el usuario pueda escribir en ellos.
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/Juegos 0755 loonbac users -"
-    "d /home/loonbac/Datos 0755 loonbac users -"
+    "d ${config.loon.home}/Juegos 0755 ${config.loon.username} users -"
+    "d ${config.loon.home}/Datos 0755 ${config.loon.username} users -"
   ];
 }
