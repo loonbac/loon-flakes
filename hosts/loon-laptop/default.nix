@@ -24,6 +24,10 @@
   # Servidores de desarrollo expuestos: 5173 = Vite (tele-owo), 8080 = API axum.
   loon.devPorts = [ 5173 8080 ];
 
+  # Gentle Shell desde fuente: compila Shell (pnpm) + Gentle AI (Go) con los
+  # últimos commits de main en cada activación que cambie la declaración.
+  programs.gentle-ai.gentleShell.channel = "main";
+
   environment.systemPackages = [
     pkgs.cloudflared
   ];
