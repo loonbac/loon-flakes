@@ -1,6 +1,6 @@
 # Política automática AC/batería exclusiva del Dell Inspiron 15 3520.
 # Este archivo solo debe importarse desde hosts/loon-laptop/default.nix.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   powerProfile = pkgs.callPackage ../../pkgs/laptop-power-profile { };
@@ -14,9 +14,9 @@ let
       # Que aún no exista sesión gráfica durante el arranque es normal y no
       # debe hacer fallar el perfil de hardware.
       if [ -S /run/user/1000/bus ] \
-        && systemctl --user --machine=loonbac@.host \
+        && systemctl --user --machine=${config.loon.username}@.host \
           is-active --quiet graphical-session.target; then
-        systemctl --user --machine=loonbac@.host \
+        systemctl --user --machine=${config.loon.username}@.host \
           restart laptop-power-profile-session.service || true
       fi
     '';
@@ -64,7 +64,7 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${powerProfile}/bin/laptop-power-profile-session apply";
-      Environment = "HOME=/home/loonbac";
+      Environment = "HOME=${config.loon.home}";
     };
   };
 

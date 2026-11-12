@@ -2,10 +2,13 @@
 # Quién puede usar qué.
 { config, lib, pkgs, ... }:
 
+let
+  inherit (config.loon) username home fullName;
+in
 {
-  users.users."loonbac" = {
+  users.users.${username} = {
     isNormalUser = true;
-    description = "Joshua Rosales";
+    description = fullName;
     # Grupos: networkmanager (GUI de red), wheel (sudo), storage (montaje sin sudo).
     extraGroups = [ "networkmanager" "wheel" "storage" ];
     # Paquetes instalados SOLO para este usuario (home-manager se integra aquí).
@@ -20,16 +23,16 @@
   systemd.tmpfiles.rules = [
     # Esqueleto mínimo de un home nuevo. Los módulos de aplicaciones declaran
     # sus subdirectorios concretos; estas bases evitan padres creados como root.
-    "d /home/loonbac/.config 0755 loonbac users -"
-    "d /home/loonbac/.local 0755 loonbac users -"
-    "d /home/loonbac/.local/share 0755 loonbac users -"
-    "d /home/loonbac/Pictures 0755 loonbac users -"
-    "d /home/loonbac/Pictures/Wallpaper 0755 loonbac users -"
-    "d /home/loonbac/Videos 0755 loonbac users -"
-    "d /home/loonbac/Videos/Wallpapers 0755 loonbac users -"
-    "d /home/loonbac/.npm-global 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/lib 0755 loonbac users -"
-    "d /home/loonbac/.npm-global/bin 0755 loonbac users -"
+    "d ${home}/.config 0755 ${username} users -"
+    "d ${home}/.local 0755 ${username} users -"
+    "d ${home}/.local/share 0755 ${username} users -"
+    "d ${home}/Pictures 0755 ${username} users -"
+    "d ${home}/Pictures/Wallpaper 0755 ${username} users -"
+    "d ${home}/Videos 0755 ${username} users -"
+    "d ${home}/Videos/Wallpapers 0755 ${username} users -"
+    "d ${home}/.npm-global 0755 ${username} users -"
+    "d ${home}/.npm-global/lib 0755 ${username} users -"
+    "d ${home}/.npm-global/bin 0755 ${username} users -"
   ];
 
   environment.sessionVariables = {

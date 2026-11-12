@@ -2,7 +2,7 @@
 #
 # No se lanzan desde `spawn-at-startup`: systemd los supervisa, evita
 # duplicados, los reinicia tras un fallo y los detiene junto con la sesión.
-{ lib, pkgs, loonLaunch, ... }:
+{ config, lib, pkgs, loonLaunch, ... }:
 
 let
   accentWallpaper = pkgs.callPackage ../../../pkgs/accent-wallpaper { };
@@ -21,7 +21,7 @@ let
     Restart = "on-failure";
     RestartSec = "1s";
     Environment = [
-      "HOME=/home/loonbac"
+      "HOME=${config.loon.home}"
       # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
       # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
       # del sistema completo, igual que los procesos lanzados por Niri.

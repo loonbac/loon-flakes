@@ -68,17 +68,17 @@ in
     # encuentren Accela y SLSsteam sin configuración manual adicional.
     systemd.tmpfiles.rules =
       (lib.optionals (cfg.accela.enable && accelaPkg != null) [
-        "d /home/loonbac/.local/share/ACCELA 0755 loonbac users -"
-        "L+ /home/loonbac/.local/share/ACCELA/run.sh - - - - ${pkgs.writeShellScript "accela-run" ''exec ${lib.getExe accelaPkg} "$@"''}"
-        "d \"/home/loonbac/.config/Tachibana Labs\" 0755 loonbac users -"
-        "C \"/home/loonbac/.config/Tachibana Labs/ACCELA.conf\" - - - - /etc/accela/default.conf"
+        "d ${config.loon.home}/.local/share/ACCELA 0755 ${config.loon.username} users -"
+        "L+ ${config.loon.home}/.local/share/ACCELA/run.sh - - - - ${pkgs.writeShellScript "accela-run" ''exec ${lib.getExe accelaPkg} "$@"''}"
+        "d \"${config.loon.home}/.config/Tachibana Labs\" 0755 ${config.loon.username} users -"
+        "C \"${config.loon.home}/.config/Tachibana Labs/ACCELA.conf\" - - - - /etc/accela/default.conf"
       ])
       ++ (lib.optionals (cfg.slssteam.enable && slsSteam != null) [
-        "d /home/loonbac/.local/share/SLSsteam 0755 loonbac users -"
-        "L+ /home/loonbac/.local/share/SLSsteam/SLSsteam.so - - - - ${slsSteam}/lib/SLSsteam.so"
-        "L+ /home/loonbac/.local/share/SLSsteam/library-inject.so - - - - ${slsSteam}/lib/library-inject.so"
-        "d /home/loonbac/.config/SLSsteam 0755 loonbac users -"
-        "C /home/loonbac/.config/SLSsteam/config.yaml - - - - /etc/SLSsteam/default-config.yaml"
+        "d ${config.loon.home}/.local/share/SLSsteam 0755 ${config.loon.username} users -"
+        "L+ ${config.loon.home}/.local/share/SLSsteam/SLSsteam.so - - - - ${slsSteam}/lib/SLSsteam.so"
+        "L+ ${config.loon.home}/.local/share/SLSsteam/library-inject.so - - - - ${slsSteam}/lib/library-inject.so"
+        "d ${config.loon.home}/.config/SLSsteam 0755 ${config.loon.username} users -"
+        "C ${config.loon.home}/.config/SLSsteam/config.yaml - - - - /etc/SLSsteam/default-config.yaml"
       ]);
 
     environment.etc = lib.mkMerge [

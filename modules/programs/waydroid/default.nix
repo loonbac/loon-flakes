@@ -42,7 +42,7 @@ in
   # udev). El grupo "waydroid" se usa para los permisos de los dispositivos.
   users.groups.waydroid = { };
 
-  users.users.loonbac.extraGroups = [ "waydroid" ];
+  users.users.${config.loon.username}.extraGroups = [ "waydroid" ];
 
   environment.systemPackages = [ waydroidPkg waydroid-app ];
 
@@ -55,7 +55,7 @@ in
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       if (action.id == "org.freedesktop.systemd1.manage-units" &&
-          subject.user == "loonbac" &&
+          subject.user == "${config.loon.username}" &&
           action.lookup("unit") == "waydroid-container.service") {
         return polkit.Result.YES;
       }
@@ -66,7 +66,7 @@ in
   # Lineage y quita la barra de navegación. waydroid-app lo llama al lanzar.
   security.sudo.extraRules = [
     {
-      users = [ "loonbac" ];
+      users = [ config.loon.username ];
       commands = [
         {
           command = "${waydroid-app.hideChrome}/bin/waydroid-hide-chrome";
