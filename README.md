@@ -53,6 +53,28 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 
 ---
 
+## Qué incluye este sistema (en sencillo)
+
+Si no quieres leer todo el README, esto es lo importante:
+
+- **Pi usa tu cuota grande de Mistral (Vibe Code, 150 USD/mes).** La clave
+  vive en `~/.config/mistral-vibe/api-key` (solo la lees tú) y Pi la usa para
+  el provider `mistral-vibe`. Nada de claves queda en este repo público.
+- **El modelo es Mistral Large 4.** Tu cuota Vibe cubre cualquier modelo, así
+  que se ofrece el más capaz: 1M de contexto, más barato ($0,70/$2,10) y con
+  razonamiento graduable (bajo/medio/alto). Verificado en vivo, incluido el
+  ejemplo del tren (14:20 + 95 min = 15:55).
+- **El repo es forkable.** Tu identidad sale de una sola opción
+  (`loon.username`); tus datos personales están tras interruptores
+  (`loon.personal.*`, apagados por defecto) y hay una plantilla en
+  `hosts/ejemplo/` con guía paso a paso más abajo. Un amigo pone su nombre,
+  apaga lo personal y obtiene su propio sistema con `git pull` sin miedo.
+- **Todo cambio serio pasa por revisión automática (RDD)** antes de
+  fusionarse a `master`: un revisor de IA lo lee y solo con «aprobado» se
+  hace merge.
+
+---
+
 ## Filosofía: estructura modular
 
 | Concepto                        | Esta config                          |
