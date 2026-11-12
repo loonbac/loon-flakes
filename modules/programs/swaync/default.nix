@@ -16,15 +16,15 @@
 
   # Config gestionada por NixOS: swaync la lee desde el home (symlinks).
   environment.etc."swaync/config.json".source = ./config.json;
-  environment.etc."swaync/style.css".source = ./style.css;
+  environment.etc."swaync/style.css".source = pkgs.replaceVars ./style.css { home = config.loon.home; };
 
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/swaync 0755 loonbac users -"
-    "L+ /home/loonbac/.config/swaync/config.json - - - - /etc/swaync/config.json"
-    "L+ /home/loonbac/.config/swaync/style.css - - - - /etc/swaync/style.css"
+    "d ${config.loon.home}/.config/swaync 0755 ${config.loon.username} users -"
+    "L+ ${config.loon.home}/.config/swaync/config.json - - - - /etc/swaync/config.json"
+    "L+ ${config.loon.home}/.config/swaync/style.css - - - - /etc/swaync/style.css"
     # Acento dinámico: lo escribe accent-wallpaper; este default (f = crea si
     # no existe, no pisa) evita que el @import falle en el primer boot.
-    "f /home/loonbac/.config/swaync/accent.css 0644 loonbac users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
+    "f ${config.loon.home}/.config/swaync/accent.css 0644 ${config.loon.username} users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
   ];
 }

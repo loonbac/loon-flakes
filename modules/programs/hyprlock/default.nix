@@ -30,16 +30,16 @@ in
   ];
 
   # Configuración versionada gestionada por NixOS
-  environment.etc."hypr/hyprlock.conf".source = ./hyprlock.conf;
+  environment.etc."hypr/hyprlock.conf".source = pkgs.replaceVars ./hyprlock.conf { home = config.loon.home; };
   environment.etc."hypr/hypridle.conf".source = ./hypridle.conf;
 
   # Enlaces simbólicos en el home del usuario
   systemd.tmpfiles.rules = [
-    "d /home/loonbac/.config/hypr 0755 loonbac users -"
-    "L+ /home/loonbac/.config/hypr/hyprlock.conf - - - - /etc/hypr/hyprlock.conf"
-    "L+ /home/loonbac/.config/hypr/hypridle.conf - - - - /etc/hypr/hypridle.conf"
+    "d ${config.loon.home}/.config/hypr 0755 ${config.loon.username} users -"
+    "L+ ${config.loon.home}/.config/hypr/hyprlock.conf - - - - /etc/hypr/hyprlock.conf"
+    "L+ ${config.loon.home}/.config/hypr/hypridle.conf - - - - /etc/hypr/hypridle.conf"
     # Acento dinámico: lo escribe accent-wallpaper; `C` instala el default
     # multilínea solo cuando el archivo todavía no existe.
-    "C /home/loonbac/.config/hypr/colors.conf 0644 loonbac users - ${defaultColors}"
+    "C ${config.loon.home}/.config/hypr/colors.conf 0644 ${config.loon.username} users - ${defaultColors}"
   ];
 }

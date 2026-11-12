@@ -5,7 +5,7 @@
 #
 # Por qué systemd del sistema y no un timer de usuario:
 # - Los guiones son de root en /var/lib/mdm/bin (755). Un servicio del sistema que
-#   ejecutara un guion escribible por loonbac sería una vía de escalada; con el
+#   ejecutara un guion escribible por el usuario principal sería una vía de escalada; con el
 #   fichero en root:root el usuario puede ejecutarlo pero no reescribirlo. Los
 #   enlaces de ~/.local/bin mantienen vivos los timers de usuario que ya existían.
 # - /etc/systemd/system es un enlace de solo lectura al store, y cron no está

@@ -1,9 +1,9 @@
 # NVMe ext4 exclusivo de nixos-pc para proyectos y datos de trabajo.
 # Se identifica por UUID para no depender del nombre /dev/nvme0n1.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
-  fileSystems."/home/loonbac/Proyectos" = {
+  fileSystems."${config.loon.home}/Proyectos" = {
     device = "/dev/disk/by-uuid/98648f36-b315-406b-b84d-65c1865544af";
     fsType = "ext4";
     options = [
@@ -18,15 +18,15 @@
   systemd.services.projects-disk-permissions = {
     description = "Permisos del NVMe de proyectos";
     wantedBy = [ "multi-user.target" ];
-    requires = [ "home-loonbac-Proyectos.mount" ];
-    after = [ "home-loonbac-Proyectos.mount" ];
+    requires = [ "home-${config.loon.username}-Proyectos.mount" ];
+    after = [ "home-${config.loon.username}-Proyectos.mount" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.coreutils}/bin/chown loonbac:users /home/loonbac/Proyectos
-      ${pkgs.coreutils}/bin/chmod 0755 /home/loonbac/Proyectos
+      ${pkgs.coreutils}/bin/chown ${config.loon.username}:users ${config.loon.home}/Proyectos
+      ${pkgs.coreutils}/bin/chmod 0755 ${config.loon.home}/Proyectos
     '';
   };
 }

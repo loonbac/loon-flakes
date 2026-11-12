@@ -12,6 +12,7 @@
     ./programs
     ./wayland
     ./users
+    ./loon
   ];
 
   # Una regla raw con saltos de línea genera varias órdenes tmpfiles y puede
