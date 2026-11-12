@@ -64,6 +64,15 @@ in
       accelaPkg
     ];
 
+    # Steam Input crea un gamepad virtual (Xbox 360) en /dev/uinput para que los
+    # juegos lo vean; sin este permiso Steam detecta el mando físico pero el
+    # juego no recibe nada ("Couldn't open /dev/uinput for writing" en el log).
+    # La regla udev de Valve etiqueta uinput con uaccess, pero ese ACL no llega
+    # a aplicarse en el arranque, así que se da acceso por grupo de forma
+    # explícita. El grupo es el que declara hardware.uinput.enable.
+    hardware.uinput.enable = true;
+    users.users.saito.extraGroups = [ "uinput" ];
+
     # Directorios, symlinks y archivos de configuración para que LuaTools y los launchers
     # encuentren Accela y SLSsteam sin configuración manual adicional.
     systemd.tmpfiles.rules =
