@@ -5,6 +5,7 @@
 , bash
 , git
 , fd
+, gnutar
 , gzip
 , nodejs
 , pnpm
@@ -1152,12 +1153,14 @@ in
 writeShellApplication {
   name = "gentle-ai-bootstrap";
   # bash supplies `sh` for the one explicitly approved npm lifecycle script.
-  # gzip is required by gentle-pi's trusted `/usr/bin/tar -xzf` extractor.
+  # The main-channel shell pack is extracted with `tar -xzf` (gzip-compressed),
+  # so both tools come from this closure: there is no /usr/bin/tar on NixOS.
   runtimeInputs = [
     coreutils
     bash
     git
     fd
+    gnutar
     gzip
     nodejs
     # The `main` channel of gentle-shell packs Shell with pnpm and builds the
