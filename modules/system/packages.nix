@@ -108,9 +108,6 @@ in
     # de sistema necesita el binario, se declara en esa unidad, no aquí.
     zen-browser
     helium-browser
-    chromium           # para E2E (Playwright/Puppeteer) en esta máquina
-    google-chrome      # Chrome real (con claves de Google): login de Google y
-                       # MCP flow-mcp, que se conecta a Flow por CDP
     vscode-insiders
     antigravity
     antigravity-cli
