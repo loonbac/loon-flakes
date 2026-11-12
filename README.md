@@ -67,9 +67,6 @@ Si no quieres leer todo el README, esto es lo importante:
   sin miedo.
 - **Cada uno pone sus propias claves de IA en su home** (archivos que solo
   lee su usuario). Nada de claves queda en este repo público.
-- **Todo cambio serio pasa por revisión automática (RDD)** antes de
-  fusionarse a `master`: un revisor de IA lo lee y solo con «aprobado» se
-  hace merge.
 
 ---
 
@@ -270,7 +267,7 @@ accent-wallpaper from VIDEO  # analiza un video específico
 
 Guarda el color en `~/.config/mpvpaper/accent.txt` y `~/.config/niri/accent.kdl`
 (niri lo recarga en vivo al cambiar). Tanto el fondo animado como el fijo lo
-disparan solos al cambiar; la barra y Pi actualizan sus colores sin reiniciar.
+disparan solos al cambiar; waybar y Pi actualizan sus colores sin reiniciar.
 
 ### `niri-backdrop` — fondo fijo global
 
@@ -544,6 +541,24 @@ Equibop y Pear: puedes iniciar sesión de nuevo; si quieres evitarlo, sus datos
 privados están en `~/.config/equibop` y `~/.config/YouTube Music`. Los audios
 del TTS y el estado del overlay son temporales y no se respaldan.
 
+### Sunshine (jugar en otro lado)
+
+`sushine.nix` comparte la pantalla del PC para clientes Moonlight. Solo se
+mantiene prendido mientras `dolphin-emu` corre; al cerrar el emulador, se
+apaga solo.
+
+### Drift (editar video)
+
+`creator.nix` instala Drift (editor de CutWire Studios) desde Flathub por su
+ID oficial: sin versión fijada ni archivos propios. Los permisos que necesita
+ya vienen en su manifiesto y los medios entran por portales.
+
+### Compilación cruzada ARM + respaldos MDM (solo PC)
+
+`cross-toolchain.nix`: toolchain `armv7l` para compilar desde el PC lo que
+corre en la caja rk322x (proyecto ressy-tv), que no puede compilar sola.
+`mdm-respaldo.nix`: respaldos del stack de contenedores MDM a `/var/backups/mdm`.
+
 ### Citron Nextendo
 
 El input `citron-nextendo` consume el flake público e independiente
@@ -669,25 +684,15 @@ sudo tailscale up   # unir la máquina a tu red (una sola vez)
 tailscale status    # ver el estado y tus equipos
 ```
 
-En `loon-laptop`, `ts-bypass` sirve cuando la red local bloquea Tailscale:
-lleva su tráfico por un túnel hacia tu servidor `elastika-vps`:
+El `ts-bypass` viejo de la laptop está apagado: se reemplazó por el túnel
+Cloudflare de abajo.
 
-```bash
-ts-bypass on       # activa, guarda y verifica contra nixos-pc
-ts-bypass status   # revisa servicios, túnel y conexión
-ts-bypass restart  # reconstruye el túnel y verifica
-ts-bypass off      # vuelve a conexión directa
-ts-bypass logs     # muestra diagnóstico
-```
+### Túnel Cloudflare (`hosts/nixos-pc/cloudflared.nix` y laptop)
 
-El túnel se reinicia solo si se cae o cambia la red, y recuerda tu elección
-tras reiniciar. Tailscale usa solo `ALL_PROXY=socks5://127.0.0.1:1080`; no
-pongas `HTTP_PROXY`/`HTTPS_PROXY` con SOCKS5.
-
-`elastika-vps` mantiene el repetidor en UDP 41641; el tráfico normal de
-Tailscale usa UDP 41642. El repetidor siempre está disponible: `on|off` solo
-cambia cómo se conecta la laptop. Al apagarlo, espera a que todo arranque y te
-avisa si la red directa no llega a `nixos-pc`.
+Acceso remoto por `bypass.loonbac-dev.moe` (SSH) sin abrir puertos. El token
+vive en `/var/lib/cloudflared/token` (solo root) y **nunca** en el repo: el
+módulo solo declara la carpeta, el archivo se pone a mano en cada máquina.
+No detengas el servicio sin avisar: corta a quien esté conectado por ahí.
 
 ---
 
@@ -765,17 +770,14 @@ que le dice al audio usar las interfaces normales
 > `default_public_and_private_interfaces`.
 
 El paquete `pkgs/equibop-voice-normalizer/` empareja el volumen de todos los
-que hablan: mide cada voz y la ajusta entre 5 % y 800 % (máximo +18 dB), así el
-200 % de Discord amplifica de verdad. Ignora silencios bajo -55 dB, atenúa
-rápido, sube despacio y mantiene el ajuste en silencios. El control muestra
-`Nϟ` cuando está activo. En llamada aparece el control `N -24 dB`: prende/apaga
-y mueve el objetivo entre `-36 dB` y `-12 dB`; tu preferencia se guarda. Se
-puede arrastrar, recuerda dónde lo dejaste y empieza abajo a la izquierda. Al
-salir del canal todo vuelve como estaba. Si el motor rápido no está disponible,
-usa uno compatible más simple.
-Pruebas: `node --test pkgs/equibop-voice-normalizer/normalizer.test.cjs`
-(audio real con Chromium) y `browser-check.cjs` (arrastre, memoria de posición
-y apagado; acepta `PLAYWRIGHT_MODULE` con tu Playwright).
+que hablan: mide cada voz y la ajusta (hasta +18 dB), así el 200 % de Discord
+amplifica de verdad. Ignora silencios, atenúa rápido, sube despacio y al salir
+del canal todo vuelve como estaba. Pruebas:
+`node --test pkgs/equibop-voice-normalizer/normalizer.test.cjs`.
+
+Además hay push-to-talk global (`pkgs/equibop-mic-hotkey/`, se puentea al
+programa en cada instalación) y el overlay de voz para OBS ya descrito arriba
+(`pkgs/equibop-obs-overlay/`).
 
 En Linux además se identifica como `Equibop` ante el sistema de sonido, para
 que OBS y mezcladores no lo confundan con otras apps Electron.
