@@ -1,54 +1,56 @@
-# loon-flakes — Configuración modular multi-host de NixOS
+# loon-flakes — La configuración de mis máquinas NixOS
 
-Configuración de NixOS organizada con **módulos pequeños, con
-responsabilidad única, componibles y declarativos**. Nada de monolitos.
+Este repo tiene **todo lo que hace que mis dos máquinas funcionen igual**:
+programas, escritorio, atajos, fondos, servicios y mis herramientas de IA.
+Está organizado en **piezas chicas, cada una con un solo trabajo**, en vez de
+un archivo gigante imposible de leer.
 
 ```
 ~/.nixos/
-├── flake.nix                          # "Cargo.toml" del sistema (inputs + paquetes)
-├── flake.lock                         # lockfile versionado (no tocar a mano)
-├── AGENTS.md                          # guía para agentes que trabajan la config
+├── flake.nix                          # lista de dependencias + qué se instala
+├── flake.lock                         # versiones exactas (no tocar a mano)
+├── AGENTS.md                          # guía para agentes de IA que trabajan aquí
 ├── README.md                          # este archivo
-├── pkgs/                              # "binarios" propios del flake
-│   ├── rebuild/                       # comando custom `rebuild`
-│   ├── niri-cycle/                    # mover ventanas con wrap infinito
-│   ├── mpvpaper-wallpaper/            # fondo animado (video en loop)
-│   ├── niri-backdrop/                 # fondo estático del backdrop
-│   ├── gentle-ai-launcher/            # resuelve el runtime verificado de gentle-pi
-│   ├── engram-launcher/               # launcher de Engram mutable
-│   ├── engram-updater/                # descarga releases y verifica SHA-256
-│   ├── cline-launcher/                # launcher de Cline CLI mutable (npm)
-│   ├── pi-launcher/                    # bootstrap/launcher de Pi mutable
-│   ├── pi/                             # assets locales de Pi (skills + UI custom)
-│   ├── gentle-ai-bootstrap/           # inicialización idempotente de estado
-│   ├── gentle-stack-update/            # actualiza Pi + extensiones + Gentle AI + Engram
-├── hosts/
+├── pkgs/                              # programas propios hechos en casa
+│   ├── rebuild/                       # el comando `rebuild` para aplicar cambios
+│   ├── niri-cycle/                    # mover ventanas con salto infinito
+│   ├── mpvpaper-wallpaper/            # fondo de pantalla animado (video en loop)
+│   ├── niri-backdrop/                 # fondo de pantalla fijo
+│   ├── gentle-ai-launcher/            # encuentra el Gentle AI correcto
+│   ├── engram-launcher/               # arranca Engram (memoria de Pi)
+│   ├── engram-updater/                # descarga Engram verificando que sea legítimo
+│   ├── cline-launcher/                # arranca Cline
+│   ├── pi-launcher/                   # arranca Pi
+│   ├── pi/                            # extras de Pi (skills + apariencia)
+│   ├── gentle-ai-bootstrap/           # deja todo instalado al iniciar sesión
+│   ├── gentle-stack-update/           # actualiza Pi + extensiones + Engram
+├── hosts/                             # lo propio de CADA máquina
 │   ├── loon-laptop/
-│   │   ├── default.nix                # "main.rs" — identidad, solo compone
-│   │   ├── platform.nix               # plataforma exclusiva del Dell
-│   │   ├── power.nix                  # perfil AC/batería exclusivo del Dell
-│   │   └── hardware-configuration.nix # autogenerado (NO tocar)
+│   │   ├── default.nix                # identidad de la laptop: solo junta piezas
+│   │   ├── platform.nix               # lo exclusivo del hardware Dell
+│   │   ├── power.nix                  # modo batería / conectado (solo laptop)
+│   │   └── hardware-configuration.nix # lo genera el sistema (NO tocar)
 │   └── nixos-pc/
-│       ├── default.nix                # identidad, solo compone
-│       ├── platform.nix               # plataforma AMD/NVIDIA del PC
-│       └── hardware-configuration.nix # autogenerado (NO tocar)
-└── modules/                           # "src/core" — lógica reutilizable
-    ├── default.nix                    # "mod.rs" raíz — importa todos los módulos
-    ├── system/                        # boot, timezone, locale, systemPackages, wrappers
-    ├── networking/                    # networkmanager, firewall
-    ├── services/                      # compone sub-servicios
-    │   ├── openssh/                   # daemon SSH endurecido
-    │   └── tailscale/                 # red mesh privada (WireGuard)
-    ├── programs/                      # shells y programas de usuario
-    │   ├── fish/                      # shell + prompt oh-my-posh
-    │   ├── ghostty/                   # terminal (config gestionada)
-    │   ├── waybar/                    # barra de estado (config + estilo)
-    │   ├── equibop/                   # Discord con fix de WebRTC (Tailscale)
-    │   └── gentle-ai/                 # stack Gentle-AI/Pi/Engram + bootstrap
-    ├── wayland/                       # compositores Wayland y greeter
-    │   ├── niri/                      # compositor niri (config.kdl gestionado)
-    │   └── dms-greeter/               # greeter DankMaterialShell
-    └── users/                         # usuario loonbac, grupos, npm-global
+│       ├── default.nix                # identidad del PC: solo junta piezas
+│       ├── platform.nix               # lo exclusivo del hardware AMD/NVIDIA
+│       └── hardware-configuration.nix # lo genera el sistema (NO tocar)
+└── modules/                           # piezas reutilizables (lo compartido)
+    ├── default.nix                    # junta todos los módulos
+    ├── system/                        # arranque, idioma, programas base
+    ├── networking/                    # wifi y firewall
+    ├── services/                      # servicios de fondo
+    │   ├── openssh/                   # servidor SSH protegido
+    │   └── tailscale/                 # red privada entre mis equipos
+    ├── programs/                      # programas de uso diario
+    │   ├── fish/                      # la terminal con linda presentación
+    │   ├── ghostty/                   # la ventana de terminal
+    │   ├── waybar/                    # la barra inferior con reloj, volumen…
+    │   ├── equibop/                   # Discord con arreglo para llamadas con VPN
+    │   └── gentle-ai/                 # Pi + Gentle AI + Engram
+    ├── wayland/                       # el escritorio gráfico
+    │   ├── niri/                      # el organizador de ventanas
+    │   └── dms-greeter/               # la pantalla de inicio de sesión
+    └── users/                         # mi usuario y grupos
 ```
 
 ---
@@ -57,93 +59,86 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
 
 Si no quieres leer todo el README, esto es lo importante:
 
-- **Pi usa tu cuota grande de Mistral (Vibe Code, 150 USD/mes).** La clave
-  vive en `~/.config/mistral-vibe/api-key` (solo la lees tú) y Pi la usa para
-  el provider `mistral-vibe`. Nada de claves queda en este repo público.
-- **El modelo es Mistral Large 4.** Tu cuota Vibe cubre cualquier modelo, así
-  que se ofrece el más capaz: 1M de contexto, más barato ($0,70/$2,10) y con
-  razonamiento graduable (bajo/medio/alto). Verificado en vivo, incluido el
-  ejemplo del tren (14:20 + 95 min = 15:55).
 - **El repo es forkable.** Tu identidad sale de una sola opción
-  (`loon.username`); tus datos personales están tras interruptores
-  (`loon.personal.*`, apagados por defecto) y hay una plantilla en
-  `hosts/ejemplo/` con guía paso a paso más abajo. Un amigo pone su nombre,
-  apaga lo personal y obtiene su propio sistema con `git pull` sin miedo.
+  (`loon.username`); lo personal (providers de IA, jueces, servidores MCP)
+  está tras interruptores (`loon.personal.*`, apagados por defecto) y hay una
+  plantilla en `hosts/ejemplo/` con guía paso a paso más abajo. Pones tu
+  nombre, apagas lo personal y obtienes tu propio sistema con `git pull`
+  sin miedo.
+- **Cada uno pone sus propias claves de IA en su home** (archivos que solo
+  lee su usuario). Nada de claves queda en este repo público.
 - **Todo cambio serio pasa por revisión automática (RDD)** antes de
   fusionarse a `master`: un revisor de IA lo lee y solo con «aprobado» se
   hace merge.
 
 ---
 
-## Filosofía: estructura modular
+## La idea: piezas chicas en vez de un monstruo
 
-| Concepto                        | Esta config                          |
-|---------------------------------|--------------------------------------|
-| `flake.nix` (deps + outputs)    | "Cargo.toml" del sistema             |
-| `hosts/loon-laptop/default.nix` | "main.rs" — solo compone             |
-| `modules/default.nix`           | "mod.rs" raíz                        |
-| `modules/services/default.nix`  | "mod" que compone sub-servicios      |
-| `modules/services/openssh/`     | cada servicio es un módulo propio    |
-| `pkgs/niri-cycle/`              | binario propio del flake             |
-| `imports = [ ./foo ];`          | el "mod foo;"                        |
-| `rebuild`                       | el "cargo build && cargo run"        |
+| Si vienes de programar…              | Aquí equivale a…                      |
+|--------------------------------------|---------------------------------------|
+| `flake.nix` (dependencias)           | la lista de compras del sistema       |
+| `hosts/loon-laptop/default.nix`      | el punto de entrada: solo junta piezas|
+| `modules/default.nix`                | el índice que importa todo            |
+| `modules/services/openssh/`          | un módulo = una sola cosa             |
+| `pkgs/niri-cycle/`                   | un programita hecho en casa           |
+| `imports = [ ./foo ];`               | incluir la pieza `foo`                |
+| `rebuild`                            | compilar + aplicar los cambios        |
 
 ---
 
-## Comando custom: `rebuild`
+## Comando `rebuild`: aplicar lo que cambiaste
 
-En lugar de escribir `sudo nixos-rebuild switch --flake .#<hostname>` cada vez,
-este flake incluye un comando propio **`rebuild`** que lo hace por ti.
+En vez de escribir el comando largo de NixOS cada vez, este repo trae su
+propio comando **`rebuild`**:
 
 ```bash
-rebuild          # aplica los cambios (switch) — el más usado
-rebuild dry      # prueba sin aplicar (dry-run)
-rebuild update   # actualiza nixpkgs y los flakes (flake update) y aplica
+rebuild          # aplica tus cambios (el que más vas a usar)
+rebuild dry      # prueba sin aplicar nada (simulacro)
+rebuild update   # trae versiones nuevas de todo y aplica
 ```
 
-- Se ejecuta desde cualquier directorio: internamente entra a `~/.nixos`.
-- Detecta el hostname actual y selecciona su `nixosConfiguration`; falla de
-  forma segura si el host no está declarado en el flake.
-- Pide sudo solo cuando aplica (switch/update).
-- El código vive en `pkgs/rebuild/default.nix`; la instalación se hace
-  desde `modules/system/default.nix`.
+- Funciona desde cualquier carpeta: solo entra a `~/.nixos`.
+- Detecta en qué máquina estás y aplica su configuración; si el equipo no
+  está declarado, se niega en vez de romper algo.
+- Pide tu contraseña solo cuando va a aplicar cambios de verdad.
+- Su código vive en `pkgs/rebuild/default.nix`.
 
-La generación del sistema ejecuta además `niri validate` contra un HOME limpio.
-Los directorios y archivos incluidos por Niri se crean declarativamente con
-tmpfiles, de modo que una instalación nueva no depende de estado previo del usuario.
-El launcher tampoco requiere archivos privados del home: si la imagen opcional
-del banner no está disponible, utiliza un degradado integrado.
-Waybar, loon-launch y los daemons persistentes de Niri son servicios de usuario
-supervisados: se inician y detienen con la sesión y se recuperan de un fallo.
+Al aplicar, también se revisa que la configuración del escritorio (`niri`)
+sea válida, usando un entorno limpio. Los archivos que niri necesita se crean
+solos, así que una máquina recién instalada no depende de nada previo. Si
+falta la imagen opcional del banner del launcher, se usa un degradado
+integrado. Waybar, loon-launch y los servicios de niri se inician con tu
+sesión y se recuperan solos si fallan.
 
-> **Nota**: `rebuild update` también actualiza el `flake.lock`, lo que trae
+> **Ojo**: `rebuild update` también actualiza el `flake.lock`, lo que trae
 > las últimas versiones de Zen Browser y VS Code Insiders (ver abajo).
 
 ---
 
-## Comando custom: `nixos-ssh`
+## Comando `nixos-ssh`: contraseña o clave para entrar por SSH
 
-Toggle de autenticación del servidor OpenSSH. Pregunta si se quiere entrar
-por contraseña o por clave (certificado) y aplica la config con el mismo
-`nixos-rebuild switch` que `rebuild`.
+Un menú que te pregunta cómo quieres que se pueda entrar a tu máquina por SSH:
+con contraseña o solo con clave (certificado). Aplica el cambio con el mismo
+mecanismo que `rebuild`.
 
 ```bash
 nixos-ssh        # menú: password | cert | cancelar
 ```
 
-- Muestra el modo actual antes de preguntar.
-- Escribe el modo en `modules/services/openssh/ssh-auth-mode` y aplica.
-- Si el rebuild falla, revierte el archivo de estado al modo anterior.
-- El módulo cae a `cert` (seguro: solo claves) si el archivo falta o inválido.
-- Código en `pkgs/nixos-ssh/default.nix`; instalado en `modules/system/default.nix`.
+- Te muestra primero el modo actual.
+- Guarda tu elección en `modules/services/openssh/ssh-auth-mode` y la aplica.
+- Si algo falla al aplicar, vuelve al modo anterior solo.
+- Si el archivo no existe o está raro, usa `cert` (lo seguro: solo claves).
+- Su código vive en `pkgs/nixos-ssh/default.nix`.
 
 ---
 
 ## Clonar este flake para tu propia máquina
 
-Este repo es personal pero forkable: tu configuración vive solo en
-`hosts/<tu-host>/` + una línea en el flake, y todo lo demás se actualiza con
-`git pull` sin tocar lo tuyo.
+Este repo es personal pero cualquiera puede copiarlo: tu configuración vive
+solo en `hosts/<tu-host>/` + una línea en el flake, y todo lo demás se
+actualiza con `git pull` sin tocar lo tuyo.
 
 ```bash
 # 1. Copia la plantilla y genera el hardware real de tu máquina
@@ -153,55 +148,52 @@ nixos-generate-config --show-hardware-config > hosts/mi-pc/hardware-configuratio
 # 2. En hosts/mi-pc/default.nix: pon tu hostname, tu loon.username y qué
 #    áreas personales enciendes (todo apagado por defecto)
 # 3. En flake.nix, nixosConfigurations: añade "mi-pc" = mkHost "mi-pc" [ ];
-# 4. Si enciendes providers de Pi, crea TUS claves (0600) en tu home:
+# 4. Si enciendes providers de Pi, crea TUS claves (solo-legibles-por-ti) en tu home:
 #    ~/.config/inception/api-key, ~/.config/mistral-vibe/api-key, ...
 # 5. Instala: sudo nixos-rebuild switch --flake .#mi-pc
 ```
 
-- Con `loon.personal.enable = false` (el default de la plantilla) obtienes el
+- Con `loon.personal.enable = false` (lo que trae la plantilla) obtienes el
   sistema completo sin ningún dato de loonbac: ni su usuario, ni sus
   providers, ni sus MCPs. Cada área se enciende por separado (`piProviders`,
   `judges`, `mcpServers`) cuando copias esa área con tus propios archivos.
-- Si construyes un host fuera de `loon.knownHosts` sin poner tu `loon.username`,
-  la evaluación falla con un mensaje que te dice exactamente qué personalizar.
-  Es a propósito: mejor un error claro que el usuario de otro instalado en silencio.
+- Si creas un host no registrado en `loon.knownHosts` sin poner tu
+  `loon.username`, la evaluación falla con un mensaje que te dice exactamente
+  qué personalizar. Es a propósito: mejor un error claro que instalar el
+  usuario de otro sin darte cuenta.
 - Actualizar sin miedo: tus cambios viven en `hosts/<tu-host>/` y tu línea del
   flake. Un `git pull` solo puede rozar esos dos puntos; si hay conflicto, es
   ahí y se resuelve en un minuto.
 
 ---
 
-## `loon-launch` — launcher propio (Super+Space) y fondos (Super+B)
+## `loon-launch` — el lanzador (Super+Space) y los fondos (Super+B)
 
-Launcher Wayland en Rust (GTK4 + libadwaita) para niri. **No vive en este
-repo**: su código y su empaquetado están en
-[`loonbac/loon-launch`](https://github.com/loonbac/loon-launch), consumido aquí
-como input de flake (`inputs.loon-launch`) y entregado a los módulos como
-`loonLaunch` vía `specialArgs`. Historia, tests y cadencia son suyos.
+Es un lanzador de programas hecho en Rust, lindo y rápido. **Su código NO vive
+en este repo**: está en
+[`loonbac/loon-launch`](https://github.com/loonbac/loon-launch) y aquí solo se
+consume como dependencia. Su historia y sus pruebas son suyas.
 
-Daemon persistente: `Super+Space` abre las apps; `Super+B` (o
-`loon-launch wallpapers`) abre el selector de fondos.
+Siempre está corriendo en segundo plano: `Super+Space` abre programas;
+`Super+B` (o `loon-launch wallpapers`) abre el selector de fondos.
 
-**Apps (680×350)**
+**Ventana de programas (680×350)**
 
-- Banner 180 px con la imagen estética y búsqueda de 600 px centrada encima.
-- Lista en **2 columnas** de 4 filas: icono 28 px + nombre (ellipsis). Las
-  columnas extra se desplazan a la derecha (scrollbar oculta; flechas).
-- `←/→` cambian de columna, `↑/↓` suben/bajan en la columna, `Enter` ejecuta,
-  `Escape` cierra. Escribir filtra; `>` son acciones de poder.
+- Arriba: un banner de 180 px con una imagen y la caja de búsqueda encima.
+- Abajo: lista en **2 columnas** de 4 filas (icono + nombre). Si hay más,
+  se desplaza a la derecha (sin barra visible; con las flechas).
+- `←/→` cambian de columna, `↑/↓` se mueven dentro, `Enter` abre el programa,
+  `Escape` cierra. Escribir filtra; `>` son acciones de apagar/reiniciar/etc.
 
-**Fondos (740×350, sin banner ni búsqueda)**
+**Ventana de fondos (740×350)**
 
-- Fila de arriba: **Fondo de pantalla** (videos de `~/Videos/Wallpapers`,
-  preview en vivo 16:9). Si hay más de dos, `→` scrollea la tira.
-- Fila de abajo: **Background** (fotos de `~/Pictures/Wallpaper`).
-- Cards centradas, badge Video/Foto, borde interno al seleccionar. El scroll
-  deja 22 px de aire para no recortar el aro al volver al primero.
-- `↑/↓` saltan entre las dos filas. `Enter` aplica (`mpvpaper-wallpaper set`
-  o `niri-backdrop set`).
+- Arriba: **Fondo de pantalla** (videos de `~/Videos/Wallpapers`, con vista
+  previa en vivo). Si hay más de dos, `→` recorre la tira.
+- Abajo: **Background** (fotos de `~/Pictures/Wallpaper`).
+- `↑/↓` saltan entre las dos filas. `Enter` aplica el fondo.
 
-Para cambiar el launcher se edita **en su repo**; el lock de este fija el
-commit, así que hay que mover el input para que el sistema lo vea:
+Para cambiar el lanzador se edita **en su repo**; aquí solo se trae la versión
+nueva actualizando la dependencia y aplicando:
 
 ```bash
 cd ~/Proyectos/loon-launch
@@ -210,53 +202,48 @@ nix develop --command cargo test
 cd ~/.nixos && nix flake update loon-launch && rebuild
 ```
 
-Validar: `niri validate --config modules/wayland/niri/config.kdl` y
-`nix build .#loon-launch --no-link --print-out-paths` (este flake reexporta el
-paquete del input, así que el store path es el mismo que usa el sistema).
+Para revisar que todo sigue bien: `niri validate --config modules/wayland/niri/config.kdl`
+y `nix build .#loon-launch --no-link --print-out-paths`.
 
 ---
 
-## Paquetes del flake (`pkgs/`)
+## Programitas del flake (`pkgs/`)
 
-### `niri-cycle` — mover ventanas con wrap (Super+←/→)
+### `niri-cycle` — mover ventanas con salto infinito (Super+←/→)
 
-En niri las ventanas viven en columnas horizontales. Este script usa
-`niri msg action focus-column-left/right` y si estás en el extremo, salta
-al otro lado (wrap infinito).
+En niri las ventanas se ordenan en columnas. Este script mueve la ventana a la
+columna de al lado, y si estás en el borde, salta al otro extremo (da la vuelta).
 
 ### `mpvpaper-wallpaper` — fondo animado (Super+B)
 
-Reproduce un video en loop detrás de las ventanas con `mpvpaper`:
+Pone un video en loop detrás de las ventanas:
 
 ```bash
-mpvpaper-wallpaper              # reproduce el video seteado (o el primero)
-mpvpaper-wallpaper set NOMBRE   # setea un video de ~/Videos/Wallpapers
+mpvpaper-wallpaper              # reproduce el video elegido (o el primero)
+mpvpaper-wallpaper set NOMBRE   # elige un video de ~/Videos/Wallpapers
 mpvpaper-wallpaper list         # lista los videos disponibles
-mpvpaper-wallpaper pause [MOTIVO] [DUEÑO]  # pausa por IPC y conserva el último frame
-mpvpaper-wallpaper resume [MOTIVO] # retira ese motivo; sin motivo los retira todos
-mpvpaper-wallpaper reasons      # motivos activos: motivo, antigüedad y dueño
-mpvpaper-wallpaper reconcile    # retira motivos huérfanos y ajusta la pausa
-mpvpaper-wallpaper status       # playing, paused o stopped
-mpvpaper-wallpaper stop         # detiene el fondo animado
+mpvpaper-wallpaper pause [MOTIVO] [DUEÑO]  # pausa y deja el último cuadro
+mpvpaper-wallpaper resume [MOTIVO] # quita ese motivo; sin motivo los quita todos
+mpvpaper-wallpaper reasons      # qué lo tiene pausado, desde cuándo y por quién
+mpvpaper-wallpaper reconcile    # limpia pausas de procesos que ya murieron
+mpvpaper-wallpaper status       # dice si está sonando, pausado o detenido
+mpvpaper-wallpaper stop         # lo detiene
 ```
 
-Al cambiar de video, mantiene el wallpaper anterior y hace un crossfade de
-0.8 segundos sobre él; el proceso viejo se cierra solo cuando el nuevo ya es
-completamente opaco.
+Al cambiar de video no hay corte brusco: mantiene el anterior y funde el nuevo
+encima en 0.8 segundos.
 
-Se lanza automáticamente al iniciar la sesión (`spawn-at-startup` en niri).
-El socket IPC de mpv queda bajo `$XDG_RUNTIME_DIR/mpvpaper-wallpaper/`, con
-permisos privados del usuario; no se usa `/tmp` compartido.
+Se inicia solo al entrar a la sesión. Su comunicación interna vive en tu carpeta
+de usuario con permisos privados; no usa `/tmp` compartido.
 
-La pausa no es un interruptor único: los **motivos** se apilan y el video solo
-se detiene mientras quede al menos uno. `niri-wallpaper-visibility` añade
-`opaque-window` cuando la ventana activa de un workspace visible es opaca
-(las transparentes —ghostty y PORT— no cuentan), y el perfil de energía de la
-laptop añade `power-profile`.
+La pausa funciona por **motivos acumulados**: el video solo se detiene mientras
+quede al menos uno. Hay dos que se ponen solos: `opaque-window` (cuando la
+ventana que miras tapa todo el fondo — las transparentes como ghostty no
+cuentan) y `power-profile` (cuando la laptop entra en ahorro de batería).
 
-Cada motivo guarda **cuándo** y **quién** lo creó. `reasons` imprime tres
-columnas —motivo, antigüedad y dueño— para que un motivo olvidado no se vea
-igual que una ventana opaca de ahora mismo:
+Cada motivo guarda **cuándo** se puso y **quién** lo puso. `reasons` te muestra
+esas tres columnas para que una pausa olvidada no se confunda con una ventana
+tapando el fondo:
 
 ```
 $ mpvpaper-wallpaper reasons
@@ -264,83 +251,61 @@ manual	3d2h	cli
 opaque-window	12s	pid:2841 (huérfano)
 ```
 
-Un motivo con dueño `pid:N` solo puede retirarlo ese proceso; si murió (el
-watcher se reinició, el perfil de energía terminó a la fuerza) el motivo queda
-sin nadie que lo retire y pausa el fondo para siempre. `mpvpaper-wallpaper
-reconcile` los descarta, y solo reanuda cuando retiró el último: esa pausa era
-suya. El arranque del fondo también reconcilia. `reasons` y `status` solo
-informan y nunca cambian nada, así que una pausa puesta a mano en el socket de
-mpv se respeta. Los motivos del usuario son `cli` y nunca se retiran solos:
-`resume` sin argumentos los elimina todos.
+Si el proceso dueño de un motivo muere (se reinició el observador, se mató el
+ahorro de energía a la fuerza), su motivo queda colgado y el fondo se pausa
+para siempre. `reconcile` limpia esos huérfanos, y solo reanuda si quitó el
+último. `reasons` y `status` solo informan, nunca cambian nada. Tus pausas
+manuales (`cli`) nunca se quitan solas: `resume` sin argumentos las borra todas.
 
-### `accent-wallpaper` — acento dinámico desde el wallpaper
+### `accent-wallpaper` — el color del sistema sale de tu fondo
 
-Extrae el color más llamativo del video de wallpaper y lo aplica como color de
-acento del sistema (borde de ventana activa en niri + underbar/botones de
-loon-bar). Usa `ffmpeg` para tomar un frame y `imagemagick` para analizar el
-histograma (el color más saturado × brillante, descartando casi negros):
+Toma el color más llamativo de tu video de fondo y lo usa como color de acento
+(borde de la ventana activa + detalles de la barra). Usa `ffmpeg` para sacar un
+cuadro e `imagemagick` para buscar el color más vivo:
 
 ```bash
-accent-wallpaper             # analiza el video seteado
+accent-wallpaper             # analiza el video actual
 accent-wallpaper from VIDEO  # analiza un video específico
 ```
 
-Escribe `~/.config/mpvpaper/accent.txt` (hex) y `~/.config/niri/accent.kdl`
-(override del border de niri, que recarga en vivo al cambiar). Tanto
-`mpvpaper-wallpaper` como `niri-backdrop` lo disparan automáticamente al
-cambiar de fondo; loon-bar y Pi vigilan `accent.txt` y actualizan sus colores
-sin reiniciar. Waybar observa su `colors.css` importado y actualiza la paleta
-dentro del mismo proceso, sin desaparecer durante la transición.
+Guarda el color en `~/.config/mpvpaper/accent.txt` y `~/.config/niri/accent.kdl`
+(niri lo recarga en vivo al cambiar). Tanto el fondo animado como el fijo lo
+disparan solos al cambiar; la barra y Pi actualizan sus colores sin reiniciar.
 
-### `niri-backdrop` — fondo estático del backdrop
+### `niri-backdrop` — fondo fijo global
 
-Pone una imagen fija (con `awww`) en la capa **backdrop** de niri — el fondo
-global que se ve detrás de todo, incluido a través de las ventanas transparentes
-con `xray`. También recalcula en segundo plano la paleta compartida a partir de
-la imagen elegida. Imágenes en `~/Pictures/Wallpaper`:
+Pone una imagen fija como fondo global (se ve detrás de todo, incluso a través
+de las ventanas transparentes). Imágenes en `~/Pictures/Wallpaper`:
 
 ```bash
-niri-backdrop              # pone la imagen seteada (o la primera)
-niri-backdrop set IMAGEN   # setea una imagen específica
-niri-backdrop stop         # detiene el fondo
+niri-backdrop              # pone la imagen elegida (o la primera)
+niri-backdrop set IMAGEN   # elige una imagen
+niri-backdrop stop         # quita el fondo
 ```
 
-### Gentle-AI + Pi + Engram — configuración declarativa, runtime actualizable
+### Gentle-AI + Pi + Engram — lo declarado vs lo actualizable
 
-El módulo `modules/programs/gentle-ai/` separa configuración y runtime:
+El módulo `modules/programs/gentle-ai/` separa dos cosas:
 
-- NixOS declara los launchers, los modelos predeterminados, las rutas de los
-  agentes, GGA, MCP y las preferencias portables.
-- Pi vive en `~/.local/share/loon-pi/npm-prefix` como una instalación npm
-  global normal y escribible, pero fuera de `PATH`; el launcher de Nix es la
-  única entrada visible.
-- Las extensiones viven en `~/.pi/agent/npm`; sus fuentes npm no llevan una
-  versión fija, de modo que `pi update --extensions` puede actualizarlas.
-- `gentle-pi` instala dentro de su propio paquete el binario exacto y verificado
-  de Gentle AI con el que es compatible. El launcher `gentle-ai` siempre
-  resuelve ese binario; no existe una segunda copia fijada por Nix.
-- Engram vive en `~/.local/share/loon-engram`; `engram update` instala la última
-  release oficial después de verificar su checksum publicado.
-- `gentle-pi` incluye la herramienta CodeGraph; su CLI oficial se instala sin
-  versión en el mismo prefijo npm mutable. El launcher Nix `codegraph` permite
-  que Pi la encuentre en `PATH` sin exponer el prefijo entero.
+- **NixOS declara** los lanzadores, los modelos por defecto, las rutas y las
+  preferencias. Eso sí está versionado.
+- **Los programas se actualizan solos**: Pi vive en
+  `~/.local/share/loon-pi/npm-prefix` como una instalación normal que puedes
+  actualizar, fuera del almacén inmutable de Nix. Lo mismo Engram en
+  `~/.local/share/loon-engram`.
 
-`gentle-ai-bootstrap` se ejecuta al iniciar sesión y también puede ejecutarse
-manualmente. En una máquina nueva instala únicamente lo que falta; nunca
-actualiza silenciosamente una instalación existente. Durante la migración
-retira de forma recuperable los antiguos enlaces a `loon-gentle-pi-stack` y
-los conserva bajo `~/.pi/agent/backups/`.
+`gentle-pi` trae dentro el binario exacto y verificado de Gentle AI con el que
+funciona; no hay una segunda copia fijada por Nix. `gentle-ai-bootstrap` se
+ejecuta al iniciar sesión (y a mano cuando quieras): en una máquina nueva
+instala solo lo que falta y **nunca** actualiza por sorpresa lo que ya tienes.
+Al migrar, retira de forma recuperable los enlaces viejos y los guarda en
+`~/.pi/agent/backups/`.
 
-El bootstrap mantiene declarativos el tema, el proveedor/modelo principal,
-las rutas de modelos para subagentes y el proveedor local `ollama-vast`. No
-reemplaza credenciales, modelos descubiertos, sesiones ni la base de datos de
-Engram. `better-claude-code-ui` es una extensión propia cuyo código vive en
-este repositorio; no selecciona ni retiene una release externa.
-
-El origen del núcleo Gentle se elige aparte en el módulo NixOS. Estas opciones
-no describen las extensiones, notificaciones, proveedores ni fallbacks propios
-de loon: solo seleccionan `gentle-pi`, el runtime de Gentle AI y el binario de
-Engram.
+El bootstrap mantiene el tema, el proveedor/modelo principal y las rutas de
+subagentes, pero **no toca** tus credenciales, sesiones ni la memoria de
+Engram. El origen del núcleo Gentle se elige aparte en el módulo NixOS: esas
+opciones solo eligen `gentle-pi`, el runtime y el binario de Engram, nada de
+tus cosas personales.
 
 ```nix
 programs.gentle-ai.core = {
@@ -352,45 +317,37 @@ programs.gentle-ai.core = {
     # mode = "release"; ref = "2.7.0";
   };
 
-  # null usa el companion firmado/verificado que instala gentle-pi.
-  # Para probar una branch, se usa el override oficial por entorno y no se
-  # escribe ~/.pi/gentle-ai/dev-binary.json.
+  # null usa el programa verificado que instala gentle-pi.
+  # Para probar una rama se usa la variable oficial, no se escribe a mano.
   gentleAi.source = null;
-  # gentleAi.source =
-  #   "github.com/gentleman-programming/gentle-ai/v2/cmd/gentle-ai@main";
 
   engram = {
-    # release + null sigue siempre la última release estable. Un ref explícito
-    # es solo para una prueba o pin temporal solicitado conscientemente.
+    # release + null sigue siempre la última estable. Un ref explícito
+    # es solo para una prueba puntual, pedida a conciencia.
     mode = "release";
     ref = null;
-    # mode = "git"; ref = "main";
   };
 };
 ```
 
 El plugin de Engram para Pi se declara como `npm:gentle-engram`, sin versión:
-Pi lo instala en su directorio mutable y `pi update --extensions` puede
-actualizarlo como cualquier otra extensión. El binario de Engram mantiene su
-canal independiente (`release:latest`, la release estable actual). Un rebuild
-reconcilia que ambos existan, pero no reemplaza ni rebaja sus versiones
-instaladas.
-`gentle-stack-update` refresca de forma explícita los canales móviles y después
+Pi lo instala en su carpeta y `pi update --extensions` lo actualiza como
+cualquier extensión. Engram mantiene su canal aparte (`release:latest`).
+Un rebuild solo verifica que existan; no reemplaza ni rebaja lo instalado.
+`gentle-stack-update` actualiza todo lo móvil de forma explícita y después
 reconcilia la configuración.
 
-Los subagentes quedan en modo interactivo por defecto. Para permitir o impedir
-que una ejecución en segundo plano despierte a Pi sin un mensaje nuevo, el
-estado local se consulta con:
+Los subagentes trabajan en modo interactivo por defecto. Para ver o cambiar si
+una tarea en segundo plano puede despertar a Pi sola:
 
 ```bash
 /gentle:background-subagents status
 /gentle:background-subagents disable
 ```
 
-Con la política desactivada, el modo normal es `task`: las preguntas del
-subagente pasan por la UI de Pi. El modo `background` sigue disponible cuando
-se solicita explícitamente; sus preguntas se cancelan porque no hay una UI
-interactiva que pueda responderlas.
+Con eso apagado, las preguntas del subagente pasan por la pantalla de Pi. El
+modo `background` sigue disponible si lo pides a mano; como no hay pantalla
+que responda, sus preguntas se cancelan.
 
 ```bash
 gentle-ai-bootstrap
@@ -400,56 +357,41 @@ pi --version
 gentle-ai doctor
 ```
 
-#### Actualizaciones
+#### Actualizaciones: nada se fija a mano
 
-La política general del repositorio es no fijar manualmente versiones de
-aplicaciones. NixOS declara paquetes y canales: `flake.lock` actualiza el
-sistema mediante `rebuild update`, mientras los runtimes mutables conservan sus
-propias actualizaciones. Los pins históricos de derivaciones externas son deuda
-técnica y no deben usarse como patrón para nuevas instalaciones.
-
-Pi se puede actualizar directamente porque su ejecutable real ya no está en
-`/nix/store`:
+La regla del repo es **no congelar versiones de aplicaciones a mano**. NixOS
+declara qué instalar; `flake.lock` + `rebuild update` traen lo nuevo; cada
+programa mutable se actualiza por su propio mecanismo. Los pins viejos que
+quedan son deuda, no ejemplo a seguir.
 
 ```bash
 pi update                 # solo Pi
-pi update --extensions    # gentle-pi y las demás extensiones
+pi update --extensions    # gentle-pi y demás extensiones
 engram update             # solo Engram
-gentle-stack-update       # Pi + extensiones + Gentle AI + Engram + configuración
+gentle-stack-update       # todo el stack + configuración
 ```
 
-`gentle-stack-update` también ejecuta el actualizador oficial de CodeGraph.
-Un rebuild solo instala su CLI si falta; conserva la versión mutable ya
-instalada.
+`gentle-stack-update` también actualiza CodeGraph. Un rebuild solo instala su
+programa si falta; respeta la versión que ya tienes.
 
-Las actualizaciones ejecutadas directamente mediante el launcher `pi` disparan
-al terminar `gentle-ai-bootstrap`. NixOS conserva el origen declarado, no
-rebaja la versión recién instalada y vuelve a aplicar únicamente su capa de
-configuración; después sincroniza los assets de Gentle AI para que coincidan
-con el nuevo companion. La versión realmente observada queda registrada en
-`~/.pi/agent/nix/gentle-core-observed.json`.
+Actualizar con el lanzador `pi` dispara al terminar `gentle-ai-bootstrap`:
+conserva lo recién instalado y solo reaplica la configuración. La versión
+real queda anotada en `~/.pi/agent/nix/gentle-core-observed.json`.
 
-Las esperas de Pi también están integradas con el escritorio: cualquier
-`select`, `confirm`, `input`, editor o UI custom que un plugin abra mientras el
-agente trabaja genera una notificación en SwayNC y reproduce un sonido por
-PipeWire. Al terminar por completo una petición (`agent_settled`) se muestra y
-suena otra alerta. La extensión que hace de puente se instala declarativamente
-en `~/.pi/agent/extensions/loon-notifications.ts`; no depende del BEL de la
-terminal ni se pierde al actualizar los paquetes npm. Ambos avisos usan el WAV
-versionado en `pkgs/pi/assets/snd_pi_attention.wav`, que Nix copia a su store.
-Los procesos Pi internos de Gentle Agents y sus vueltas automáticas de entrega
-están excluidos: completar un subagente no genera alertas; una pregunta que este
-remita a la UI principal sí. Las preguntas usan `dialog-question`, los permisos
-`dialog-warning` y solo el final de una petición principal usa
-`dialog-information`. Los menús de plugins abiertos a mano se ignoran. Ghostty
-ignora el BEL auxiliar de `ask_user_question` (antiguo `rpiv-ask-user-question`,
-ahora integrado en gentle-pi) para que no suene un segundo aviso.
+Los avisos de Pi llegan al escritorio: cualquier pregunta o pantalla que un
+plugin abra mientras trabajas genera una notificación en SwayNC con sonido.
+Cuando termina una petición completa, otro aviso. El puente se instala solo en
+`~/.pi/agent/extensions/loon-notifications.ts` y no se pierde al actualizar.
+El sonido es el WAV versionado en `pkgs/pi/assets/snd_pi_attention.wav`.
+Completar un subagente interno **no** avisa; una pregunta que llegue a tu
+pantalla principal, sí. Las preguntas usan aviso normal, los permisos aviso de
+alerta, y solo el final usa aviso informativo. Los menús que abras a mano se
+ignoran. Ghostty ignora el pitido auxiliar para no sonar dos veces.
 
-El bootstrap genera `pi-antigravity-alt` desde la versión instalada del paquete
-oficial `pi-antigravity`, cambiando solo los identificadores necesarios para que
-Pi lo trate como otra instancia. Sus modelos aparecen como
-`antigravity-alt/<modelo>`, su OAuth se guarda por separado y sus comandos usan
-el prefijo `/antigravity-alt.*`. Para iniciar o reparar la cuenta B:
+El bootstrap genera `pi-antigravity-alt` (una segunda cuenta de Antigravity)
+desde el paquete oficial, cambiando solo lo necesario para que Pi la vea como
+otra instancia. Sus modelos aparecen como `antigravity-alt/<modelo>` y su
+sesión se guarda aparte. Para entrar o ver la cuenta B:
 
 ```text
 /login antigravity-alt
@@ -458,21 +400,17 @@ el prefijo `/antigravity-alt.*`. Para iniciar o reparar la cuenta B:
 ```
 
 `gentle-stack-update` actualiza primero el paquete oficial y luego regenera el
-clon desde esa misma versión. El parche valida la estructura esperada antes de
-reemplazarlo; si una actualización upstream resulta incompatible, conserva el
-clon anterior y muestra una advertencia.
+clon desde esa misma versión. Antes de reemplazarlo verifica que la estructura
+sea la esperada; si no, conserva el anterior y avisa.
 
-La extensión global `loon-antigravity-quota-fallback.ts` detecta errores de
-agotamiento de cuota de ambas cuentas y mantiene un cooldown separado para
-cada una. Usa el plazo de reinicio incluido en el error y cambia la petición y
-las de los subagentes en este orden: Antigravity cuenta A → Antigravity cuenta
-B con el mismo modelo y thinking → los dos fallbacks externos de la tabla. Al
-terminar restaura el modelo original.
+La extensión `loon-antigravity-quota-fallback.ts` detecta cuando se acaba la
+cuota de una cuenta y cambia solo a la otra (con tiempos separados por cuenta).
+Orden: cuenta A → cuenta B con el mismo modelo → fallbacks externos. Al
+terminar vuelve al modelo original.
 
-Los subagentes con Gemini 3.8 usan dos fallbacks específicos; no se configura
-un tercero:
+Los subagentes con Gemini 3.8 tienen dos respaldos fijos (no se pone un tercero):
 
-| Subagente | Fallback 1 | Fallback 2 |
+| Subagente | Respaldo 1 | Respaldo 2 |
 | --- | --- | --- |
 | `gentle-ai-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
 | `gentle-ai-worker` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
@@ -483,38 +421,32 @@ un tercero:
 | `sdd-apply` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
 | `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
 
-El perfil principal de los subagentes usa `commandcode/stealth/pixel-canary`
-para todas las rutas delegadas a Command Code (`pi-btw`, `review-*`, `sdd-*`,
-`jd-judge-a`, `gentle-ai-verify`). Pixel Canary está disponible en el
+El perfil principal de subagentes usa `commandcode/stealth/pixel-canary` para
+las rutas delegadas a Command Code. Pixel Canary está en el
 [catálogo de Command Code](https://commandcode.ai/models/pixel-canary).
 
-Al vencer el plazo, Pi vuelve a probar Antigravity automáticamente. El estado se
-puede consultar con `/antigravity-fallback` o limpiar antes de tiempo con
-`/antigravity-fallback clear`. Los fallbacks externos se sirven a través del
-proveedor Command Code.
+Cuando se acaba el tiempo de espera, Pi vuelve a probar Antigravity solo. Puedes
+ver el estado con `/antigravity-fallback` o limpiarlo con
+`/antigravity-fallback clear`. Los respaldos externos llegan vía Command Code.
 
-Actualizar `gentle-pi` ejecuta su instalador oficial y descarga el Gentle AI
-correspondiente con verificación de integridad. npm autoriza únicamente el
-script de instalación de `gentle-pi`, no los scripts de todas las dependencias.
-`gentle-stack-update` vuelve a aplicar después los perfiles de modelos del
-flake. No hay que editar versiones ni hashes Nix para actualizaciones normales
-del stack.
+Actualizar `gentle-pi` ejecuta su instalador oficial con verificación. npm solo
+autoriza el script de instalación de `gentle-pi`, no el de todas sus
+dependencias. Después se reaplican los perfiles de modelos del flake. No hay
+que editar versiones ni hashes para actualizaciones normales.
 
-Este diseño intercambia reproducibilidad binaria entre hosts por la capacidad
-de autoactualización solicitada: el repositorio sigue declarando qué se instala
-y cómo se configura, mientras que cada host decide cuándo avanzar sus versiones.
-Las actualizaciones permanecen manuales y explícitas; el login solo repara
-componentes ausentes.
+Este diseño cambia reproducibilidad exacta entre máquinas por poder
+autoactualizar: el repo sigue diciendo **qué** se instala y **cómo** se
+configura, y cada máquina decide **cuándo** avanzar. Todo es manual y explícito;
+el inicio de sesión solo repara lo que falte.
 
-La autenticación, sesiones, contenido de `~/.engram/` y cualquier token quedan
-fuera de Git y del store Nix.
+Tus sesiones, `~/.engram/` y cualquier token quedan fuera de Git y del almacén Nix.
 
 ### Veadotube Mini
 
-Veadotube Mini 2.2 está empaquetado como binario externo para `nixos-pc`.
-Su ZIP de itch.io usa enlaces temporales y no se guarda en Git; el paquete
-fija el nombre y SHA-256 del release en `pkgs/veadotube-mini/default.nix`.
-Antes del primer rebuild, añade el ZIP exacto al store:
+Veadotube Mini 2.2 viene como binario externo, solo para `nixos-pc`. Su ZIP de
+itch.io usa enlaces que caducan y no se guarda en Git; el paquete fija nombre y
+código SHA-256 en `pkgs/veadotube-mini/default.nix`. Antes del primer rebuild,
+mete el ZIP exacto al almacén:
 
 ```bash
 nix store add --mode flat --hash-algo sha256 \
@@ -523,146 +455,119 @@ nix store add --mode flat --hash-algo sha256 \
 rebuild
 ```
 
-El wrapper FHS conserva el layout `lib/` distribuido por upstream y aporta las
-bibliotecas de sistema necesarias en NixOS. La app queda instalada en el perfil
-del sistema con su entrada de escritorio, por lo que después del rebuild se
-puede eliminar el ZIP original sin afectar la instalación. Se activa solo en
-`hosts/nixos-pc/streaming.nix` mediante `programs.veadotube-mini.enable`.
+El paquete conserva su estructura y aporta las librerías que necesita en NixOS.
+Queda instalado con su icono, así que después puedes borrar el ZIP. Se activa
+solo en `hosts/nixos-pc/streaming.nix` con `programs.veadotube-mini.enable`.
 
-### OBS PipeWire Video Source
+### Fuente de video PipeWire para OBS
 
-`obs-pwvideo` añade a OBS una fuente genérica de vídeo PipeWire, útil para
-recibir una salida de herramientas como libfunnel sin usar el portal de captura.
-Se compila desde el último commit archivado de upstream, fijado por hash en
-`pkgs/obs-pwvideo/default.nix`, y se instala mediante el wrapper oficial de
-OBS; no copia plugins a `~/.config/obs-studio`. Está habilitado únicamente en
-`nixos-pc` desde `hosts/nixos-pc/streaming.nix`.
+`obs-pwvideo` agrega a OBS una fuente genérica de video PipeWire (sirve para
+recibir video de herramientas como libfunnel sin usar el portal de captura).
+Se compila desde un commit fijo de su proyecto original y se instala con el
+mecanismo oficial de OBS; no copia nada a `~/.config/obs-studio`. Solo en
+`nixos-pc`, desde `hosts/nixos-pc/streaming.nix`.
 
-Ese mismo archivo añade únicamente en `nixos-pc` un argumento al wrapper de
-OBS para anteponer `/run/opengl-driver/lib` a `LD_LIBRARY_PATH`. El proceso
-auxiliar `obs-nvenc-test` puede así cargar `libnvidia-encode.so.1` del driver
-NVIDIA activo y ofrecer los codificadores NVENC de la RTX 3060. Los demás
-hosts conservan el wrapper genérico y no heredan rutas ni supuestos de NVIDIA.
+Ese mismo archivo, solo en `nixos-pc`, le dice al OBS dónde están las
+librerías del driver NVIDIA para que aparezcan los codificadores NVENC de la
+RTX 3060. Las demás máquinas no heredan nada de NVIDIA.
 
-El PC también incluye `obs-pipewire-audio-capture`, que añade fuentes PipeWire
-para capturar por separado una aplicación, una entrada o una salida de audio.
-Se declara sólo en `hosts/nixos-pc/streaming.nix`; no afecta los demás hosts.
+El PC también trae `obs-pipewire-audio-capture`: fuentes PipeWire para grabar
+por separado una app, una entrada o una salida de audio. Solo declarado en
+`streaming.nix`; no afecta a otras máquinas.
 
-El PC incluye además la fuente **Captura de aplicación (Niri)**. Su selector
-lista todas las ventanas nativas y XWayland publicadas por Niri y guarda la
-aplicación mediante su `app_id`. Por debajo usa PipeWire y el objetivo oficial
-**niri Dynamic Cast Target** del portal: se autoriza una sola vez al crear la
-fuente y luego OBS restaura ese objetivo estable sin preguntar de nuevo. Si la
-aplicación está cerrada, la fuente queda vacía; cuando vuelve a abrirse,
-encuentra su nuevo ID de ventana y se reconecta.
+El PC incluye además la fuente **Captura de aplicación (Niri)**: lista todas
+las ventanas y recuerda la app por su nombre interno. Usa el mecanismo oficial
+de niri: autorizas una sola vez al crear la fuente y después OBS la restaura
+sola. Si la app está cerrada, la fuente queda vacía; cuando la abres, se
+reconecta sola.
 
-Esta fuente es el estándar para capturar aplicaciones completas en `nixos-pc`.
-No exige wrappers por programa y sirve para cualquier aplicación. Niri comparte
-un único objetivo dinámico entre todas las fuentes, así que está diseñada para
-la aplicación o juego activo, no para dos ventanas independientes a la vez.
+Es la forma estándar de capturar apps completas en `nixos-pc`. No necesita
+nada por programa y sirve para cualquiera. Como niri comparte un solo
+«objetivo» entre fuentes, está pensada para la app o juego activo, no para dos
+ventanas a la vez.
 
-### Twitch GLaDOS TTS para OBS
+### Voz GLaDOS para Twitch (TTS en OBS)
 
-`pkgs/obs-twitch-glados-tts/` instala un script Python nativo de OBS que escucha
-el comando `!t` en `#loonbac21` mediante el IRC anónimo de Twitch y sintetiza
-localmente con Sherpa-ONNX y el modelo español GLaDOS FP32. No usa OAuth, bot ni
-daemon: la conexión, los hilos de trabajo y la cola solo existen dentro de OBS.
-Los WAV se crean bajo `$XDG_RUNTIME_DIR/obs-twitch-glados-tts/` y se borran al
-terminar de reproducirse o al descargar el script.
+`pkgs/obs-twitch-glados-tts/` instala un script de OBS que escucha el comando
+`!t` en el chat de `#loonbac21` y lo lee en voz alta con la voz GLaDOS en
+español, todo en tu máquina (sin bots ni cuentas extra). Los audios temporales
+se crean y se borran solos.
 
-El wrapper declarado en `hosts/nixos-pc/streaming.nix` registra el script antes
-de abrir OBS. Este crea la fuente `Twitch GLaDOS TTS`, visible en el mezclador
-con fader propio. Canal, comando, límite, cooldown, volumen, monitorización y
-velocidad se ajustan en **Herramientas → Scripts** y se recargan en vivo.
+Al abrir OBS, el script se registra solo y crea la fuente `Twitch GLaDOS TTS`
+con su propio volumen en el mezclador. Canal, comando, límites, volumen y
+velocidad se ajustan en **Herramientas → Scripts** y se aplican en vivo.
 
-### TikTok LIVE: chat y alertas locales para OBS
+### TikTok LIVE: chat y alertas para OBS
 
-`pkgs/obs-tiktok-live/` instala otro script nativo de OBS exclusivo de
-`nixos-pc`. Al abrir OBS, el wrapper lo registra automáticamente junto al TTS
-y ejecuta el servicio local. Las fuentes de navegador se crean manualmente en
-la escena que se elija: **TikTok Chat** (600×900) con
+`pkgs/obs-tiktok-live/` instala otro script de OBS, solo `nixos-pc`. Al abrir
+OBS se registra y arranca el servicio local. Las pantallas se crean a mano en
+la escena que quieras: **TikTok Chat** (600×900) con
 `http://127.0.0.1:5124/chat`, y **TikTok Alerts** (1920×1080) con
 `http://127.0.0.1:5124/alerts`.
 
-En **Herramientas → Scripts → TikTok LIVE** se escribe el usuario, con o sin
-`@`. El proceso local recibe chat, regalos (incluidas rachas, agrupadas en una
-sola alerta), follows, compartidos, entradas y likes agrupados. Las fuentes
-usan únicamente `http://127.0.0.1:5124/chat` y
-`http://127.0.0.1:5124/alerts`; no hay puertos expuestos, bots ni credenciales
-en el repo. Si la cuenta no está en directo, el proceso reintenta solo.
+En **Herramientas → Scripts → TikTok LIVE** escribes el usuario, con o sin
+`@`. Recibe chat, regalos (rachas agrupadas en una sola alerta), follows,
+compartidos, entradas y likes. Todo es local: no hay puertos abiertos, bots ni
+claves en el repo. Si la cuenta no está en vivo, reintenta solo.
 
-TikTok no ofrece una API pública para estos eventos. El conector libre usado
-por el script observa el Webcast que ve cualquier espectador y puede requerir
-actualización si TikTok cambia ese protocolo; para leer un directo público no
-requiere iniciar sesión. La presentación, cola de eventos y URLs de OBS sí son
-locales y nunca se publican fuera del PC; el conector hace las conexiones de
-salida necesarias hacia TikTok y su servicio de firmado Webcast.
+TikTok no da una API oficial para esto: el conector usado observa lo mismo que
+ve cualquier espectador y puede necesitar actualización si TikTok cambia algo;
+leer un directo público no pide iniciar sesión. La presentación y las URLs son
+locales y nunca salen del PC.
 
-Para previsualizar el chat sin emitir, crea temporalmente una fuente de
-navegador de **634×604** con `http://127.0.0.1:5124/chat?demo=1`. Muestra
-mensajes ficticios y no se conecta a TikTok; la fuente real sigue usando
-`/chat` sin el parámetro.
+Para probar el chat sin transmitir, crea una fuente temporal de **634×604** con
+`http://127.0.0.1:5124/chat?demo=1`: muestra mensajes falsos sin conectarse;
+la fuente real sigue usando `/chat` sin ese parámetro.
 
-Hay dos vistas compactas de **320×46** para añadir manualmente a una escena de
-actividad. La de follow guarda el último usuario que siguió; la de regalo
-muestra usuario, regalo y su cantidad final (por ejemplo `Luna · Rosa ×3`).
-No se crean ni se añaden a una escena automáticamente: usa
+Hay dos vistas chicas de **320×46** para poner a mano en escenas de actividad:
+la de follow guarda el último que siguió; la de regalo muestra quién, qué y
+cuántos (ej. `Luna · Rosa ×3`). No se crean solas: usan
 `http://127.0.0.1:5124/activity/follow` y
 `http://127.0.0.1:5124/activity/gift`.
 
-### Restauración limpia del streaming en `nixos-pc`
+### Si formateas: qué guardar del streaming en `nixos-pc`
 
-El flake reconstruye OBS y sus plugins (`obs-pwvideo`, Audio Monitor, captura
-de audio PipeWire y captura de ventanas Niri), NVENC, Veadotube Mini, Pear
-Desktop con `pear_twitch`, el TTS con su modelo GLaDOS, el chat y alertas
-locales de TikTok, los overlays locales y los parches de Equibop. No se deben
-copiar plugins manualmente a `~/.config` ni `~/.local/share`.
+El flake reconstruye OBS y todo lo suyo solo. No copies plugins a mano a
+`~/.config` ni `~/.local/share`. Lo personal no está en Git: para recuperar tu
+disposición y cuentas después de formatear, guarda en privado:
 
-El estado personal no se publica en Git. Para recuperar la misma disposición y
-cuentas después de formatear, conservar de forma privada:
-
-- `~/.config/obs-studio/basic/`: colecciones de escenas, perfiles, encoder y
-  servicio de streaming.
-- `~/.config/obs-studio/global.ini`, `user.ini` y, si se personaliza su panel,
+- `~/.config/obs-studio/basic/`: escenas, perfiles y servicio de streaming.
+- `~/.config/obs-studio/global.ini`, `user.ini` y, si personalizaste su panel,
   `plugin_config/audio-monitor/config.json`.
-- `~/OBS/Escenas/`: HTML, imágenes y demás archivos locales usados por las
-  fuentes de la colección.
-- `~/.veadotube/data/mini/autosave.veado`: personaje actual de Veadotube.
+- `~/OBS/Escenas/`: HTML, imágenes y archivos locales de tus fuentes.
+- `~/.veadotube/data/mini/autosave.veado`: tu personaje actual.
 - El ZIP original `veadotube-mini-linux-x64.zip` 2.2 con hash
   `sha256-JHgC9nhMTr76zavmj8kzmdTyOwWFdSJ1lEpx26yAnrA=`. Itch.io usa enlaces
-  temporales y Nix no puede descargar legalmente ese archivo por sí solo.
+  que caducan y Nix no puede descargarlo solo.
 
-Las sesiones de Equibop y Pear pueden iniciarse nuevamente; si se desea evitar
-el login, sus directorios privados son `~/.config/equibop` y
-`~/.config/YouTube Music`. Los WAV del TTS y el estado del overlay viven en
-`XDG_RUNTIME_DIR`, son efímeros y nunca deben respaldarse.
+Equibop y Pear: puedes iniciar sesión de nuevo; si quieres evitarlo, sus datos
+privados están en `~/.config/equibop` y `~/.config/YouTube Music`. Los audios
+del TTS y el estado del overlay son temporales y no se respaldan.
 
 ### Citron Nextendo
 
-El input `citron-nextendo` consume el flake público independiente
+El input `citron-nextendo` consume el flake público e independiente
 [`loonbac/citron-nextendo-nix`](https://github.com/loonbac/citron-nextendo-nix).
-Cuando Nextendo Network publica una release Linux exitosa, ese repositorio
-verifica los SHA-256 y conserva sus tres AppImages oficiales byte por byte bajo
-un tag inmutable. No contiene ni compila el código fuente de Citron; solo expone
-el paquete, overlay y módulo NixOS para `x86_64-linux`, `x86_64-v3` y
-`aarch64-linux`.
+Cuando Nextendo Network publica una versión Linux que funciona, ese repo
+verifica sus códigos y guarda sus tres AppImages tal cual bajo una etiqueta
+fija. No trae ni compila el código de Citron; solo ofrece el paquete y el
+módulo para Linux de 64 bits (normal, optimizado v3 y ARM).
 
-Citron Nextendo no está actualmente en nixpkgs. La instalación soportada se
-hace directamente desde el flake:
+Citron Nextendo no está en nixpkgs. Se instala directo desde el flake:
 
 ```bash
 nix profile install github:loonbac/citron-nextendo-nix#citron-nextendo
 ```
 
-En una CPU compatible con x86-64-v3 se instala la variante optimizada:
+En CPU compatible con x86-64-v3 (como el Ryzen 7 5700X del PC), la versión
+optimizada:
 
 ```bash
 nix profile install github:loonbac/citron-nextendo-nix#citron-nextendo-v3
 ```
 
-El PC usa `citron-nextendo-v3`, optimizado para CPUs x86-64-v3 como su Ryzen 7
-5700X. Una actualización entra mediante `rebuild update`, que avanza el input
-en `flake.lock`; un rebuild normal conserva la revisión instalada.
+El PC usa la optimizada. Una actualización entra con `rebuild update`, que
+avanza el input; un rebuild normal conserva la versión instalada.
 
 Otro flake NixOS puede reutilizar el módulo directamente:
 
@@ -682,14 +587,14 @@ Otro flake NixOS puede reutilizar el módulo directamente:
 }
 ```
 
-También se puede construir o ejecutar sin importar el módulo:
+También se puede probar sin instalar el módulo:
 
 ```bash
 nix build github:loonbac/citron-nextendo-nix
 nix run github:loonbac/citron-nextendo-nix
 ```
 
-En una CPU compatible con x86-64-v3 se puede usar la build optimizada:
+En CPU compatible, la optimizada:
 
 ```bash
 nix run github:loonbac/citron-nextendo-nix#citron-nextendo-v3
@@ -697,60 +602,53 @@ nix run github:loonbac/citron-nextendo-nix#citron-nextendo-v3
 
 ---
 
-## Entorno gráfico: niri + greeter
+## Escritorio: niri + pantalla de login
 
 ### niri (`modules/wayland/niri/`)
 
-Compositor Wayland **scrollable-tiling**. La config `config.kdl` se gestiona
-desde NixOS: se instala en `/etc/niri/config.kdl` y `~/.config/niri/config.kdl`
-es un symlink (tmpfiles). **No edites `~/.config/niri` a mano**; edita el repo
-y corre `rebuild`.
+Es el programa que organiza tus ventanas (scrollable-tiling). Su configuración
+`config.kdl` se maneja desde NixOS: vive en `/etc/niri/config.kdl` y tu
+`~/.config/niri/config.kdl` es un enlace. **No edites `~/.config/niri` a
+mano**; edita el repo y corre `rebuild`.
 
-Detalles de la config:
+Lo principal de la config:
 
-- **Layout**: ventanas al 100% del ancho, gaps de 16px, esquinas redondeadas
-  (12px), borde fino de 1px (sin fondo sólido para no tapar transparencias),
-  sin focus-ring.
-- **Fondo transparente**: `background-color "transparent"` deja ver el backdrop
-  (donde está el wallpaper).
-- **Teclado**: layout `es`, numlock activo. Touchpad con tap y clickfinger.
-- **Portapapeles persistente**: `wl-clip-persist` corre al inicio de la sesión
-  (con `wl-clipboard` + `cliphist`) para que el contenido copiado no se pierda
-  al cerrar la app dueña — imprescindible para pegar capturas de la UI de niri
-  en otros programas tras cerrarla.
-- **Historial de portapapeles**: `cliphist` guarda texto e imágenes copiadas
-  (con watchers de `wl-paste`) y `Super+Shift+V` permite recuperarlas con el
-  picker `fuzzel` — workaround para el bug de Chromium/Electron (p. ej.
-  Equibop/Discord) que no pega imágenes que no provienen de un navegador.
-- **Acento dinámico**: el borde de la ventana activa usa el color extraído del
-  wallpaper por `accent-wallpaper` (include `~/.config/niri/accent.kdl`).
-- **Modo oscuro global**: `programs.dconf` con `color-scheme = prefer-dark` +
-  `gtk-theme = Adwaita-dark`, y `GTK_THEME=Adwaita-dark` en sessionVariables
-  para apps Electron.
-- **Window-rule de ghostty**: transparencia real a nivel de compositor
-  (`opacity 0.8` + `background-effect xray true` para ver el wallpaper a través).
+- **Ventanas**: ocupan todo el ancho, con espacios de 16px, esquinas
+  redondeadas y borde fino (sin fondo sólido para no tapar transparencias).
+- **Fondo transparente**: deja ver el wallpaper que está detrás.
+- **Teclado**: distribución `es`, numlock prendido. Touchpad con toque y clic.
+- **Portapapeles que no se pierde**: al cerrar la app de donde copiaste, lo
+  copiado se conserva (imprescindible para pegar capturas después de cerrar).
+- **Historial del portapapeles**: guarda textos e imágenes que copiaste y
+  `Super+Shift+V` te deja recuperarlos (arregla el bug de Chromium/Electron
+  que no pega imágenes, p. ej. en Equibop/Discord).
+- **Color de acento**: el borde de la ventana activa usa el color de tu fondo
+  (lo calcula `accent-wallpaper` solo).
+- **Modo oscuro global** para GTK y apps Electron.
+- **ghostty transparente de verdad**: el compositor la deja ver el fondo
+  (opacidad 0.8 + efecto xray).
 
-#### Atajos de teclado (binds)
+#### Atajos de teclado
 
-| Tecla               | Acción                                          |
-|---------------------|-------------------------------------------------|
-| `Super+Return`      | Abrir ghostty                                   |
-| `Super+E`           | Abrir Nautilus (explorador de archivos)         |
-| `Super+Space`       | Abrir loon-launch (launcher)                    |
-| `Super+Q`           | Cerrar ventana                                  |
-| `Super+F`           | Maximizar/restaurar columna                     |
-| `Super+B`           | Selector de fondos en loon-launch               |
-| `Super+Shift+S`     | Captura de pantalla (área) → portapapeles       |
-| `Super+Shift+V`     | Pegar desde historial (cliphist + fuzzel)       |
-| `Super+←` / `→`     | Mover ventana con wrap (niri-cycle)             |
-| `Super+1..9`        | Cambiar de workspace                            |
-| `Fn+F6` / `Fn+F7`   | Bajar/subir brillo (backend propio por host)     |
-| `Fn+F2` / `Fn+F3`   | Bajar/subir volumen (`wpctl` ±5%)               |
+| Tecla               | Qué hace                                    |
+|---------------------|---------------------------------------------|
+| `Super+Return`      | Abrir la terminal (ghostty)                 |
+| `Super+E`           | Abrir archivos (Nautilus)                   |
+| `Super+Space`       | Abrir el lanzador (loon-launch)             |
+| `Super+Q`           | Cerrar ventana                              |
+| `Super+F`           | Agrandar/restaurar ventana                  |
+| `Super+B`           | Elegir fondos                               |
+| `Super+Shift+S`     | Captura de pantalla → portapapeles          |
+| `Super+Shift+V`     | Pegar desde el historial                    |
+| `Super+←` / `→`     | Mover ventana (da la vuelta al llegar al fin)|
+| `Super+1..9`        | Cambiar de escritorio                       |
+| `Fn+F6` / `Fn+F7`   | Bajar/subir brillo                          |
+| `Fn+F2` / `Fn+F3`   | Bajar/subir volumen (±5%)                   |
 
-### dms-greeter (`modules/wayland/dms-greeter/`)
+### Pantalla de login (`modules/wayland/dms-greeter/`)
 
-Greeter **DankMaterialShell** sobre el compositor niri. Config fina del tema en
-`~/.config/DankMaterialShell/settings.json`.
+La pantalla para entrar es **DankMaterialShell** sobre niri. Su tema fino se
+ajusta en `~/.config/DankMaterialShell/settings.json`.
 
 ---
 
@@ -758,40 +656,38 @@ Greeter **DankMaterialShell** sobre el compositor niri. Config fina del tema en
 
 ### OpenSSH (`openssh/`)
 
-Daemon SSH **endurecido**: solo acceso por clave (`PasswordAuthentication = false`),
-root no puede entrar (`PermitRootLogin = "no"`).
+Servidor SSH **endurecido**: solo se entra con clave
+(`PasswordAuthentication = false`), y root no puede entrar
+(`PermitRootLogin = "no"`).
 
 ### Tailscale (`tailscale/`)
 
-Red mesh privada (WireGuard) para conectar dispositivos entre sí.
+Tu red privada (WireGuard) para conectar tus equipos entre sí.
 
 ```bash
-sudo tailscale up   # autenticar y unir la máquina a la tailnet (una vez)
-tailscale status    # ver el estado y los dispositivos
+sudo tailscale up   # unir la máquina a tu red (una sola vez)
+tailscale status    # ver el estado y tus equipos
 ```
 
-En `loon-laptop`, `ts-bypass` permite transportar el plano TCP de Tailscale
-por un SOCKS5 creado mediante SSH-over-TLS hacia `elastika-vps` cuando la red
-local bloquea Tailscale:
+En `loon-laptop`, `ts-bypass` sirve cuando la red local bloquea Tailscale:
+lleva su tráfico por un túnel hacia tu servidor `elastika-vps`:
 
 ```bash
-ts-bypass on       # activa, persiste y verifica contra nixos-pc
-ts-bypass status   # comprueba systemd, SOCKS, DERP y Tailscale
-ts-bypass restart  # reconstruye el túnel y vuelve a verificar
-ts-bypass off      # restaura la conexión directa
-ts-bypass logs     # diagnóstico de ambos servicios
+ts-bypass on       # activa, guarda y verifica contra nixos-pc
+ts-bypass status   # revisa servicios, túnel y conexión
+ts-bypass restart  # reconstruye el túnel y verifica
+ts-bypass off      # vuelve a conexión directa
+ts-bypass logs     # muestra diagnóstico
 ```
 
-El túnel vive en `ts-bypass-tunnel.service`, se reinicia automáticamente al
-caer o cambiar la red y conserva el modo elegido tras reiniciar el equipo.
-Tailscale recibe únicamente `ALL_PROXY=socks5://127.0.0.1:1080`; no se deben
-añadir `HTTP_PROXY` ni `HTTPS_PROXY` con esquema SOCKS5.
+El túnel se reinicia solo si se cae o cambia la red, y recuerda tu elección
+tras reiniciar. Tailscale usa solo `ALL_PROXY=socks5://127.0.0.1:1080`; no
+pongas `HTTP_PROXY`/`HTTPS_PROXY` con SOCKS5.
 
-`elastika-vps` mantiene disponible el peer relay en UDP 41641; su transporte
-normal de Tailscale usa UDP 41642. El relay y el grant del tailnet permanecen
-habilitados: `ts-bypass on|off` conmuta únicamente el cliente de la laptop.
-Al apagarlo, el comando espera que `tailscaled` arranque y avisa si la red
-directa no puede alcanzar `nixos-pc`, sin confundirlo con un fallo del toggle.
+`elastika-vps` mantiene el repetidor en UDP 41641; el tráfico normal de
+Tailscale usa UDP 41642. El repetidor siempre está disponible: `on|off` solo
+cambia cómo se conecta la laptop. Al apagarlo, espera a que todo arranque y te
+avisa si la red directa no llega a `nixos-pc`.
 
 ---
 
@@ -799,154 +695,121 @@ directa no puede alcanzar `nixos-pc`, sin confundirlo con un fallo del toggle.
 
 ### fish (`fish/`)
 
-Shell por defecto del usuario:
+Tu shell (la línea de comandos) por defecto:
 
-- Sin banner de bienvenida.
-- **Detección automática de binarios**: agrega al PATH los directorios que
-  existan (`~/.npm-global/bin`, `~/.cargo/bin`, `~/.local/bin`, pipx, etc.)
-  — cualquier paquete instalado globalmente funciona sin configurar nada.
-- **Prompt Oh My Posh** con el tema *craver*, gestionado por NixOS
-  (se instala en `/etc/oh-my-posh/craver.omp.json`, versionado en el repo).
+- Sin mensaje de bienvenida.
+- **Encuentra programas solo**: agrega al PATH las carpetas que existan
+  (`~/.npm-global/bin`, `~/.cargo/bin`, `~/.local/bin`, etc.) — lo que
+  instales funciona sin configurar nada.
+- **Linda presentación** con el tema *craver*, manejado por NixOS (vive en
+  `/etc/oh-my-posh/craver.omp.json`, versionado en el repo).
 
 ### ghostty (`ghostty/`)
 
-Terminal con config gestionada por NixOS (mismo patrón que niri: se instala en
-`/etc/ghostty/config` y `~/.config/ghostty/config` es symlink):
+La ventana de terminal, configurada por NixOS (igual que niri: el archivo real
+está en `/etc/ghostty/config` y el tuyo es un enlace):
 
-- Sin barra de título (`window-decoration = false`).
-- Padding interno de 12px.
-- Fondo opaco por defecto; la transparencia real la aplica niri (window-rule).
+- Sin barra de título.
+- Margen interno de 12px.
+- Fondo opaco; la transparencia la pone niri.
 - Atajos: `ctrl+shift+t` nueva pestaña, `ctrl+shift+w` cerrar pestaña,
-  `ctrl+shift+,` recargar config en caliente.
+  `ctrl+shift+,` recargar config sin cerrar nada.
 
 ### nautilus (`nautilus/`)
 
-Explorador de archivos GNOME. En NixOS 26.05 la opción `programs.nautilus` fue
-removida, así que el módulo instala `nautilus` + `gvfs` (montajes, trash,
-samba), `file-roller` (integración gráfica de archivos comprimidos) y `p7zip`
-(soporte para abrir y extraer 7-Zip) en `systemPackages`, y habilita
-`programs.dconf` para los settings GTK.
+El explorador de archivos de GNOME. En NixOS 26.05 su opción oficial se quitó,
+así que el módulo instala `nautilus` + `gvfs` (montar discos, papelera, red),
+`file-roller` (abrir comprimidos con clic) y `p7zip` (soporte 7-Zip), y prende
+`programs.dconf` para los ajustes visuales.
 
 ### wine (`wine/`)
 
-La integración de Wine instala soporte WoW64 para ejecutables Windows de 32 y
-64 bits, `winetricks` y una asociación de escritorio para `.exe` y `.msi`.
-Desde el explorador se pueden abrir con doble clic; desde una terminal se usa:
+Para correr programas de Windows (32 y 64 bits), más `winetricks` y doble clic
+para `.exe` y `.msi`. Desde terminal:
 
 ```bash
 wine-exe programa.exe [argumentos]
 ```
 
-También se registra el formato PE con `binfmt`: un archivo con permiso de
-ejecución puede lanzarse como `./programa.exe`. No todos los programas Windows
-son compatibles con Wine; los que necesiten DLL o runtimes adicionales pueden
-prepararse con `winetricks`.
+Un `.exe` con permiso de ejecución también corre como `./programa.exe`. No
+todo programa Windows funciona con Wine; los que pidan librerías extra se
+preparan con `winetricks`.
 
 ### waybar (`waybar/`)
 
-Barra de estado inferior (Waybar v0.15), config gestionada por NixOS
-(mismo patrón: `/etc/waybar/` + symlinks en `~/.config/waybar/`). Se lanza
-automáticamente al iniciar la sesión (`spawn-at-startup "waybar"` en niri).
+La barra inferior (reloj, volumen, red, brillo, batería, ventanas…),
+configurada por NixOS (archivos reales en `/etc/waybar/`, los tuyos son
+enlaces). Arranca sola con la sesión.
 
-- **Módulos**: workspaces y ventana de niri, reloj, volumen (pulseaudio),
-  red, brillo, batería y bandeja del sistema.
-- **Estilo**: tema Nord consistente con niri (colores `#3b4252`, `#5e81ac`, ...).
-- **Editar**: `modules/programs/waybar/config.jsonc` (módulos) y
-  `modules/programs/waybar/style.css` (estilos) → `rebuild`.
-- **Recargar la barra** sin reiniciar sesión: `killall waybar && waybar &`.
+- **Editar**: `modules/programs/waybar/config.jsonc` (qué muestra) y
+  `modules/programs/waybar/style.css` (cómo se ve) → `rebuild`.
+- **Recargarla** sin cerrar sesión: `killall waybar && waybar &`.
 
 ### equibop (`equibop/`)
 
-Cliente Discord **Equibop** con un fix de WebRTC para que el voice chat
-funcione con Tailscale (o cualquier VPN) activo. El autostart está gestionado
-por NixOS (mismo patrón: `/etc/equibop/` + symlink en `~/.config/autostart/`).
+Cliente de Discord **Equibop** con un arreglo para que las llamadas de voz
+funcionen con Tailscale (o cualquier VPN) prendida. Su autoarranque lo maneja
+NixOS.
 
-**El problema**: con una VPN activa, WebRTC se confunde y se bindea a la
-interfaz de la VPN, quedando la llamada colgada en *"DTLS Connecting"*.
+**El problema**: con VPN activa, las llamadas se quedan colgadas en
+*"DTLS Connecting"* porque el audio intenta salir por la interfaz equivocada.
 
-**El fix**: se parchea el `app.asar` del paquete en cada build — se inyecta en
-`dist/js/main.js` un hook `app.on("web-contents-created", ...)` que llama
-`setWebRTCIPHandlingPolicy("default_public_and_private_interfaces")` en cada
-ventana (el mismo fix de [Vesktop PR #1283](https://github.com/Vencord/Vesktop/pull/1283)).
+**El arreglo**: en cada instalación se mete un pequeño gancho en el programa
+que le dice al audio usar las interfaces normales
+(`default_public_and_private_interfaces`, el mismo arreglo de
+[Vesktop PR #1283](https://github.com/Vencord/Vesktop/pull/1283)).
 
-> **OJO (gotchas)**: la bandera de Chromium `--webrtc-ip-handling-policy` NO
-> sirve (Equibop no la lee). El valor `disable_non_proxied_udp` NO sirve
-> (desactiva el UDP directo y deja la llamada en *"RTC Connecting"*). El único
-> valor que funciona con VPNs es `default_public_and_private_interfaces`.
+> **OJO**: la opción de Chromium `--webrtc-ip-handling-policy` NO sirve
+> (Equibop la ignora). El valor `disable_non_proxied_udp` tampoco (deja la
+> llamada en *"RTC Connecting"*). El único que funciona con VPN es
+> `default_public_and_private_interfaces`.
 
-El paquete local `pkgs/equibop-voice-normalizer/` añade normalización de
-recepción por participante. En WebRTC mide RMS antes de la ganancia y procesa
-cada receptor con Web Audio: así el 200 % también amplifica realmente, sin el
-límite al 100 % del elemento HTML de Discord. Conserva el dispositivo de salida,
-silencios, ensordecimiento y volumen maestro; incluye un limitador suave de picos.
-Descarta silencio bajo `-55 dB` y ajusta cada voz entre 5 % y 800 % (como máximo
-+18 dB de ganancia individual). Un `AudioWorklet` por receptor normaliza cada
-bloque en el hilo de audio, independientemente de los timers del chat. Atenúa más
-rápido que amplifica y conserva la ganancia durante los silencios. Las pruebas
-de cambios de nivel verifican convergencia al objetivo en 80 ms al bajar y
-350 ms al subir; son tiempos de prueba del normalizador, no latencia de red.
-El control muestra `Nϟ` cuando el procesador en tiempo real está activo.
-La barra de volumen de Discord se sincroniza cada 100 ms como indicación del
-ajuste; no controla la frecuencia de procesamiento del audio.
-Las voces que necesiten más ganancia pueden quedar debajo del objetivo; el panel
-indica ese límite. Si AudioWorklet no está disponible conserva el controlador
-compatible de 100 ms; con otro motor usa los niveles de recepción de Discord y
-conserva el máximo de 200 %.
-Durante una llamada aparece el control `N -24 dB`:
-permite activar/pausar el normalizador y mover el objetivo entre `-36 dB` y
-`-12 dB`; la preferencia se conserva en el almacenamiento local de Discord.
-El asa `⠿` permite arrastrarlo o moverlo con las flechas; recuerda la posición
-y mantiene el panel dentro de la ventana. Empieza abajo a la izquierda.
-Al salir del canal o desactivarlo se restauran los volúmenes anteriores y se
-liberan las rutas de audio. Un volumen manual de cero permanece silenciado.
-El renderer se recarga en vivo al aplicar el flake, sin reiniciar Equibop.
-Validación local: `node --test pkgs/equibop-voice-normalizer/normalizer.test.cjs`.
-`browser-check.cjs` comprueba PCM real (voces bajas y fuertes al mismo objetivo),
-arrastre, persistencia, redimensionado y desactivación con Chromium y Playwright;
-acepta `PLAYWRIGHT_MODULE` con la ruta de una instalación de Playwright para pruebas.
+El paquete `pkgs/equibop-voice-normalizer/` empareja el volumen de todos los
+que hablan: mide cada voz y la ajusta entre 5 % y 800 % (máximo +18 dB), así el
+200 % de Discord amplifica de verdad. Ignora silencios bajo -55 dB, atenúa
+rápido, sube despacio y mantiene el ajuste en silencios. El control muestra
+`Nϟ` cuando está activo. En llamada aparece el control `N -24 dB`: prende/apaga
+y mueve el objetivo entre `-36 dB` y `-12 dB`; tu preferencia se guarda. Se
+puede arrastrar, recuerda dónde lo dejaste y empieza abajo a la izquierda. Al
+salir del canal todo vuelve como estaba. Si el motor rápido no está disponible,
+usa uno compatible más simple.
+Pruebas: `node --test pkgs/equibop-voice-normalizer/normalizer.test.cjs`
+(audio real con Chromium) y `browser-check.cjs` (arrastre, memoria de posición
+y apagado; acepta `PLAYWRIGHT_MODULE` con tu Playwright).
 
-En Linux, el paquete también asigna a los flujos de sonido la identidad
-`Equibop` en PulseAudio/PipeWire y mantiene `AudioService` dentro del proceso.
-Esto evita que OBS y los mezcladores lo agrupen con Pear Desktop u otras
-aplicaciones Electron bajo el nombre genérico `electron`/`Chromium`.
+En Linux además se identifica como `Equibop` ante el sistema de sonido, para
+que OBS y mezcladores no lo confundan con otras apps Electron.
 
-El overlay local de voz para OBS escucha únicamente en loopback. La vista
-compacta está en `http://127.0.0.1:5123/` (618×236), la vista de llamada para
-una fuente de 424×270 está en `http://127.0.0.1:5123/llamada`, y la vista para
-la escena Jugando en `http://127.0.0.1:5123/jugando` (1920×1080). La vista de
-llamada conserva el mismo estado visual y muestra hasta dos avatares grandes,
-centrados sin espacio sobrante; la de Jugando distribuye sin solapamientos a todos los hablantes en
-posiciones variables a lo largo del borde inferior y deja el resto del lienzo
-transparente.
+El overlay de voz para OBS solo escucha en tu máquina: vista compacta en
+`http://127.0.0.1:5123/` (618×236), vista de llamada en
+`http://127.0.0.1:5123/llamada` (para fuente de 424×270) y vista de juego en
+`http://127.0.0.1:5123/jugando` (1920×1080). La de llamada muestra hasta dos
+avatares grandes centrados; la de juego reparte a todos por el borde inferior
+dejando el resto transparente.
 
 ---
 
 ## Sistema (`modules/system/`)
 
-- **Boot**: systemd-boot + UEFI.
-- **Zona horaria / locale**: `America/Lima`, `es_PE.UTF-8`, teclado `es`.
-- **Paquetes no libres**: `allowUnfree = true` (microcode Intel, etc.).
-- **Brillo**: `loon-laptop` usa un wrapper setuid de `brightnessctl` sobre el
-  panel interno Intel; `nixos-pc` usa DDC/CI sobre los buses I2C de la NVIDIA
-  para el monitor principal GM3CC236. Waybar muestra el icono y porcentaje y
-  permite regularlo con la rueda del mouse. En el PC un daemon de sesión
-  agrupa las ráfagas de input y sincroniza el valor real cada 30 segundos.
-- **Paquetes globales** (`environment.systemPackages`): git, gh, btop,
-  fastfetch, ghostty, nodejs, zen-browser, helium-browser, vscode-insiders,
-  equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
-  (niri-cycle, loon-launch, rebuild, mpvpaper-wallpaper, niri-backdrop),
-  Gentle-AI, Engram, Pi, `gentle-ai-bootstrap` y
-  `gentle-stack-update`, además de
-  utilidades de diagnóstico (libva-utils, pciutils, usbutils, dmidecode, inxi,
-  lshw, iw).
-- **Keyring** (`services.gnome.gnome-keyring.enable`): requisito de Settings
-  Sync de VS Code (Secret Service `org.freedesktop.secrets`). Niri no lo
-  levanta solo, por eso se declara explícitamente.
+- **Arranque**: systemd-boot + UEFI.
+- **Idioma y zona**: `America/Lima`, español Perú, teclado `es`.
+- **Programas no-libres permitidos** (`allowUnfree = true`): microcode Intel, etc.
+- **Brillo**: en `loon-laptop` controla el panel interno Intel; en `nixos-pc`
+  controla el monitor por cable (DDC/CI). Waybar muestra icono y porcentaje y
+  deja ajustarlo con la rueda del mouse. En el PC un servicio junta los cambios
+  y sincroniza el valor real cada 30 segundos.
+- **Programas de todas las máquinas**: git, gh, btop, fastfetch, ghostty,
+  nodejs, zen-browser, helium-browser, vscode-insiders, equibop, fish, yazi,
+  mpvpaper/mpv, oh-my-posh, los programitas propios (niri-cycle, loon-launch,
+  rebuild, mpvpaper-wallpaper, niri-backdrop), Gentle-AI, Engram, Pi,
+  `gentle-ai-bootstrap`, `gentle-stack-update` y herramientas de diagnóstico.
+- **Keyring**: necesario para que VS Code sincronice tus ajustes (su caja
+  fuerte de secretos). Niri no lo prende solo, por eso se declara aquí.
 
 ## Red (`modules/networking/`)
 
-- **NetworkManager** activo (WiFi, ethernet por GUI).
-- **Firewall** activo por defecto; para abrir puertos:
+- **NetworkManager** prendido (WiFi y cable por interfaz gráfica).
+- **Firewall** prendido por defecto; para abrir puertos:
   `networking.firewall.allowedTCPPorts = [ ... ]` /
   `networking.firewall.allowedUDPPorts = [ ... ]`.
 
@@ -954,63 +817,60 @@ transparente.
 
 - Usuario `loonbac` (Joshua Rosales), grupos: `networkmanager` (red) y
   `wheel` (sudo). Shell: fish.
-- **npm global**: `~/.npm-global` creado y agregado al PATH (el prefix del
-  store de Nix es inmutable).
+- **npm global**: la carpeta `~/.npm-global` se crea y se agrega al PATH (la
+  de Nix es de solo lectura).
 
 ---
 
 ## Flake (`flake.nix`)
 
-**Inputs**:
+**De dónde viene cada cosa**:
 
-| Input                 | Qué aporta                                        |
-|-----------------------|---------------------------------------------------|
-| `nixpkgs`             | `nixos-26.05`                                     |
-| `citron-nextendo`     | AppImages estables por commit + módulo NixOS      |
-| `zen-browser`         | Zen Browser (no está en nixpkgs)                  |
-| `helium-browser`      | Helium Browser (no está en nixpkgs)               |
-| `code-insiders-flake` | VS Code Insiders (auto-update diario)             |
+| De dónde                   | Qué trae                                        |
+|----------------------------|-------------------------------------------------|
+| `nixpkgs`                  | la base `nixos-26.05`                           |
+| `citron-nextendo`          | AppImages estables + su módulo                  |
+| `zen-browser`              | Zen Browser (no viene en nixpkgs)               |
+| `helium-browser`           | Helium Browser (no viene en nixpkgs)            |
+| `code-insiders-flake`      | VS Code Insiders (se actualiza a diario)       |
 
-**Paquetes expuestos** (`packages.x86_64-linux`): `rebuild`, `loon-launch`
-(reexportado desde su flake),
-`niri-cycle`, `vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
-`engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update` y
-`steamidra`, `citron-nextendo`, `citron-nextendo-v3` y
-`veadotube-mini`, `obs-pwvideo`.
+**Programas que expone el flake**: `rebuild`, `loon-launch`, `niri-cycle`,
+`vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
+`engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update`,
+`steamidra`, `citron-nextendo`, `citron-nextendo-v3`, `veadotube-mini` y
+`obs-pwvideo`.
 
-**VS Code Insiders**: el flake upstream solo aporta su `meta.json` (versión +
-sha256 + URL del tarball, actualizado a diario por su CI). Lo leemos con
-`builtins.readFile` y construimos el paquete con `pkgs.vscode.override
-{ isInsiders = true; }`, anulando las fases de nixpkgs que asumen una
-estructura que Insiders no trae (`patchPhase` de ripgrep y `postFixup` de
-vsce-sign). Así `rebuild update` siempre instala la última versión.
+**VS Code Insiders**: el flake original solo publica un archivito (`meta.json`
+con versión + código + enlace, actualizado a diario). Lo leemos y construimos
+el paquete sobre el VS Code normal, quitando dos pasos que asumen cosas que
+Insiders no trae. Así `rebuild update` siempre instala el último.
 
 ---
 
-## Comandos útiles (sin el custom)
+## Comandos útiles (sin el `rebuild`)
 
 ```bash
 # Aplicar cambios (desde ~/.nixos)
 sudo nixos-rebuild switch --flake .#loon-laptop
 
-# Probar sin aplicar (dry-run)
+# Probar sin aplicar
 sudo nixos-rebuild dry-run --flake .#loon-laptop
 
-# Ver qué se exporta el flake
+# Ver qué ofrece el flake
 nix flake show
 nix flake check
 
-# Actualizar nixpkgs y los flakes (el "cargo update" de NixOS)
+# Traer versiones nuevas de todo
 nix flake update
 
-# Probar un paquete custom sin instalarlo
+# Probar un programita sin instalarlo
 nix run .#rebuild
 nix run .#loon-launch
 ```
 
 ---
 
-## Cómo agregar un paquete al sistema
+## Cómo agregar un programa al sistema
 
 1. Busca el nombre: `nix search nixos <paquete>`
 2. Edita `modules/system/default.nix`:
@@ -1035,7 +895,7 @@ environment.systemPackages = with pkgs; [
 }
 ```
 
-2. Registra el módulo en `modules/services/default.nix`:
+2. Anótalo en `modules/services/default.nix`:
 
 ```nix
 imports = [
@@ -1047,7 +907,7 @@ imports = [
 
 3. Aplica: `rebuild`
 
-## Cómo agregar un compositor Wayland (ej. Hyprland)
+## Cómo agregar otro escritorio (ej. Hyprland)
 
 1. Crea la carpeta `modules/wayland/hyprland/default.nix`:
 
@@ -1058,7 +918,7 @@ imports = [
 }
 ```
 
-2. Registra el módulo en `modules/wayland/default.nix`:
+2. Anótalo en `modules/wayland/default.nix`:
 
 ```nix
 imports = [
@@ -1086,63 +946,50 @@ nixosConfigurations = {
 
 ---
 
-## Notas sobre el host (`hosts/loon-laptop/`)
+## Lo propio de la laptop (`hosts/loon-laptop/`)
 
-- Hostname: `loon-laptop` — Dell Inspiron 15 3520.
-- **GPU Intel Iris Xe** (Alder Lake, i915): stack gráfico + VA-API con
-  `intel-media-driver` (iHD) y runtime oneVPL (`vpl-gpu-rt`) para encode por
-  hardware en OBS (QSV). `LIBVA_DRIVER_NAME=iHD` en las sessionVariables.
-- **Firmware redistribuible**: WiFi Realtek 8821CE, Bluetooth Realtek y
-  microcode Intel — sin esto el WiFi no funciona.
-- **Bluetooth Realtek**: servicio habilitado (`hardware.bluetooth.enable`)
-  con `powerOnBoot` para que el adaptador arranque con la sesión.
-- **Perfil AC/batería aislado**: `power.nix` es importado únicamente por
-  `hosts/loon-laptop/default.nix`. En batería selecciona 60,206 Hz, pausa
-  mpvpaper por IPC, usa EPP `power`, turbo desactivado, gobernador
-  `powersave`, ahorro Wi-Fi, runtime PM seguro, ALPM SATA y reposo del HDD a
-  los 15 minutos; también usa `snd_hda_intel power_save=1`, desactiva el NMI
-  watchdog y alarga el writeback a 15 segundos. En AC restaura 120,213 Hz y
-  el comportamiento normal.
-- **Eventos del cargador**: un timer systemd aplica un debounce de 30 segundos
-  a las ráfagas ACPI online/offline del adaptador Dell, para que el perfil no
-  quede interrumpido, parcialmente aplicado ni bloqueado por el límite de
-  arranques de systemd. Los eventos duplicados tampoco repiten el atomic commit
-  de niri ni reprograman `hdparm`.
-- **HDD Toshiba**: el valor `hdparm -S 180` equivale a 15 minutos. Se eligió
-  deliberadamente para permitir reposo sin causar ciclos frecuentes de
-  parada/arranque; el disco nunca se desmonta ni se fuerza a dormir.
-- **Bluetooth en batería**: solo se bloquea si `bluetoothctl` confirma que no
-  hay dispositivos conectados. Al volver a AC se desbloquea y enciende.
-- **USB**: el receptor KYE `0458:019d` queda exceptuado de autosuspend para
-  evitar lag. No existe una política USB global.
+- Es una Dell Inspiron 15 3520 con gráficos Intel Iris Xe.
+- **Video por hardware** en OBS (QSV) con el driver `iHD`.
+- **WiFi y Bluetooth Realtek**: traen su firmware, sin eso no hay WiFi. El
+  Bluetooth arranca con la sesión.
+- **Modo batería/AC solo de ella** (`power.nix`, nadie más lo usa). En batería:
+  pantalla a 60 Hz, fondo animado pausado, procesador en ahorro, WiFi en
+  ahorro, disco duro a reposo a los 15 min y varios ahorros más. Conectada:
+  120 Hz y todo normal.
+- **Cargador con rebote**: un temporizador espera 30 segundos ante las
+  señales repetidas del cargador Dell, para no aplicar el perfil a medias.
+- **Disco Toshiba**: reposo a los 15 minutos a propósito (descansa sin
+  prender/apagar a cada rato). Nunca se desmonta ni se fuerza a dormir.
+- **Bluetooth en batería**: solo se apaga si confirma que no hay nada
+  conectado. Al enchufar, se prende solo.
+- **USB**: el receptor KYE `0458:019d` no se suspende solo (evita lag). No hay
+  regla USB general.
 - Estado: `26.05`.
 
-## Notas sobre el host (`hosts/nixos-pc/`)
+## Lo propio del PC (`hosts/nixos-pc/`)
 
-- Hostname: `nixos-pc` — ASRock B550 Pro4, Ryzen 7 5700X y GPU NVIDIA.
-- Arranque UEFI con systemd-boot; raíz ext4 y ESP vfat declaradas por UUID.
-- Microcode AMD y virtualización `kvm-amd` vienen de su hardware generado.
-- El NVMe SK Hynix ext4 etiquetado `Compartido` se monta por UUID en
-  `/home/loonbac/Proyectos`; es exclusivo de este host y usa `nofail`.
-- El primer despliegue usa `nouveau`; el driver NVIDIA propietario se habilita
-  en una migración posterior, después de confirmar el arranque gráfico estable.
-- No hereda el disco extra, `i915`, VA-API `iHD`, tapa ni perfil de energía de
-  `loon-laptop`.
+- ASRock B550 Pro4, Ryzen 7 5700X y NVIDIA.
+- Arranque UEFI; discos declarados por código único (UUID).
+- El disco NVMe etiquetado `Compartido` se monta en `/home/loonbac/Proyectos`.
+  Es solo de este host.
+- Arranca primero con el driver libre (`nouveau`); el propietario de NVIDIA se
+  prende después, cuando el arranque gráfico ya es estable.
+- No hereda nada de la laptop (ni su disco extra, ni Intel, ni tapa, ni ahorro
+  de energía).
 - Estado: `26.05`.
 
-## Notas de seguridad
+## Seguridad
 
-- `PasswordAuthentication = false` → solo se puede entrar por **clave SSH**.
-- `PermitRootLogin = "no"` → root no entra por SSH.
-- El firewall está **activo** por defecto; para abrir puertos, ver
+- Solo se entra por **clave SSH** (las contraseñas por SSH están apagadas).
+- Root no entra por SSH.
+- El firewall está **prendido** por defecto; para abrir puertos, ver
   `modules/networking/default.nix`.
-- La contraseña de `loonbac` NO se guarda en este repo: se define con
-  `passwd` en la máquina.
+- La contraseña de `loonbac` NO está en este repo: se pone con `passwd` en la máquina.
 
-## ¿Por qué no hay `configuration.nix` ya?
+## ¿Por qué no hay `configuration.nix`?
 
-Porque fue **reemplazado** por la estructura de flake. El archivo `/etc/nixos/configuration.nix`
-ahora es un enlace simbólico hacia `~/.nixos/hosts/loon-laptop/default.nix` para que
-`nixos-generate-config` y herramientas antiguas sigan funcionando; pero el flake
-es la fuente de verdad. La configuración vieja quedó respaldada en
-`~/.nixos/configuration.nix.bak` (no se versiona, está en `.gitignore`).
+Porque se **reemplazó** por esta estructura. El archivo
+`/etc/nixos/configuration.nix` ahora es un enlace hacia
+`~/.nixos/hosts/loon-laptop/default.nix` para que las herramientas viejas no
+se pierdan; pero el flake es la fuente de verdad. La configuración anterior
+quedó respaldada en `~/.nixos/configuration.nix.bak` (no se sube a Git).
