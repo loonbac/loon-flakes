@@ -601,56 +601,12 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   es para entradas que el repo declaró y ya no quiere, no para las que el usuario eligió.
 - **Verificar**: `pi mcp list` (conecta y muestra exposure/tools) y que `settings.json` no
   conserve `-builtin:mcp`; `-builtin:codemode` sí puede estar ahí.
-- **MCP `google-flow`**: automatiza `flow.google.com` desde un Chrome ya autenticado (33 tools
-  `flow_*`). Nix solo declara el server; los bytes mutables viven en el home:
-  `~/.local/share/loon-pi-mcp/google-flow` (clone + `npm install` + `npm run build`) y el
-  wrapper `run-google-flow-mcp`. Actualizar: `git pull --rebase && npm install && npm run build`
-  (rama `development`; con `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` al instalar: el server solo
-  se conecta por CDP).
-  Config editable: `google-flow/config/flow.config.json` (`expectedAccount`, perfil y puerto).
-  Lanzar el navegador: `npm run start-browser` desde esa carpeta, o `flow_connect` si ya corre.
-- **Chrome 155 rechaza CDP en el directorio por defecto**: con
-  `DevTools remote debugging requires a non-default data directory` el flag
-  `--remote-debugging-port` se ignora en silencio (sin `DevToolsActivePort` y sin puerto).
-  Por eso el MCP usa `~/.config/google-chrome-flow` (perfil propio, copia del de siempre) y
-  `cdpPort: 9333`, no el 9222 que ocupan los chromium de pruebas. Si se pierde el login, se
-  copia el perfil autenticado con Chrome cerrado:
-  `cp -a ~/.config/google-chrome/{Default,"Local State"} ~/.config/google-chrome-flow/`.
-  Verificar la cuenta con `flow_account_check` (`verified: true`, `method: ui-chip`).
-- **`google-flow`: rama `development`, no `master`** (estado 2026-10-21). El clone corre
-  `development` (7e86e05) porque `master` todavía tiene la sumisión remota deshabilitada
-  (`Gate A`, solo `local-fixture`). `development` añade `executionMode: live-browser`
-  (`src/domain/live-submission.js`), `freeCharacterImages`, `flow_rename_image`, presupuesto
-  de créditos por proyecto (`projectCreditCap`, 50 por defecto) y arreglos de subida de
-  referencias/menciones. Verificado en vivo:
-  - Imagen: `flow_generate_image {auto_confirm: true}` → `executionMode: live-browser`,
-    `quote.total: 0` (Nano Banana 2.1) y clic real. Una sola imagen con `quantity: 1`.
-  - Subida + mención: `reference_images: ["/ruta/local.png"]` sube el archivo (aparece en
-    `flow_list_mention_options`), pero **la sumisión en vivo con `reference_images` se
-    rechaza** (`POLICY_DENIED: local-reference-identity-unavailable`): una ruta local no
-    identifica el asset remoto. El camino bueno es subir una vez y luego referenciar por
-    nombre con `ingredients: ["archivo.png"]`; el binding resuelve el `assetId` del chip
-    (`{"assetId": "...", "title": "...", "role": "ingredient"}`) y el clic procede.
-  - Video: `flow_generate_video {model: "Omni 1.1 Flash", duration: "8s", quality: "360p",
-    ingredients: ["archivo.png"], confirm_generate: true, max_credits: 6}` → cotizó
-    **6 créditos** en el panel y generó. Veo (Fast/Lite/Quality) ~20.
-  - La cola de trabajos es **en memoria**: `flow_generate_video` (prepare) y
-    `flow_generate_confirm` deben ocurrir en el mismo proceso MCP; reiniciar el server pierde
-    el `jobId`. Lo mismo vale para el ledger de créditos, que persiste en
-    `project-credit-budgets/` (estado de runtime, ignorado por git).
-  - `flow_download_latest` sin `assetId` sigue ambiguo (tiles duplicados sin identidad); con
-    `assetId` funciona. Hay un PR abierto (#4) que baja el asset por red cuando CDP no emite
-    evento de descarga.
-- **`google-flow`: dos parches locales commiteados en `development`** (`e0ba62c`, `38941a3`).
-  **Idioma**: manda el de la cuenta (`es-419`) y los selectores del upstream son ingleses;
-  ni `intl.accept_languages` ni la cookie `PREF=hl=en` lo cambian, `?hl=en` sí. `src/utils/flow-locale.js`
-  (`withFlowLocale`) lo fija en cada navegación. **Chip de configuración**: el
-  `Settings trigger` viejo puede quedar oculto mientras el visible es icon-only con
-  `aria-label="Settings"`; `openBarSettings` ahora lo acepta antes de la heurística de texto.
-  **Modo agente**: si está activo no hay chips de modelo/ratio (solo el panel "Agent
-  settings" con defaults por proyecto); `development` lo apaga y verifica en cada corrida de
-  imagen, pero conviene dejarlo apagado en el composer (pill `Agent`).
-  Al hacer `git pull` sobre `development`, resolver estos dos commits locales con rebase.
+- **MCP `flow-mcp`** (reemplaza al retirado `google-flow` Node): automatiza `flow.google.com`
+  desde un Chrome ya autenticado con un solo daemon en Go (stdio, sin wrapper Node).
+  Nix solo declara el server; el binario mutable vive en `~/.local/bin/flow-mcp` y se
+  reconstruye desde `~/Proyectos/flow-mcp` (`go build`). Estado de runtime bajo
+  `$XDG_DATA_HOME/flow-mcp` (resuelve al home si no hay XDG). Los detalles de
+  comportamiento (tools, cola de trabajos, créditos) viven en el repo del server, no aquí.
 - **Provider `inception` (Mercury 3)**: declarado en `piModelProviders` de
   `pkgs/gentle-ai-bootstrap/default.nix`, no en `models.json` a mano, para que se re-inyecte en
   cada activación (`Object.assign`, aditivo: no borra providers del usuario). Es un endpoint
