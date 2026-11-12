@@ -33,6 +33,10 @@ writeShellApplication {
     current_version() { "$real_bin" --version 2>/dev/null | head -1; }
 
     if [ "''${1:-}" = "upgrade" ]; then
+      # The upstream binary resolves npm ownership through `npm root -g`, which only
+      # sees this prefix when npm's own prefix points at it (the ambient
+      # NPM_CONFIG_PREFIX may point elsewhere, e.g. ~/.npm-global).
+      export NPM_CONFIG_PREFIX="$managed"
       case "''${2:-}" in
         --rollback)
           [ -f "$previous_file" ] || die "no hay versión anterior guardada (se guarda sola antes de cada upgrade)."
