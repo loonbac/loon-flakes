@@ -175,6 +175,9 @@ in
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
     mpv
+    # Visor de imágenes Wayland (navega con flechas, zoom con +/-). Es el
+    # default de image/jpeg, image/png y image/webp (xdg.mime en theme.nix).
+    imv
     # Acento dinámico: extrae el color del wallpaper para niri/loon-bar.
     (pkgs.callPackage ../../pkgs/accent-wallpaper { })
     ffmpeg

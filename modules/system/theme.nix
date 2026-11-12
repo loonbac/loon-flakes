@@ -64,7 +64,11 @@
       "application/xml" = "helium.desktop";
       "application/xhtml+xml" = "helium.desktop";
       "image/svg+xml" = "helium.desktop";
-      "image/webp" = "helium.desktop";
+      # Imágenes raster → imv (el SVG se queda en Helium: imv no lo soporta).
+      # Los videos ya caen en mpv por defecto (mpv.desktop).
+      "image/jpeg" = "imv.desktop";
+      "image/png" = "imv.desktop";
+      "image/webp" = "imv.desktop";
     };
   };
 }
