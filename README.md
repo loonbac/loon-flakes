@@ -385,58 +385,11 @@ pantalla principal, sí. Las preguntas usan aviso normal, los permisos aviso de
 alerta, y solo el final usa aviso informativo. Los menús que abras a mano se
 ignoran. Ghostty ignora el pitido auxiliar para no sonar dos veces.
 
-El bootstrap genera `pi-antigravity-alt` (una segunda cuenta de Antigravity)
-desde el paquete oficial, cambiando solo lo necesario para que Pi la vea como
-otra instancia. Sus modelos aparecen como `antigravity-alt/<modelo>` y su
-sesión se guarda aparte. Para entrar o ver la cuenta B:
-
-```text
-/login antigravity-alt
-/antigravity-alt.usage
-/antigravity-alt.models
-```
-
-`gentle-stack-update` actualiza primero el paquete oficial y luego regenera el
-clon desde esa misma versión. Antes de reemplazarlo verifica que la estructura
-sea la esperada; si no, conserva el anterior y avisa.
-
-La extensión `loon-antigravity-quota-fallback.ts` detecta cuando se acaba la
-cuota de una cuenta y cambia solo a la otra (con tiempos separados por cuenta).
-Orden: cuenta A → cuenta B con el mismo modelo → fallbacks externos. Al
-terminar vuelve al modelo original.
-
-Los subagentes con Gemini 3.8 tienen dos respaldos fijos (no se pone un tercero):
-
-| Subagente | Respaldo 1 | Respaldo 2 |
-| --- | --- | --- |
-| `gentle-ai-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
-| `gentle-ai-worker` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
-| `jd-fix-agent` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
-| `sdd-explore` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
-| `sdd-spec` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
-| `sdd-tasks` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
-| `sdd-apply` | Muse Spark 1.3 Contributor `xhigh` | DeepSeek V4.1 Flash `high` |
-| `sdd-onboard` | DeepSeek V4.1 Flash `high` | Muse Spark 1.3 Contributor `xhigh` |
-
-El perfil principal de subagentes usa `commandcode/stealth/pixel-canary` para
-las rutas delegadas a Command Code. Pixel Canary está en el
-[catálogo de Command Code](https://commandcode.ai/models/pixel-canary).
-
-Cuando se acaba el tiempo de espera, Pi vuelve a probar Antigravity solo. Puedes
-ver el estado con `/antigravity-fallback` o limpiarlo con
-`/antigravity-fallback clear`. Los respaldos externos llegan vía Command Code.
-
-Actualizar `gentle-pi` ejecuta su instalador oficial con verificación. npm solo
-autoriza el script de instalación de `gentle-pi`, no el de todas sus
-dependencias. Después se reaplican los perfiles de modelos del flake. No hay
-que editar versiones ni hashes para actualizaciones normales.
-
-Este diseño cambia reproducibilidad exacta entre máquinas por poder
-autoactualizar: el repo sigue diciendo **qué** se instala y **cómo** se
-configura, y cada máquina decide **cuándo** avanzar. Todo es manual y explícito;
-el inicio de sesión solo repara lo que falte.
-
-Tus sesiones, `~/.engram/` y cualquier token quedan fuera de Git y del almacén Nix.
+Pi, Gentle y Engram se actualizan por sus propios mecanismos
+(`pi update`, `engram update`, `gentle-stack-update`); el inicio de sesión
+solo repara lo que falte y nunca toca tus sesiones, tu `~/.engram/` ni tus
+claves. Los detalles finos de providers y respaldos viven en el código del
+módulo, no aquí.
 
 ### Veadotube Mini
 
