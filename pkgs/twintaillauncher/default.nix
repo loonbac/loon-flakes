@@ -15,11 +15,11 @@
 { lib, fetchurl, stdenv, dpkg, buildFHSEnv, writeShellScript }:
 
 let
-  version = "2.5.2";
+  version = "2.5.3";
 
   deb = fetchurl {
     url = "https://github.com/TwintailTeam/TwintailLauncher/releases/download/ttl-v${version}/twintaillauncher_${version}_amd64.deb";
-    hash = "sha256-KX5QZpYG2adDuN68QB9EQprtXFCjvkdc6l1YlMVAAuI=";
+    hash = "sha256-U7DZvNei9AvjlDFmVcr1eoLzRDhnI1r6mT0i4FJORHw=";
   };
 
   # Payload del .deb: usr/bin, usr/lib y usr/share.
