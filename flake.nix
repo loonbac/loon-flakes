@@ -60,16 +60,9 @@
       url = "github:HANDZCZ/nix-tools-steam";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Gestión declarativa de aplicaciones Flatpak (juegos de nixos-pc).
-    nix-flatpak.url = "github:gmodena/nix-flatpak";
-    # Secure Boot para nixos-pc. Lanzaboote firma el cargador, kernel e initrd.
-    lanzaboote = {
-      url = "github:nix-community/lanzaboote";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser, nixpkgs-unstable }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, helium-browser, nixpkgs-unstable }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -310,12 +303,6 @@
       };
 
       nixosConfigurations = {
-        "loon-laptop" = mkHost "loon-laptop" [ ];
-        "nixos-pc" = mkHost "nixos-pc" [
-          citron-nextendo.nixosModules.default
-          nix-flatpak.nixosModules.nix-flatpak
-          lanzaboote.nixosModules.lanzaboote
-        ];
         "saitina" = mkHost "saitina" [ ];
       };
 

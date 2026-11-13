@@ -5,9 +5,11 @@
 pkgs.writeShellScriptBin "screen-brightness" ''
   set -euo pipefail
 
-  # Las escrituras necesitan el wrapper setuid declarado en
-  # hosts/loon-laptop/platform.nix. Invocar directamente el binario del store
-  # evita el wrapper y termina en "Permission denied" para el usuario.
+  # Si el sistema declara un wrapper setuid para brightnessctl hay que usarlo:
+  # invocar el binario del store directamente termina en "Permission denied"
+  # para el usuario. Ese wrapper vivía en hosts/loon-laptop/platform.nix y se
+  # retiró el 2026-11-13 con ese host; mientras no exista, el fallback de
+  # abajo es el camino que se ejecuta.
   BRIGHTNESSCTL="/run/wrappers/bin/brightnessctl"
   if [ ! -x "$BRIGHTNESSCTL" ]; then
     BRIGHTNESSCTL="${pkgs.brightnessctl}/bin/brightnessctl"

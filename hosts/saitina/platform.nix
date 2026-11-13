@@ -67,7 +67,8 @@
   # "Yuzu can't gain access to this device" mientras SDL veía js0 sin más.
   #
   # Con el grupo, la apertura no depende del ACL y sobrevive a cualquier
-  # reconexión. Mismo patrón que hosts/nixos-pc/sunshine.nix.
+  # reconexión. Mismo patrón que aplicaba Sunshine (su módulo se retiró con
+  # hosts/nixos-pc, que ya no existe).
   #
   # OJO: los grupos nuevos solo se aplican en el próximo login.
   users.users.saito.extraGroups = [ "input" ];
