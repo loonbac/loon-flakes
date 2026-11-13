@@ -187,6 +187,10 @@ in
     # `rebuild update` dejaría de aplicarse; mover la versión le pertenece al
     # canal, no a este archivo (ver "Política de versiones" en AGENTS.md).
     audacity
+    # Editor de vídeo no lineal en Rust (FilmCraft). Launcher mutable: el
+    # AppImage vive en ~/.local/share/filmcraft-appimage y NUNCA se actualiza
+    # en un rebuild; refrescarlo es `filmcraft --update`. Ver pkgs/filmcraft.
+    (pkgs.callPackage ../../pkgs/filmcraft { })
     # Separación local de voces con RoFormer/CUDA. Los pesos quedan fuera del
     # store, en ~/Proyectos/separador-vocal/modelos, y se cargan sólo al usarlo.
     (pkgs.callPackage ../../pkgs/karaoke-separator { })

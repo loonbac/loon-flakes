@@ -255,6 +255,8 @@
         screen-brightness = pkgs.callPackage ./pkgs/screen-brightness { };
         # Emulador de Switch 2: launcher mutable (el AppImage vive en el home)
         eglantine = pkgs.callPackage ./pkgs/eglantine { };
+        # Editor de vídeo no lineal en Rust: mismo esquema de launcher mutable.
+        filmcraft = pkgs.callPackage ./pkgs/filmcraft { };
         gentle-ai = gentleAiLauncher;
         gentle-ai-runtime-update = gentleAiRuntimeUpdater;
         engram = engramLauncher;
