@@ -8,7 +8,6 @@
     ./tailscale
     ./nixos-updates
     ./udisks2
-    ./moonlight-power
     ./docker
     ./antigravity-keeper
   ];
