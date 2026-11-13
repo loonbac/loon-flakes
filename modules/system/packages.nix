@@ -181,6 +181,12 @@ in
     # Acento dinámico: extrae el color del wallpaper para niri/loon-bar.
     (pkgs.callPackage ../../pkgs/accent-wallpaper { })
     ffmpeg
+    # Editor de audio (grabación, corte, efectos, exportación). Atributo sin
+    # pin de versión: hoy nixpkgs 26.05 publica la 3.7.7 y es esa la que hay
+    # que instalar. Si la política fuera fijarla a mano, la subida por
+    # `rebuild update` dejaría de aplicarse; mover la versión le pertenece al
+    # canal, no a este archivo (ver "Política de versiones" en AGENTS.md).
+    audacity
     # Separación local de voces con RoFormer/CUDA. Los pesos quedan fuera del
     # store, en ~/Proyectos/separador-vocal/modelos, y se cargan sólo al usarlo.
     (pkgs.callPackage ../../pkgs/karaoke-separator { })
