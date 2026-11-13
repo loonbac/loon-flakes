@@ -54,6 +54,8 @@ in
       # El generador lee las sesiones de Pi, que pueden estar escribiéndose mientras
       # corre. Es lectura, así que lo único que importa es que no se acumulen corridas
       # si una tarda más que su intervalo.
+      # El intervalo del temporizador tiene que quedar holgadamente por encima de la
+      # duración real de una corrida; ver la nota del temporizador.
       Nice = 10;
     };
   };
@@ -63,9 +65,16 @@ in
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnBootSec = "1min";
-      # Cada cuatro segundos: la cache deja el trabajo en menos de medio segundo, y el
-      # panel tiene que verse moverse para que sirva de algo mirarlo.
-      OnUnitActiveSec = "4s";
+      # Una corrida tarda varios segundos y pide ~150 MB: relee completos los archivos
+      # de sesión de Pi que están creciendo, y el árbol de sesiones ronda los 2,4 GB.
+      # Con cuatro segundos el servicio se solapaba consigo mismo de forma continua
+      # (arrancaba antes de que terminara la corrida anterior), quemaba cerca de un
+      # núcleo entero de forma permanente y mantenía la presión de memoria alta. Un
+      # minuto deja el panel usable sin que el refresco sea un consumidor de fondo.
+      OnUnitActiveSec = "60s";
+      # Sin esto systemd puede retrasar el disparo para agruparlo con otros timers, y
+      # el intervalo real se estira sin que se note en la definición.
+      AccuracySec = "1s";
       Unit = "newtab-dashboard.service";
     };
   };
