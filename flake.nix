@@ -257,6 +257,8 @@
         eglantine = pkgs.callPackage ./pkgs/eglantine { };
         # Editor de vídeo no lineal en Rust: mismo esquema de launcher mutable.
         filmcraft = pkgs.callPackage ./pkgs/filmcraft { };
+        # Fork de Eglantine (Switch y Switch 2), mismo esquema de launcher.
+        lichii = pkgs.callPackage ./pkgs/lichii { };
         gentle-ai = gentleAiLauncher;
         gentle-ai-runtime-update = gentleAiRuntimeUpdater;
         engram = engramLauncher;

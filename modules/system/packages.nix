@@ -135,6 +135,10 @@ in
     # launcher mutable — el AppImage vive en ~/.local/share/eglantine y no se
     # actualiza en un rebuild; ver pkgs/eglantine para el porqué.
     (pkgs.callPackage ../../pkgs/eglantine { })
+    # Lichii: fork de Eglantine con soporte de Switch 2. Mismo esquema de
+    # launcher mutable — AppImage en ~/.local/share/lichii-appimage, sin
+    # actualizarse en rebuild; ver pkgs/lichii.
+    (pkgs.callPackage ../../pkgs/lichii { })
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
