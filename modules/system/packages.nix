@@ -139,6 +139,11 @@ in
     # launcher mutable — AppImage en ~/.local/share/lichii-appimage, sin
     # actualizarse en rebuild; ver pkgs/lichii.
     (pkgs.callPackage ../../pkgs/lichii { })
+    # NS-USBLoader: instala juegos en la Switch por USB (modos Awoo/Tinfoil/
+    # NXDT además de payloads RCM). Atributo sin pin de versión: la subida le
+    # pertenece a `rebuild update`. El permiso sobre el nodo USB de la consola
+    # lo da la regla udev de hosts/saitina/platform.nix.
+    ns-usbloader
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
