@@ -57,6 +57,13 @@
   services.udev.extraRules = ''
     KERNEL=="hidraw*", DEVPATH=="*057E:2006*", MODE="0660", GROUP="input", TAG+="uaccess"
     KERNEL=="hidraw*", DEVPATH=="*057E:2007*", MODE="0660", GROUP="input", TAG+="uaccess"
+    # Switch por USB para NS-USBLoader: el nodo nace root:root 0664 y la app
+    # necesita escribirlo para enviar NSP/NSZ/XCI (057e:3000) y payloads en
+    # modo RCM (0955:7321, el APX de NVIDIA). Mismo patrón que los Joy-Con:
+    # grupo `input` (ya asignado abajo) para no depender solo del ACL de
+    # uaccess, que logind no siempre reaplica al reconectar.
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="3000", MODE="0660", GROUP="input", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="0955", ATTRS{idProduct}=="7321", MODE="0660", GROUP="input", TAG+="uaccess"
   '';
 
   # La regla de arriba deja los hidraw en 0660 root:input, así que el usuario
