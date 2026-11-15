@@ -124,6 +124,7 @@ in
     # El paquete original trae su .desktop para que aparezca en loon-launch.
     onlyoffice-desktopeditors
     notepad-next      # editor de texto gráfico multiplataforma
+    audacity            # editor de audio con UI gráfica
     # XWayland rootless: display X11 para apps que solo soportan X11/Qt-xcb
     # (ONLYOFFICE incluye Qt embebido sin soporte Wayland). niri lo lanza
     # automáticamente (socket activation, display :0) si está en PATH.
