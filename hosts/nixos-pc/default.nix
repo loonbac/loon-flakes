@@ -11,6 +11,7 @@
     ./streaming.nix
     ./sunshine.nix
     ./cross-toolchain.nix
+    ./kalamar-toolchain.nix
     ./cloudflared.nix
     ./creator.nix
     ./mdm-respaldo.nix
