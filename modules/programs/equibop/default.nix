@@ -211,9 +211,14 @@ let
             const listed = await runInRenderer(frame, "VesktopNative.virtmic.list()");
             const filter = audioFilter(window, listed?.ok ? listed.targets : []);
             if (filter) {
+              // venmic espera `include` como una lista de filtros. Si recibe
+              // un objeto suelto lo descarta sin avisar y, como `exclude`
+              // sigue siendo válido, la llamada devuelve true igualmente: la
+              // captura acaba siendo todo el sistema (con Equibop dentro) en
+              // vez de sólo la ventana compartida.
               const result = await runInRenderer(
                 frame,
-                "VesktopNative.virtmic.start(" + JSON.stringify(filter) + ")"
+                "VesktopNative.virtmic.start(" + JSON.stringify([filter]) + ")"
               );
               console.log("Equibop screen share window audio configured", filter, result);
             }
