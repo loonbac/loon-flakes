@@ -56,16 +56,18 @@
   # original (F13 → mute). Este host usa otro mouse: la unidad queda fuera.
   systemd.services.equibop-basilisk-mic-hotkey.enable = false;
 
-  # Compartir pantalla: programs.niri (nixpkgs) apunta ScreenCast al backend
-  # gnome, que en niri no completa la negociación con PipeWire y el reparto se
-  # rompe en apps WebRTC (Discord/Equibop, Meet). Este host sí expone
-  # wlr-screencopy (verificado con grim), así que ScreenCast va al backend wlr;
-  # la elección de monitor/ ventana la hace el chooser de fuzzel.
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-wlr ];
-    config.niri."org.freedesktop.impl.portal.ScreenCast" = "wlr";
-  };
+  # Compartir pantalla: niri implementa org.gnome.Mutter.ScreenCast, así que el
+  # backend correcto es xdg-desktop-portal-gnome (lo instala programs.niri). Su
+  # selector "Share Screen" lista monitores y ventanas y es el que abren
+  # Equibop/Discord al compartir. No fijar ScreenCast al portal wlr: su chooser
+  # es fuzzel y no ofrece el selector gráfico de fuentes.
+  xdg.portal.config.niri."org.freedesktop.impl.portal.ScreenCast" = "gnome";
+
+  # El portal GNOME dibuja su diálogo con GTK4 y en la GTX 1070 bajo niri el
+  # renderer Vulkan no logra presentar (vkAcquireNextImageKHR: OUT_OF_DATE_KHR):
+  # el selector no llega a verse y la petición termina cancelada. Con OpenGL se
+  # dibuja bien y la negociación PipeWire con niri completa.
+  systemd.user.services.xdg-desktop-portal-gnome.environment.GSK_RENDERER = "gl";
 
   # ------------------------------------------------------------- bluetooth
   # GUI de Bluetooth: blueman (manager para emparejar/conectar + applet en la
