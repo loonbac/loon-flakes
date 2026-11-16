@@ -147,6 +147,11 @@ in
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
+    # qBittorrent: cliente BitTorrent con interfaz gráfica (Qt). Atributo
+    # sin pin de versión: moverle la versión es tarea de `rebuild update`
+    # y flake.lock, no de este archivo (ver "Política de versiones" en
+    # AGENTS.md).
+    qbittorrent
     # ONLYOFFICE: usa el X11 display :0 del xwayland-satellite nativo de niri
     # (su Qt embebido no soporta Wayland; niri exporta DISPLAY=:0 a la sesión).
     # El paquete original trae su .desktop para que aparezca en loon-launch.
