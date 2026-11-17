@@ -244,6 +244,21 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
    merge (ver "Entrega autónoma de un cambio"). Nunca commitear directo a
    `master`.
 
+### Actualizar desde mainstream (herramienta exclusiva del agente IA)
+
+`origin` es el fork del usuario (`SaiToEJ/loon-flakes`) y `upstream` el
+mainstream (`loonbac/loon-flakes`); no se intercambian. Todo cambio local se
+empuja solo al fork mediante los hooks de `.git/hooks/` (`post-commit`,
+`post-merge`, `post-rewrite` → `fork-sync`).
+
+La **única** herramienta para traer mainstream al fork es
+`scripts/nixos-upstream-sync` (una línea JSON en stdout: `up_to_date`,
+`merged`, `conflict` o `error`). La invoca el agente —en OpenCode, con el
+comando `/nixos-upstream-sync`— y no existe alias de git equivalente. El
+agente decide después si aplica `rebuild update`, pasando por el gate de
+`nixos-updates`. Los hooks no se versionan: en un clone nuevo hay que
+reinstalarlos.
+
 > **sudo no interactivo por SSH**: usar `echo <PASSWORD> | sudo -S ...`. La
 > contraseña NO se guarda en el repo (es público en GitHub) — pedirla al usuario.
 

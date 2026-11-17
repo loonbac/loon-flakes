@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# nixos-upstream-sync — herramienta ÚNICA (agente IA) para traer mainstream
+# (upstream = loonbac/loon-flakes) al fork (origin = SaiToEJ/loon-flakes).
+#
+# Contrato para el agente:
+#   - stdout: una sola línea JSON con "status".
+#   - stderr: mensajes de progreso (git se silencia).
+#   - exit 0 = up_to_date | merged;  1 = conflict;  2 = error de precondición.
+#
+# Los remotes son fijos: aquí nunca se reconfiguran ni se intercambian.
+
+set -uo pipefail
+
+esc() { printf '%s' "${1:-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+emit() { printf '%s\n' "$1"; }
+fail() { emit "$2"; exit "$1"; }
+
+cd "$(git rev-parse --show-toplevel 2>/dev/null)" || fail 2 '{"status":"error","reason":"no_repo"}'
+
+# 1. Remotes inmutables: si alguien los cambió, se detiene sin tocar nada.
+case "$(git remote get-url origin 2>/dev/null)" in
+  *SaiToEJ/loon-flakes*) : ;;
+  *) fail 2 '{"status":"error","reason":"origin_not_fork"}' ;;
+esac
+case "$(git remote get-url upstream 2>/dev/null)" in
+  *loonbac/loon-flakes*) : ;;
+  *) fail 2 '{"status":"error","reason":"upstream_not_mainstream"}' ;;
+esac
+
+# 2. Precondiciones: rama master y árbol limpio (determinismo, sin stashes ocultos).
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=""
+[ "$branch" = "master" ] || fail 2 "{\"status\":\"error\",\"reason\":\"not_on_master\",\"branch\":\"$(esc "$branch")\"}"
+[ -z "$(git status --porcelain)" ] || fail 2 '{"status":"error","reason":"dirty_tree"}'
+
+# 3. Traer mainstream.
+git fetch --prune --quiet upstream >/dev/null 2>&1 || fail 2 '{"status":"error","reason":"fetch_failed"}'
+
+head_sha=$(git rev-parse HEAD)
+upstream_sha=$(git rev-parse upstream/master)
+incoming=$(git rev-list --count "$head_sha..$upstream_sha")
+outgoing=$(git rev-list --count "$upstream_sha..$head_sha")
+
+# 4. Poner el fork al día con el estado local antes de fusionar.
+git push --quiet origin master >/dev/null 2>&1 || fail 2 "{\"status\":\"error\",\"reason\":\"fork_push_failed\",\"head\":\"$head_sha\"}"
+
+if [ "$incoming" -eq 0 ]; then
+  emit "{\"status\":\"up_to_date\",\"incoming\":0,\"outgoing\":$outgoing,\"head\":\"$head_sha\",\"fork\":\"$(git rev-parse origin/master)\",\"upstream\":\"$upstream_sha\"}"
+  exit 0
+fi
+
+# 5. Fusionar mainstream. El hook post-merge ya empuja al fork; repetimos el push
+#    aquí para que el contrato sea válido aunque el hook no esté instalado.
+if git merge --no-edit upstream/master >/dev/null 2>&1; then
+  new_head=$(git rev-parse HEAD)
+  git push --quiet origin master >/dev/null 2>&1 || fail 2 "{\"status\":\"error\",\"reason\":\"fork_push_failed\",\"head\":\"$new_head\"}"
+  emit "{\"status\":\"merged\",\"incoming\":$incoming,\"outgoing\":$outgoing,\"from\":\"$head_sha\",\"head\":\"$new_head\",\"fork\":\"$(git rev-parse origin/master)\",\"upstream\":\"$upstream_sha\"}"
+  exit 0
+fi
+
+# 6. Conflicto: se reporta y se aborta; el agente decide, nunca se fuerza.
+files=$(git diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//')
+git merge --abort >/dev/null 2>&1 || true
+emit "{\"status\":\"conflict\",\"incoming\":$incoming,\"files\":\"$(esc "$files")\",\"head\":\"$head_sha\",\"upstream\":\"$upstream_sha\"}"
+exit 1
