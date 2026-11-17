@@ -34,7 +34,7 @@ The following change artifacts were validated prior to archiving:
 - **Automated Validation:**
   - `nix flake check --no-build`: PASSED (exit code 0)
   - `nix build --no-link --print-out-paths .#steamidra`: PASSED (`/bin/steamidra`, `.desktop`, and icon verified)
-  - `nixos-rebuild build --flake /home/loonbac/.nixos#nixos-pc`: PASSED (exit code 0)
+  - `nixos-rebuild build --flake /home/saito/.nixos#nixos-pc`: PASSED (exit code 0)
 
 ## Final Task Completion Gate
 
@@ -70,8 +70,8 @@ The following change artifacts were validated prior to archiving:
 - `changeName`: `extract-steamidra-nixos-module`
 - `artifactStore`: `openspec`
 - `actionContext.mode`: `repo-local`
-- `actionContext.workspaceRoot`: `/home/loonbac/.nixos`
-- `actionContext.allowedEditRoots`: `[/home/loonbac/.nixos]`
+- `actionContext.workspaceRoot`: `/home/saito/.nixos`
+- `actionContext.allowedEditRoots`: `[/home/saito/.nixos]`
 - `dependencies`:
   - `apply`: `all_done`
   - `verify`: `all_done`

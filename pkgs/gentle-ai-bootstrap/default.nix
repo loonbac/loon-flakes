@@ -160,9 +160,9 @@ let
     # la de API. Ambas van contra el mismo https://api.mistral.ai, y la de Vibe
     # no necesita cabeceras de tenant.
     #
-    # Las cabeceras de tenant (`x-external-organization-id` / `-workspace-id`)
-    # solo hacían falta con el `id_token` OIDC retirado: la «Clave API de Vibe»
-    # funciona sin ellas (verificado con llamadas reales).
+    # Las dos cabeceras de tenant son obligatorias: sin
+    # `x-external-organization-id` y `x-external-workspace-id` la misma petición
+    # devuelve 401 "Invalid API Key" aunque el bearer sea válido.
     #
     # `baseUrl` va sin `/v1`: el adaptador `mistral-conversations` añade
     # `v1/chat/completions` por su cuenta, igual que el provider `mistral`
@@ -174,10 +174,13 @@ let
     # mapa declarado el adaptador usa `reasoning_effort`, que sí aceptan y que
     # es lo que devuelve bloques `thinking` y cobra `reasoning_tokens`.
     #
-    # Large 4 admite `low`, `medium` y `high` (gradación real); `none`,
-    # `minimal` y `xhigh` dan 400, y el presupuesto de tokens al estilo
-    # Anthropic se rechaza (`thinking` → 422 extra_forbidden). Como el modelo
-    # razona por defecto incluso sin el parámetro, `off` cae a `low`.
+    # El mapa no puede inventar granularidad: la API solo admite `high` y
+    # `none` en todos sus modelos con razonamiento (pedir `low` o `medium`
+    # devuelve "not supported for this model"), y rechaza un presupuesto de
+    # tokens al estilo Anthropic (`thinking` → 422 extra_forbidden). Pi muestra
+    # sus siete niveles; cinco de ellos piensan con `high`.
+    # `mistral-large-4` sí razona y trae 1M de contexto, pero no tiene alias de
+    # Vibe, así que queda fuera de esta asignación.
     mistral-vibe = {
       name = "Mistral (Vibe Code)";
       baseUrl = "https://api.mistral.ai";
@@ -187,38 +190,37 @@ let
       # OIDC. Vive fuera del store, en un archivo 0600, y se lee en cada
       # request, así que rotarla no exige rebuild.
       apiKey = "!cat ${loonHome}/.config/mistral-vibe/api-key";
-      # Un solo modelo a propósito: la cuota de Vibe cubre cualquier modelo de la
-      # API (verificado en vivo: 40k tokens de `mistral-large-4` movieron el
-      # contador de Vibe), así que se ofrece el más capaz, no el alias de Vibe.
-      # Los alias `mistral-vibe-cli-latest`, `mistral-vibe-cli-with-tools` y
-      # `mistral-medium-latest` resuelven todos a Mistral Medium 3.5 según
-      # `/v1/models`: más caro ($1.50/$7.50) y más débil que Large 4 ($0.70/$2.10).
+      # Un solo modelo a propósito: los alias `mistral-vibe-cli-latest`,
+      # `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven todos al
+      # mismo modelo (Mistral Medium 3.5) según `/v1/models`, así que ofrecerlos por
+      # separado solo llena el selector con duplicados. `mistral-vibe-cli-fast` es
+      # Mistral Small 4, el pequeño, y no compite por "el más capaz".
       models = [
         {
-          id = "mistral-large-4";
-          name = "Mistral Vibe (Large 4)";
+          id = "mistral-vibe-cli-latest";
+          name = "Mistral Vibe (Medium 3.5)";
           reasoning = true;
-          # Large 4 acepta `low`, `medium` y `high` (gradación real), pero ni
-          # `none` ni `minimal`: el modelo razona por defecto incluso sin el
-          # parámetro, así que `off` cae a `low`, el nivel más barato, en vez de
-          # a un `none` que la API rechaza con 400.
+          # La API expone solo `high` y `none`, no hay gradación real: Pi muestra
+          # sus siete niveles, pero cualquier nivel distinto de `off` piensa con
+          # `high`. Se declaran los siete para que la configuración diga la verdad
+          # en vez de depender del fallback del adaptador.
           thinkingLevelMap = {
-            off = "low";
-            minimal = "low";
-            low = "low";
-            medium = "medium";
+            off = "none";
+            minimal = "high";
+            low = "high";
+            medium = "high";
             high = "high";
             xhigh = "high";
             max = "high";
           };
           input = [ "text" "image" ];
           cost = {
-            input = 0.7;
-            output = 2.1;
-            cacheRead = 0.07;
+            input = 1.5;
+            output = 7.5;
+            cacheRead = 0.15;
             cacheWrite = 0;
           };
-          contextWindow = 1048576;
+          contextWindow = 262144;
           maxTokens = 262144;
         }
       ];
@@ -457,9 +459,15 @@ let
   # Config que el bootstrap symlinka en ~/.pi/agent/mcp.json. Es el único
   # fichero de MCP que Pi lee a nivel de usuario, así que los servers
   # declarados aquí tienen acceso en todas las sesiones. `rakya` (relay de
-  # Discord) y `flow-mcp` (automatización de flow.google.com sobre Chrome ya
+  # Discord) y `google-flow` (automatización de flow.google.com sobre Chrome ya
   # autenticado) viven en el home porque sus bytes son mutables del usuario:
-  # wrapper, dependencias, build y config quedan fuera de la store.
+  # wrapper, dependencias npm, build y config quedan fuera de la store.
+  #
+  # El wrapper de `rakya` NO ejecuta una copia del repo: apunta al binario que
+  # produce `cargo build --release` en ~/Proyectos/rakya. La entrada anterior
+  # (`lida`) apuntaba a un snapshot en el home que nunca se reconstruyó, y las
+  # sesiones ejecutaban en silencio un binario de meses antes. Para actualizar
+  # el server basta con reconstruir el repo.
   #
   # El wrapper de `rakya` NO ejecuta una copia del repo: apunta al binario que
   # produce `cargo build --release` en ~/Proyectos/rakya. La entrada anterior
@@ -484,10 +492,11 @@ let
         cwd = "${loonHome}/.local/share/loon-pi-mcp";
         description = "RAKYA — Discord relay: list guilds, inspect a guild, read messages (with before/after pagination) and send a message";
       };
-      flow-mcp = {
-        command = "${loonHome}/.local/bin/flow-mcp";
-        args = [ ];
-        description = "Google Flow via the Go single-daemon MCP over headed-Chrome CDP: images, characters, scenes (video spends credits)";
+      google-flow = {
+        command = "${nodejs}/bin/node";
+        args = [ "${mcpOnDemand}" "--name" "google-flow" "--" "${loonHome}/.local/share/loon-pi-mcp/run-google-flow-mcp" ];
+        cwd = "${loonHome}/.local/share/loon-pi-mcp/google-flow";
+        description = "Google Flow via your signed-in Chrome: images, videos, characters and scenes";
       };
       # Residential proxy for pages that block this host or change by region.
       # The proxy is used ONLY inside this server: the store holds no

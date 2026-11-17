@@ -114,11 +114,11 @@ in
       # AccountsService rechaza archivos demasiado grandes (>1MB), así que
       # se redimensiona a 512px (JPEG, <100KB típicamente).
       mkdir -p /var/lib/AccountsService/icons
-      profile=$(ls ${config.loon.home}/profile.* 2>/dev/null | head -n1)
+      profile=$(ls /home/saito/profile.* 2>/dev/null | head -n1)
       if [ -n "$profile" ]; then
         magick "$profile" -resize "512x512^" -gravity center -extent 512x512 \
-          -quality 85 /var/lib/AccountsService/icons/${config.loon.username}
-        chmod 644 /var/lib/AccountsService/icons/${config.loon.username}
+          -quality 85 /var/lib/AccountsService/icons/loonbac
+        chmod 644 /var/lib/AccountsService/icons/loonbac
       fi
 
       # Cuenta de usuario para AccountsService: Icon apuntando al icono
@@ -127,10 +127,10 @@ in
       # archivo de usuario es "Icon=" (como escribe SetIconFile por D-Bus),
       # no "IconFile=".
       mkdir -p /var/lib/AccountsService/users
-      cat > /var/lib/AccountsService/users/${config.loon.username} <<'EOF'
+      cat > /var/lib/AccountsService/users/loonbac <<'EOF'
 [User]
 SystemAccount=false
-Icon=/var/lib/AccountsService/icons/${config.loon.username}
+Icon=/var/lib/AccountsService/icons/loonbac
 EOF
     '';
   };
@@ -156,13 +156,13 @@ EOF
     path = [ pkgs.coreutils pkgs.imagemagick pkgs.matugen ];
     script = ''
       mkdir -p /var/lib/dms-greeter
-      state="${config.loon.home}/.config/mpvpaper/backdrop.txt"
+      state="/home/saito/.config/mpvpaper/backdrop.txt"
       wallpaper=""
       if [ -f "$state" ]; then
         name="$(cat "$state")"
-        [ -f "${config.loon.home}/Pictures/Wallpaper/$name" ] && wallpaper="${config.loon.home}/Pictures/Wallpaper/$name"
+        [ -f "/home/saito/Pictures/Wallpaper/$name" ] && wallpaper="/home/saito/Pictures/Wallpaper/$name"
       fi
-      [ -z "$wallpaper" ] && wallpaper="$(ls ${config.loon.home}/Pictures/Wallpaper/*.{png,jpg,jpeg,webp} 2>/dev/null | head -n1)"
+      [ -z "$wallpaper" ] && wallpaper="$(ls /home/saito/Pictures/Wallpaper/*.{png,jpg,jpeg,webp} 2>/dev/null | head -n1)"
       # Un home recién creado aún no tiene wallpapers. El fallback declarativo
       # permite que el greeter arranque y conserva el tema oscuro del sistema.
       [ -n "$wallpaper" ] || wallpaper="${fallbackWallpaper}"

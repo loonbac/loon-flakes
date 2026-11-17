@@ -1,7 +1,7 @@
 # Módulo "system/packages": catálogo de paquetes instalados a nivel de sistema
 # y los runtimes de desarrollo que consumen. No define configuración del
 # sistema: solo qué software global está disponible.
-{ lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, ... }:
+{ lib, pkgs, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, opencode, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -60,9 +60,20 @@ in
 {
   # ---- Paquetes instalados a nivel de sistema ----
   environment.systemPackages = with pkgs; [
+    # OpenCode V2: llega por specialArgs desde el input nixpkgs-unstable
+    # (el canal del sistema aun no publica la 2.x). Sin pin manual.
+    opencode
+    # Explorador de archivos: el bind Super+E de niri hace spawn "nautilus".
+    nautilus
     # Agrega aquí paquetes globales: `nix search nixos <paquete>` para encontrar.
     git
     gh
+    # Utilidades base de la línea de comandos que el fork declara en el
+    # catálogo: sin ellas hay que recurrir a `nix shell` para lo cotidiano.
+    curl
+    wget
+    unzip
+    file
     # Google Cloud CLI. Da `gcloud` (con `gsutil` y `bq`), que es lo que hace
     # falta para `gcloud auth application-default login`: el archivo
     # application_default_credentials.json que genera (tipo authorized_user) es
@@ -106,8 +117,13 @@ in
     # como el perfil del sistema va antes en el PATH, tapaba esa instalación:
     # instalar la nueva no cambiaba nada porque nunca ganaba. Si alguna unidad
     # de sistema necesita el binario, se declara en esa unidad, no aquí.
-    zen-browser
+    # Navegador por defecto: Helium (BROWSER y los MIME de theme.nix).
+    # Zen Browser, Chromium y Google Chrome se retiraron el 2026-11-10.
     helium-browser
+    # Firefox: el fork lo declara en el catálogo para que loon-launch pueda
+    # lanzarlo sin fallar con "command not found". No captura ningún MIME ni
+    # BROWSER, así que Helium sigue siendo el navegador por defecto.
+    firefox
     vscode-insiders
     antigravity
     antigravity-cli
@@ -115,25 +131,44 @@ in
     codexLatest
     (pkgs.callPackage ../../pkgs/cline-launcher { })
     zoom-us
-    prismlauncher
+    # Eglantine: emulador de Nintendo Switch 2 (fork de Eden/Yuzu). Es un
+    # launcher mutable — el AppImage vive en ~/.local/share/eglantine y no se
+    # actualiza en un rebuild; ver pkgs/eglantine para el porqué.
+    (pkgs.callPackage ../../pkgs/eglantine { })
+    # Lichii: fork de Eglantine con soporte de Switch 2. Mismo esquema de
+    # launcher mutable — AppImage en ~/.local/share/lichii-appimage, sin
+    # actualizarse en rebuild; ver pkgs/lichii.
+    (pkgs.callPackage ../../pkgs/lichii { })
+    # NS-USBLoader: instala juegos en la Switch por USB (modos Awoo/Tinfoil/
+    # NXDT además de payloads RCM). Atributo sin pin de versión: la subida le
+    # pertenece a `rebuild update`. El permiso sobre el nodo USB de la consola
+    # lo da la regla udev de hosts/saitina/platform.nix.
+    ns-usbloader
     # Moonlight: cliente de streaming remoto (Sunshine/GameStream) para
     # ver y controlar el PC desde otros dispositivos.
     moonlight-qt
+    # qBittorrent: cliente BitTorrent con interfaz gráfica (Qt). Atributo
+    # sin pin de versión: moverle la versión es tarea de `rebuild update`
+    # y flake.lock, no de este archivo (ver "Política de versiones" en
+    # AGENTS.md).
+    qbittorrent
     # ONLYOFFICE: usa el X11 display :0 del xwayland-satellite nativo de niri
     # (su Qt embebido no soporta Wayland; niri exporta DISPLAY=:0 a la sesión).
     # El paquete original trae su .desktop para que aparezca en loon-launch.
     onlyoffice-desktopeditors
     notepad-next      # editor de texto gráfico multiplataforma
-    audacity            # editor de audio con UI gráfica
     # XWayland rootless: display X11 para apps que solo soportan X11/Qt-xcb
     # (ONLYOFFICE incluye Qt embebido sin soporte Wayland). niri lo lanza
     # automáticamente (socket activation, display :0) si está en PATH.
     xwayland-satellite
     # fish no se declara aquí: lo instala `programs.fish` (modules/programs/fish)
-    # y, además, `users.users.<tu-usuario>.shell`. Una sola dueña por paquete.
+    # y, además, `users.users.saito.shell`. Una sola dueña por paquete.
     psmisc             # killall, pstree, fuser
-    lzip               # compresión lz (requisito de waydroid_script)
     yazi
+    # Generador de la configuración de monitores: escribe ~/.config/niri/
+    # monitor.kdl (el include de config.kdl). Declarado en el catálogo para
+    # que esté en el PATH además de como dependencia de niri.
+    nwg-displays
     # Navegación con wrap entre workspaces (Super+Left/Right).
     (pkgs.callPackage ../../pkgs/niri-cycle { })
     # App launcher custom (Super+Space en niri). Llega desde su propio flake
@@ -154,9 +189,22 @@ in
     # Fondo de pantalla animado (video en loop detrás de las ventanas).
     mpvpaper
     mpv
+    # Visor de imágenes Wayland (navega con flechas, zoom con +/-). Es el
+    # default de image/jpeg, image/png y image/webp (xdg.mime en theme.nix).
+    imv
     # Acento dinámico: extrae el color del wallpaper para niri/loon-bar.
     (pkgs.callPackage ../../pkgs/accent-wallpaper { })
     ffmpeg
+    # Editor de audio (grabación, corte, efectos, exportación). Atributo sin
+    # pin de versión: hoy nixpkgs 26.05 publica la 3.7.7 y es esa la que hay
+    # que instalar. Si la política fuera fijarla a mano, la subida por
+    # `rebuild update` dejaría de aplicarse; mover la versión le pertenece al
+    # canal, no a este archivo (ver "Política de versiones" en AGENTS.md).
+    audacity
+    # Editor de vídeo no lineal en Rust (FilmCraft). Launcher mutable: el
+    # AppImage vive en ~/.local/share/filmcraft-appimage y NUNCA se actualiza
+    # en un rebuild; refrescarlo es `filmcraft --update`. Ver pkgs/filmcraft.
+    (pkgs.callPackage ../../pkgs/filmcraft { })
     # Separación local de voces con RoFormer/CUDA. Los pesos quedan fuera del
     # store, en ~/Proyectos/separador-vocal/modelos, y se cargan sólo al usarlo.
     (pkgs.callPackage ../../pkgs/karaoke-separator { })

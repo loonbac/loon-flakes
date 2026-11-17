@@ -105,7 +105,7 @@ activación (el lock no se modifica):
 
 ```bash
 sudo nixos-rebuild switch --flake .#$(hostname) \
-  --override-input port git+file:///home/loonbac/Proyectos/port
+  --override-input port git+file:///home/saito/Proyectos/port
 ```
 
 **No apuntar el input del `flake.nix` a una copia local sucia.** Nix no puede
@@ -532,7 +532,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   y tiene su propio contador «Uso mensual» con reinicio mensual; una API key de Studio
   consume la asignación de API. Ambas van contra `https://api.mistral.ai`.
 - **Credencial del provider**: `pkgs/gentle-ai-bootstrap/default.nix` resuelve `apiKey` con
-  `!cat /home/loonbac/.config/mistral-vibe/api-key` (0600, fuera del store, leída en cada
+  `!cat /home/saito/.config/mistral-vibe/api-key` (0600, fuera del store, leída en cada
   request: rotarla no exige rebuild). La clave de Vibe **no necesita cabeceras de tenant**:
   `/v1/models` responde 200 y los modelos `mistral-vibe-cli-*` funcionan sin
   `x-external-organization-id` ni `x-external-workspace-id`. Verificado con llamadas reales
@@ -546,32 +546,30 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   `credentials.lock` y `signed-out.json` ya no los lee nadie. Solo
   `~/.config/mistral-vibe/api-key` importa.
 - **Rotar la credencial**: sobrescribir ese único archivo; no hay rebuild.
-- **La cuota de Vibe cubre cualquier modelo** (2026-11-12). La clave de Vibe acepta
-  `mistral-large-4` sin 403 ni 402, y 40 000 tokens de salida contra ese modelo movieron
-  el contador «Uso mensual» de Vibe (~0.06 %). No hay endpoint de facturación
-  (`/v1/usage`, `/v1/credits`, `/v1/balance` → 404): el panel es el único oráculo. Pista
-  indirecta: cada clave tiene su límite de tokens/minuto en cabeceras (`1M` la de Vibe,
-  `15M` la de API).
 - **Razonamiento**: `reasoning = true` a secas **no** basta y falla con 400 código 3051
   («Reasoning prompt mode is not enabled for this model»). El adaptador
   `mistral-conversations` manda `prompt_mode = "reasoning"` —el parámetro de la vía
   Magistral antigua— solo cuando el modelo **no** declara `thinkingLevelMap`; con el mapa
   declarado manda `reasoning_effort`, que es el que estos modelos aceptan y el que devuelve
-  bloques `thinking` y cobra `reasoning_tokens`. Comprobar la capacidad en
+  bloques `thinking` y cobra `reasoning_tokens`. La API solo admite `high` y `none` en los
+  cuatro modelos que razonan; los niveles intermedios de Pi caen a `high`.
+  `mistral-large-latest` y `mistral-code-latest` no lo soportan («reasoning_effort is not
+  enabled for this model») y siguen en `false`. Comprobar la capacidad en
   `/v1/models` → `capabilities.reasoning`, no en el catálogo de pi-ai.
-- **Un solo modelo en el selector, y es Large 4**: `mistral-large-4` (1M de contexto,
-  $0.70/$2.10) es más capaz y más barato que el alias de Vibe (Medium 3.5, 262k,
-  $1.50/$7.50). Los alias `mistral-vibe-cli-latest`, `mistral-vibe-cli-with-tools` y
-  `mistral-medium-latest` resolvían todos a Medium 3.5 según `aliases` de `/v1/models`.
-- **Gradación real de razonamiento en Large 4**: la API acepta `low`, `medium` y `high`;
-  rechaza `none`, `minimal` y `xhigh`, y el presupuesto de tokens al estilo Anthropic
-  (`thinking` → 422 `extra_forbidden`). El modelo razona por defecto incluso sin el
-  parámetro, así que `off` cae a `low` (el nivel más barato) en vez de a un `none` que
-  devuelve 400. (Medium 3.5 solo admitía `high` y `none`: sin gradación.)
-- Verificar: `pi -p --provider mistral-vibe --model mistral-large-4 "..."` y
+- **Un solo modelo en el selector, y es correcto**: los alias `mistral-vibe-cli-latest`,
+  `mistral-vibe-cli-with-tools` y `mistral-medium-latest` resuelven al **mismo** modelo
+  (Mistral Medium 3.5) según el campo `aliases` de `/v1/models`; `mistral-vibe-cli-fast` es
+  Mistral Small 4. Declararlos por separado llenaba el selector de duplicados.
+- **No hay gradación real de razonamiento**: la API solo acepta `high` y `none` en todos sus
+  modelos, y rechaza el presupuesto de tokens al estilo Anthropic (`thinking` → 422
+  `extra_forbidden`). Los siete niveles de Pi se declaran en el mapa, pero solo dos estados
+  viajan: `off` y todo lo demás con `high`. `mistral-large-4` sí razona y trae 1M de
+  contexto, pero **no tiene alias de Vibe**: usarlo probablemente salga de la asignación de
+  API.
+- Verificar: `pi -p --provider mistral-vibe --model mistral-vibe-cli-fast "..."` y
   `curl -s -o /dev/null -w '%{http_code}' https://api.mistral.ai/v1/models -H "Authorization: Bearer $(cat ~/.config/mistral-vibe/api-key)"` → 200.
-  Para el razonamiento, probar `--thinking off|low|medium|high`: ninguno devuelve 400 y
-  todos resuelven la cuenta de control (tren 14:20+95min → 15:55).
+  Para el razonamiento, comparar salida con `--thinking off` y `--thinking high` en una
+  cuenta que exija pensar: el segundo gasta ~100 tokens de salida más y acierta.
 
 ### MCP de Pi (built-in) y codemode
 
@@ -601,12 +599,56 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   es para entradas que el repo declaró y ya no quiere, no para las que el usuario eligió.
 - **Verificar**: `pi mcp list` (conecta y muestra exposure/tools) y que `settings.json` no
   conserve `-builtin:mcp`; `-builtin:codemode` sí puede estar ahí.
-- **MCP `flow-mcp`** (reemplaza al retirado `google-flow` Node): automatiza `flow.google.com`
-  desde un Chrome ya autenticado con un solo daemon en Go (stdio, sin wrapper Node).
-  Nix solo declara el server; el binario mutable vive en `~/.local/bin/flow-mcp` y se
-  reconstruye desde `~/Proyectos/flow-mcp` (`go build`). Estado de runtime bajo
-  `$XDG_DATA_HOME/flow-mcp` (resuelve al home si no hay XDG). Los detalles de
-  comportamiento (tools, cola de trabajos, créditos) viven en el repo del server, no aquí.
+- **MCP `google-flow`**: automatiza `flow.google.com` desde un Chrome ya autenticado (33 tools
+  `flow_*`). Nix solo declara el server; los bytes mutables viven en el home:
+  `~/.local/share/loon-pi-mcp/google-flow` (clone + `npm install` + `npm run build`) y el
+  wrapper `run-google-flow-mcp`. Actualizar: `git pull --rebase && npm install && npm run build`
+  (rama `development`; con `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` al instalar: el server solo
+  se conecta por CDP).
+  Config editable: `google-flow/config/flow.config.json` (`expectedAccount`, perfil y puerto).
+  Lanzar el navegador: `npm run start-browser` desde esa carpeta, o `flow_connect` si ya corre.
+- **Chrome 155 rechaza CDP en el directorio por defecto**: con
+  `DevTools remote debugging requires a non-default data directory` el flag
+  `--remote-debugging-port` se ignora en silencio (sin `DevToolsActivePort` y sin puerto).
+  Por eso el MCP usa `~/.config/google-chrome-flow` (perfil propio, copia del de siempre) y
+  `cdpPort: 9333`, no el 9222 que ocupan los chromium de pruebas. Si se pierde el login, se
+  copia el perfil autenticado con Chrome cerrado:
+  `cp -a ~/.config/google-chrome/{Default,"Local State"} ~/.config/google-chrome-flow/`.
+  Verificar la cuenta con `flow_account_check` (`verified: true`, `method: ui-chip`).
+- **`google-flow`: rama `development`, no `master`** (estado 2026-10-21). El clone corre
+  `development` (7e86e05) porque `master` todavía tiene la sumisión remota deshabilitada
+  (`Gate A`, solo `local-fixture`). `development` añade `executionMode: live-browser`
+  (`src/domain/live-submission.js`), `freeCharacterImages`, `flow_rename_image`, presupuesto
+  de créditos por proyecto (`projectCreditCap`, 50 por defecto) y arreglos de subida de
+  referencias/menciones. Verificado en vivo:
+  - Imagen: `flow_generate_image {auto_confirm: true}` → `executionMode: live-browser`,
+    `quote.total: 0` (Nano Banana 2.1) y clic real. Una sola imagen con `quantity: 1`.
+  - Subida + mención: `reference_images: ["/ruta/local.png"]` sube el archivo (aparece en
+    `flow_list_mention_options`), pero **la sumisión en vivo con `reference_images` se
+    rechaza** (`POLICY_DENIED: local-reference-identity-unavailable`): una ruta local no
+    identifica el asset remoto. El camino bueno es subir una vez y luego referenciar por
+    nombre con `ingredients: ["archivo.png"]`; el binding resuelve el `assetId` del chip
+    (`{"assetId": "...", "title": "...", "role": "ingredient"}`) y el clic procede.
+  - Video: `flow_generate_video {model: "Omni 1.1 Flash", duration: "8s", quality: "360p",
+    ingredients: ["archivo.png"], confirm_generate: true, max_credits: 6}` → cotizó
+    **6 créditos** en el panel y generó. Veo (Fast/Lite/Quality) ~20.
+  - La cola de trabajos es **en memoria**: `flow_generate_video` (prepare) y
+    `flow_generate_confirm` deben ocurrir en el mismo proceso MCP; reiniciar el server pierde
+    el `jobId`. Lo mismo vale para el ledger de créditos, que persiste en
+    `project-credit-budgets/` (estado de runtime, ignorado por git).
+  - `flow_download_latest` sin `assetId` sigue ambiguo (tiles duplicados sin identidad); con
+    `assetId` funciona. Hay un PR abierto (#4) que baja el asset por red cuando CDP no emite
+    evento de descarga.
+- **`google-flow`: dos parches locales commiteados en `development`** (`e0ba62c`, `38941a3`).
+  **Idioma**: manda el de la cuenta (`es-419`) y los selectores del upstream son ingleses;
+  ni `intl.accept_languages` ni la cookie `PREF=hl=en` lo cambian, `?hl=en` sí. `src/utils/flow-locale.js`
+  (`withFlowLocale`) lo fija en cada navegación. **Chip de configuración**: el
+  `Settings trigger` viejo puede quedar oculto mientras el visible es icon-only con
+  `aria-label="Settings"`; `openBarSettings` ahora lo acepta antes de la heurística de texto.
+  **Modo agente**: si está activo no hay chips de modelo/ratio (solo el panel "Agent
+  settings" con defaults por proyecto); `development` lo apaga y verifica en cada corrida de
+  imagen, pero conviene dejarlo apagado en el composer (pill `Agent`).
+  Al hacer `git pull` sobre `development`, resolver estos dos commits locales con rebase.
 - **Provider `inception` (Mercury 3)**: declarado en `piModelProviders` de
   `pkgs/gentle-ai-bootstrap/default.nix`, no en `models.json` a mano, para que se re-inyecte en
   cada activación (`Object.assign`, aditivo: no borra providers del usuario). Es un endpoint
@@ -617,20 +659,12 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   sin soporte) y `compat` con `maxTokensField: max_completion_tokens` +
   `supportsDeveloperRole: false`.
   - **La API key no está en el repo ni en el store**: `apiKey` se resuelve con
-    `!cat /home/loonbac/.config/inception/api-key` (archivo 0600) en tiempo de request. Nunca
+    `!cat /home/saito/.config/inception/api-key` (archivo 0600) en tiempo de request. Nunca
     escribir la clave en `models.json` versionado, en Nix, ni en `AGENTS.md`; el repo es público.
   - Verificado: `GET /v1/models` lista `mercury-2, mercury-2.5, mercury-3, mercury-decide`;
     `pi -p --provider inception --model mercury-3` responde exacto y usa tools (leyó
     `/etc/hostname`); el provider sobrevive al rebuild.
   - Rotar la key = editar ese único archivo; no hay que rebuildear.
-- **`gentle-shell` (instalación estilo Arch, declarada)**: `programs.gentle-ai.gentleShell`
-  (`enable`, `channel = "release"|"main"`, `version = null|"x.y.z"`). Por defecto lo último
-  publicado; `version` fija, `main` compila Shell+AI desde fuente (pnpm+Go los pone Nix).
-  El bootstrap converge el prefijo mutable `~/.local/share/loon-gentle-shell` (Path A upstream:
-  `npm i -g gentle-pi`), nunca degrada lo que subiste a mano y sin red conserva lo instalado.
-  Comandos: `gentle-shell upgrade` (avanza en el canal), `--channel X` (cambia ya e imprime el
-  cambio .nix para hacerlo permanente —si no, el bootstrap lo revierte al entrar),
-  `--rollback` (reinstala la versión anterior guardada). Rollback de lo declarado = generación NixOS.
 - **Proveedor `alibaba-token-plan` retirado (2026-11-04)**: la declaración salió de
   `piModelProviders` por decisión del dueño. `mergeModels` hace `Object.assign` sin lista de
   retiro, así que quitar el manifiesto **no** borra la clave del JSON: el proveedor se quita a
@@ -753,10 +787,10 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **"Git tree is dirty"**: aviso normal cuando hay cambios sin commitear; el
   rebuild funciona igual. Desaparece al commitear.
 - **tmpfiles**: `L+` NO reemplaza un archivo regular existente (solo actúa si
-  no existe o ya es symlink). Usar **ruta absoluta** (`/home/loonbac/...`),
+  no existe o ya es symlink). Usar **ruta absoluta** (`/home/saito/...`),
   systemd no expande `~` en tmpfiles.
 - **Home nuevo + tmpfiles**: antes de cualquier regla `L+` o `f` bajo el home,
-  declarar el directorio padre con `d ... 0755 loonbac users -`. No depender
+  declarar el directorio padre con `d ... 0755 saito users -`. No depender
   de que una aplicación o una sesión previa haya creado `~/.config/*`.
 - **Contenido multilínea + tmpfiles**: no insertar saltos de línea en una
   regla raw. Declarar el default en `/etc` y copiarlo solo si falta con `C`;
@@ -769,7 +803,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   No volver a duplicarlos con `spawn-at-startup`; comprobarlos con
   `systemctl --user status loon-niri-session.target`.
 - **scp**: no expande `~` en el destino → usar rutas completas
-  (`loonbac@192.168.0.2:/home/loonbac/.nixos/...`).
+  (`loonbac@192.168.0.2:/home/saito/.nixos/...`).
 - **niri KDL**: los booleanos se escriben `prop true` (no `prop=true`); los
   `match` son regex (usar `.*`, no `*`).
 - **GTK4 (Rust)**:
@@ -783,7 +817,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
     `.downcast::<ListBoxRow>()` antes de `select_row`.
   - `StyleManager::default()` devuelve `StyleManager` (no `Option`).
 - **greeter dms-greeter**: usa el compositor niri (instalado a nivel de
-  sistema, no home-manager); `configHome = "/home/loonbac"` sincroniza el tema.
+  sistema, no home-manager); `configHome = "/home/saito"` sincroniza el tema.
 - **El rebuild puede tardar** (compila niri, quickshell) — usar
   timeouts generosos (600000 ms).
 - **Citron Nextendo**: upstream reemplaza y borra la release mutable
@@ -838,13 +872,36 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   dueño, y es la primera parada cuando el fondo se queda parado. Prueba:
   `nix build .#mpvpaper-wallpaper.tests.focused` (incluye un servidor IPC falso
   que comprueba qué comandos se envían y cuáles no).
-- **Ventanas transparentes y `opaque-window`**: `pkgs/niri-wallpaper-visibility`
-  pausa el fondo cuando la ventana activa de un workspace visible es opaca. La
-  lista `TRANSPARENT_APP_IDS` del watcher debe coincidir con lo que de verdad
-  deja ver el fondo: ghostty (`opacity 0.8` + `xray` en `config.kdl`) y PORT
-  (`opacity 0.85` en su `config.md`). Si la lista se queda corta, el fondo se
-  congela detrás de una terminal transparente; si sobra una app opaca, se
-  decodifica video que nadie ve.
+- **Fondo animado solo en terminales (`opaque-window`)**: `pkgs/niri-wallpaper-visibility`
+  congela el wallpaper en el último frame salvo que el foco esté en un terminal
+  o el workspace visible esté vacío. La lista `ANIMATED_APP_IDS` del watcher es
+  cerrada y de terminales: ghostty (`opacity 0.8` + `xray` en `config.kdl`).
+  Una app translúcida NO se añade aunque deje ver el fondo: detrás de ella el
+  frame congelado apenas se nota y el ahorro de decodificación compensa. Si la
+  lista se queda corta, el fondo se congela detrás de una terminal; si sobra
+  una app, se decodifica vídeo que nadie ve. En `hosts/saitina` el servicio
+  estaba deshabilitado a propósito (el vídeo corría siempre); se habilitó el
+  2026-11-08 al adoptar la política de animar solo en terminales.
+- **Fondo congelado sin causa aparente → el journal del watcher**: cuando
+  quiere animar y mpv sigue pausado, `niri-wallpaper-visibility` escribe en su
+  journal el motivo con antigüedad y dueño y el comando para retirarlo
+  (`journalctl --user -u niri-wallpaper-visibility`). Un aviso por conjunto de
+  motivos, no por evento: la firma deduplicada es `(motivo, dueño)` y la
+  antigüedad se muestra pero **no** entra en ella, porque cambia cada segundo
+  y convertiría el aviso en una línea por evento (cinco en siete segundos, el
+  2026-11-10). Ese mismo día un motivo `manual` de origen `cli` dejó el fondo
+  tres horas en el último frame y no había nada en el journal que lo
+  explicara: `mpvpaper-wallpaper reasons` sigue siendo la primera parada.
+- **El fade de cambio de fondo no convive con `hwdec`**: el filtro
+  `lavfi`/`xfade` falla al configurarse con decodificación por hardware y mpv
+  descarta el filtro entero, dejando un corte seco en lugar de la transición,
+  **sin ningún error visible** (los logs de mpvpaper van a `/dev/null`). Por
+  eso el proceso nuevo nace con `--hwdec=no` y `transition_wallpaper` lo
+  acelera por IPC (`set_property hwdec auto-safe`) justo después de retirar el
+  filtro. Volver a poner `hwdec` en los flags del fade reproduce la
+  desaparición silenciosa de la transición. Verificación:
+  `mpv --hwdec=auto-safe --vf='lavfi=[...]' --msg-level=all=v --log-file=…`
+  muestra `failed to configure the filter graph`.
 
 ---
 
@@ -873,7 +930,7 @@ nix flake show
 nix flake update
 
 # Subir archivos al repo remoto
-scp -i ~/.ssh/id_ed25519 <archivo> loonbac@192.168.0.2:/home/loonbac/.nixos/<ruta>
+scp -i ~/.ssh/id_ed25519 <archivo> loonbac@192.168.0.2:/home/saito/.nixos/<ruta>
 ```
 
 ---

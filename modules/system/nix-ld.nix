@@ -26,6 +26,11 @@
       libusb1
       libglvnd
       mesa
+      # Loader de Vulkan (libvulkan.so.1): los binarios externos lo hacen
+      # dlopen en vez de enlazarlo, y sin esta entrada Ryujinx Nextendo (y
+      # cualquier app Vulkan descargada) no encuentra el loader aunque mesa
+      # y libglvnd ya estén aquí.
+      vulkan-loader
       libdrm
       libgbm
       libx11
@@ -42,6 +47,10 @@
       libxscrnsaver
       libxtst
       libxkbcommon
+      # Sesión X11 de Avalonia (Ryujinx): IceAddConnectionWatch necesita
+      # libICE.so.6 y sin ella la app aborta al crear la ventana.
+      libICE
+      libSM
     ];
   };
 }

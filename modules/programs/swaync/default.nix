@@ -16,15 +16,25 @@
 
   # Config gestionada por NixOS: swaync la lee desde el home (symlinks).
   environment.etc."swaync/config.json".source = ./config.json;
-  environment.etc."swaync/style.css".source = pkgs.replaceVars ./style.css { home = config.loon.home; };
+  environment.etc."swaync/style.css".source = ./style.css;
+
+  # Default del generado: accent-wallpaper sobreescribe el archivo del usuario
+  # con la paleta real del wallpaper, pero hace falta un fallback mientras no
+  # haya corrido (home nuevo / primer arranque). Va con `C` y no con `f`: el
+  # contenido son varias líneas, `f` solo admite una y la aserción de
+  # modules/default.nix rechaza reglas tmpfiles multilínea. `C` copia solo si
+  # no existe, así que nunca pisa lo que escriba accent-wallpaper.
+  environment.etc."swaync/accent.css".source = ./accent.css;
 
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
-    "d ${config.loon.home}/.config/swaync 0755 ${config.loon.username} users -"
-    "L+ ${config.loon.home}/.config/swaync/config.json - - - - /etc/swaync/config.json"
-    "L+ ${config.loon.home}/.config/swaync/style.css - - - - /etc/swaync/style.css"
-    # Acento dinámico: lo escribe accent-wallpaper; este default (f = crea si
-    # no existe, no pisa) evita que el @import falle en el primer boot.
-    "f ${config.loon.home}/.config/swaync/accent.css 0644 ${config.loon.username} users - @define-color accent #5e81ac; @define-color on_accent #ffffff;"
+    "d /home/saito/.config/swaync 0755 saito users -"
+    "L+ /home/saito/.config/swaync/config.json - - - - /etc/swaync/config.json"
+    "L+ /home/saito/.config/swaync/style.css - - - - /etc/swaync/style.css"
+    # Acento dinámico: lo escribe accent-wallpaper. La regla C copia el
+    # default de /etc solo si el archivo no existe, así que nunca pisa la
+    # paleta del wallpaper; y a diferencia de `f` admite contenido multilínea
+    # (necesario: accent.css define 7 colores, `f` solo admite una línea).
+    "C /home/saito/.config/swaync/accent.css 0644 saito users - /etc/swaync/accent.css"
   ];
 }

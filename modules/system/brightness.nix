@@ -26,19 +26,23 @@ in
     };
 
     command = lib.mkOption {
-      type = lib.types.str;
+      type = lib.types.nullOr lib.types.str;
       default = "screen-brightness";
-      description = "Nombre del comando unificado para control de brillo.";
+      description = ''
+        Nombre del comando unificado para control de brillo. En un equipo sin
+        panel interno (o sin DDC/CI) se pone en null: waybar omite el módulo y
+        niri no inyecta binds de brillo.
+      '';
     };
   };
 
   config = lib.mkMerge [
-    (lib.mkIf (cfg.backend == "internal") {
+    (lib.mkIf (cfg.backend == "internal" && cfg.command != null) {
       environment.systemPackages = [
         internalBrightness
       ];
     })
-    (lib.mkIf (cfg.backend == "ddc") {
+    (lib.mkIf (cfg.backend == "ddc" && cfg.command != null) {
       environment.systemPackages = [
         ddcBrightness
         screenBrightnessDdcWrapper

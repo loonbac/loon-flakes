@@ -12,7 +12,7 @@ from evdev import list_devices
 
 
 DEVICE = "/dev/input/by-id/usb-Razer_Razer_Basilisk_V3-if02-event-kbd"
-USER = "loonbac"
+USER = "saito"
 USER_ID = "1000"
 SOCKET = f"/run/user/{USER_ID}/equibop-hotkey.sock"
 

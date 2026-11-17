@@ -47,18 +47,18 @@ in
   # Config gestionada por NixOS: waybar la lee desde el home (symlinks).
   # Cada host recibe su backend: sysfs en el Dell y DDC/CI en el PC.
   environment.etc."waybar/config.jsonc".source = generatedConfig;
-  environment.etc."waybar/style.css".source = pkgs.replaceVars ./style.css { home = config.loon.home; };
+  environment.etc."waybar/style.css".source = ./style.css;
 
   # Fuerza que la config del home sean symlinks a la gestionada.
   # El dir se crea explícitamente con dueño correcto.
   systemd.tmpfiles.rules = [
-    "d ${config.loon.home}/.config/waybar 0755 ${config.loon.username} users -"
-    "L+ ${config.loon.home}/.config/waybar/config.jsonc - - - - /etc/waybar/config.jsonc"
-    "L+ ${config.loon.home}/.config/waybar/style.css - - - - /etc/waybar/style.css"
+    "d /home/saito/.config/waybar 0755 saito users -"
+    "L+ /home/saito/.config/waybar/config.jsonc - - - - /etc/waybar/config.jsonc"
+    "L+ /home/saito/.config/waybar/style.css - - - - /etc/waybar/style.css"
     # Paleta dinámica del wallpaper: la escribe accent-wallpaper (archivo
     # real del usuario, NO symlink). Estos defaults (f = crea si no existe)
     # evitan que el @import de style.css falle en el primer boot.
-    "f ${config.loon.home}/.config/waybar/colors.css 0644 ${config.loon.username} users - @define-color background #11181A; @define-color background_alt #1B2629; @define-color surface #1B2629; @define-color foreground #F0EDE1; @define-color accent #AB9A5E; @define-color on_accent #000000; @define-color highlight #7679C6; @define-color muted #8C8877; @define-color warning #E6A545; @define-color critical #E6506B; @define-color transparent transparent;"
-    "f ${config.loon.home}/.config/waybar/accent.css 0644 ${config.loon.username} users - @define-color accent #AB9A5E; @define-color on_accent #000000;"
+    "f /home/saito/.config/waybar/colors.css 0644 saito users - @define-color background #11181A; @define-color background_alt #1B2629; @define-color surface #1B2629; @define-color foreground #F0EDE1; @define-color accent #AB9A5E; @define-color on_accent #000000; @define-color highlight #7679C6; @define-color muted #8C8877; @define-color warning #E6A545; @define-color critical #E6506B; @define-color transparent transparent;"
+    "f /home/saito/.config/waybar/accent.css 0644 saito users - @define-color accent #AB9A5E; @define-color on_accent #000000;"
   ];
 }

@@ -24,7 +24,8 @@
   ];
 
   # ---- Zona horaria y localización ----
-  time.timeZone = "America/Lima";
+  # mkDefault: cada host declara la suya y gana sobre este valor.
+  time.timeZone = lib.mkDefault "America/Lima";
 
   # Un proceso resuelve su zona una sola vez al arrancar y la cachea durante
   # toda su vida. ICU —Chromium, Electron, Node, Java— devuelve literalmente
@@ -42,7 +43,7 @@
   # sola vez y aquí no se fija ninguna zona concreta.
   environment.sessionVariables.TZ = config.time.timeZone;
 
-  i18n.defaultLocale = "es_PE.UTF-8";
+  i18n.defaultLocale = lib.mkDefault "es_PE.UTF-8";
   i18n.supportedLocales = [
     "C.UTF-8/UTF-8"
     "en_US.UTF-8/UTF-8"
@@ -100,8 +101,8 @@
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
     SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
-    BROWSER = "zen-browser";
-    NPM_CONFIG_PREFIX = "${config.loon.home}/.npm-global";
+    BROWSER = "helium";
+    NPM_CONFIG_PREFIX = "/home/saito/.npm-global";
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
@@ -120,6 +121,6 @@
   # semántica git (solo archivos trackeados).
   environment.etc."gitconfig".text = ''
     [safe]
-    	directory = ${config.loon.home}/.nixos
+    	directory = /home/saito/.nixos
   '';
 }

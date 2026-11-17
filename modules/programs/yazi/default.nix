@@ -2,7 +2,7 @@
 #
 # La config se genera en /etc/yazi/yazi.toml y tmpfiles la enlaza al directorio
 # que Yazi consulta en el home del usuario.
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 let
   yaziConfig = (pkgs.formats.toml { }).generate "yazi.toml" {
@@ -32,7 +32,7 @@ in
 
   # Ruta absoluta: systemd-tmpfiles no expande "~".
   systemd.tmpfiles.rules = [
-    "d ${config.loon.home}/.config/yazi 0755 ${config.loon.username} users -"
-    "L+ ${config.loon.home}/.config/yazi/yazi.toml - - - - /etc/yazi/yazi.toml"
+    "d /home/saito/.config/yazi 0755 saito users -"
+    "L+ /home/saito/.config/yazi/yazi.toml - - - - /etc/yazi/yazi.toml"
   ];
 }

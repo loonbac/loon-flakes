@@ -211,9 +211,14 @@ let
             const listed = await runInRenderer(frame, "VesktopNative.virtmic.list()");
             const filter = audioFilter(window, listed?.ok ? listed.targets : []);
             if (filter) {
+              // venmic espera `include` como una lista de filtros. Si recibe
+              // un objeto suelto lo descarta sin avisar y, como `exclude`
+              // sigue siendo válido, la llamada devuelve true igualmente: la
+              // captura acaba siendo todo el sistema (con Equibop dentro) en
+              // vez de sólo la ventana compartida.
               const result = await runInRenderer(
                 frame,
-                "VesktopNative.virtmic.start(" + JSON.stringify(filter) + ")"
+                "VesktopNative.virtmic.start(" + JSON.stringify([filter]) + ")"
               );
               console.log("Equibop screen share window audio configured", filter, result);
             }
@@ -404,7 +409,7 @@ in
       Restart = "on-failure";
       RestartSec = "1s";
       Environment = [
-        "HOME=${config.loon.home}"
+        "HOME=/home/saito"
         "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
       ];
     };
@@ -425,7 +430,7 @@ in
       KillMode = "control-group";
       TimeoutStopSec = "10s";
       Environment = [
-        "HOME=${config.loon.home}"
+        "HOME=/home/saito"
         "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
       ];
     };
@@ -461,7 +466,7 @@ in
 
   # Ruta absoluta: systemd no expande "~" en tmpfiles.
   systemd.tmpfiles.rules = [
-    "d ${config.loon.home}/.config/autostart 0755 ${config.loon.username} users -"
-    "L+ ${config.loon.home}/.config/autostart/equibop.desktop - - - - /etc/equibop/autostart.desktop"
+    "d /home/saito/.config/autostart 0755 saito users -"
+    "L+ /home/saito/.config/autostart/equibop.desktop - - - - /etc/equibop/autostart.desktop"
   ];
 }

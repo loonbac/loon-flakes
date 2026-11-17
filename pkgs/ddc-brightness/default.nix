@@ -1,4 +1,6 @@
-# Control de brillo DDC/CI para el monitor principal de nixos-pc.
+# Control de brillo DDC/CI para un monitor externo. Lo consume el backend
+# `ddc` de modules/system/brightness.nix; hoy ningún host lo usa (saitina es
+# `internal`), así que la derivación solo existe por si se reactiva.
 { pkgs, monitorModel }:
 
 pkgs.writeShellApplication {

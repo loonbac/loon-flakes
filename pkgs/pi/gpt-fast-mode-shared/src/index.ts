@@ -14,7 +14,7 @@ type Model = { provider?: string; id?: string };
 type Context = { model?: Model; ui?: { notify?: (message: string, level?: string) => void } };
 
 function agentDirectory(): string {
-  return process.env.PI_CODING_AGENT_DIR?.trim() || join(process.env.HOME || "/home/loonbac", ".pi", "agent");
+  return process.env.PI_CODING_AGENT_DIR?.trim() || join(process.env.HOME || "/home/saito", ".pi", "agent");
 }
 
 function statePath(): string {

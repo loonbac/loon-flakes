@@ -1,0 +1,14 @@
+/* accent.css por defecto de SwayNC (módulo programs/swaync).
+   Es solo el fallback para un home nuevo o un arranque previo al primer
+   cambio de wallpaper: accent-wallpaper SOBRESCRIBE el archivo del usuario
+   con la paleta real extraída del fondo. Los valores de abajo coinciden con
+   el modo oscuro por defecto del sistema (modules/system/theme.nix).
+   Todos los colores viven aquí y no en style.css porque en GTK CSS gana la
+   ÚLTIMA definición: un @define-color posterior al @import los pisaría. */
+@define-color accent #5e81ac;
+@define-color on_accent #ffffff;
+@define-color background #0f1416;
+@define-color surface #1b2023;
+@define-color surface_high #252b2d;
+@define-color text #dee3e6;
+@define-color text_dim #bfc8cc;

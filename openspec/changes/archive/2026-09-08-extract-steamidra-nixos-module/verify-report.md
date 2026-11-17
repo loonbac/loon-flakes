@@ -9,7 +9,7 @@ scenarios: 12/12
 test_command: nix flake check --no-build
 test_exit_code: 0
 test_output_hash: sha256:dc10289ef24fedc47fd84ba80f0cb4c0ba9d0cc56794711884b9482a6a0b4c49
-build_command: (cd /tmp/verify-steamidra-nixos-pc && nixos-rebuild build --flake /home/loonbac/.nixos#nixos-pc)
+build_command: (cd /tmp/verify-steamidra-nixos-pc && nixos-rebuild build --flake /home/saito/.nixos#nixos-pc)
 build_exit_code: 0
 build_output_hash: sha256:719a371e3779c30cd22202831205bca88044551d926d62f42c45402d1bf88069
 ```
@@ -24,7 +24,7 @@ build_output_hash: sha256:719a371e3779c30cd22202831205bca88044551d926d62f42c4540
 
 - Change: `extract-steamidra-nixos-module`
 - Native verify state: `ready`; authoritative blockers: none.
-- Action context: `repo-local` with workspace root and allowed edit root `/home/loonbac/.nixos`.
+- Action context: `repo-local` with workspace root and allowed edit root `/home/saito/.nixos`.
 - Implementation ownership is proven in the authoritative workspace by the staged source diff.
 - Source changes are limited to `flake.nix`, `hosts/nixos-pc/gaming.nix`, `modules/programs/default.nix`, and `modules/programs/steamidra/default.nix`.
 - `pkgs/steamidra/default.nix` is unchanged from `HEAD`; there are no unstaged source changes.
@@ -250,7 +250,7 @@ test -r /nix/store/gs3agq7n7zk4w3ka93ihr5bpvr5kmrlq-steamidra-6.6.6/share/icons/
 ### Full `nixos-pc` build
 
 ```bash
-(cd /tmp/verify-steamidra-nixos-pc && nixos-rebuild build --flake /home/loonbac/.nixos#nixos-pc)
+(cd /tmp/verify-steamidra-nixos-pc && nixos-rebuild build --flake /home/saito/.nixos#nixos-pc)
 ```
 
 Exit code: 0. Exact combined output hash: `sha256:719a371e3779c30cd22202831205bca88044551d926d62f42c45402d1bf88069`. Built system: `/nix/store/pxq8r57nzyfya06nlarsv061b15a6y8y-nixos-system-nixos-pc-26.05.20260814.02e0898`.

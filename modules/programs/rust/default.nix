@@ -8,7 +8,7 @@
 #
 # `rust-toolchain.toml` de los proyectos no interviene: sin rustup, el toolchain
 # es el de nixpkgs y el wrapper no lo sustituye.
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 let
   cacheRoot = "/var/cache/rust-target";
@@ -30,6 +30,6 @@ in
   # El wrapper compila como el usuario, así que el directorio raíz del caché
   # debe pertenecerle. Ruta absoluta: tmpfiles no expande `~`.
   systemd.tmpfiles.rules = [
-    "d ${cacheRoot} 0755 ${config.loon.username} users -"
+    "d ${cacheRoot} 0755 saito users -"
   ];
 }

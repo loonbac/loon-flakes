@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pausa mpvpaper cuando una ventana opaca cubre un workspace visible."""
+"""Pausa mpvpaper salvo que el foco esté en un terminal o el workspace esté vacío."""
 
 from __future__ import annotations
 
@@ -10,11 +10,15 @@ import sys
 from typing import Any
 
 
-# Apps cuya superficie deja ver el fondo: pausarlo detrás de ellas no ahorra
-# GPU y sí corta el efecto. Debe coincidir con lo que de verdad es transparente:
-# el window-rule de ghostty en config.kdl (opacity 0.8 + xray) y la transparencia
-# propia de PORT (opacity 0.85 en su config.md). Una app opaca NO se añade aquí.
-TRANSPARENT_APP_IDS = frozenset({"com.mitchellh.ghostty", "port"})
+# Política: el wallpaper animado corre SOLO a pleno cuando el foco está en un
+# terminal o el workspace visible está vacío. Con cualquier otra ventana
+# enfocada se congela en el último frame, y ahí está el ahorro: mpv deja de
+# decodificar mientras el usuario mira el navegador o el chat. Por eso la
+# lista es cerrada y de terminales; una app translúcida NO se añade aunque
+# deje ver el fondo, porque detrás de ella el frame congelado apenas se nota
+# y el ahorro compensa. Debe coincidir con el window-rule de ghostty en
+# config.kdl (opacity 0.8 + xray), la única superficie que lo deja ver.
+ANIMATED_APP_IDS = frozenset({"com.mitchellh.ghostty"})
 PAUSE_REASON = "opaque-window"
 
 
@@ -23,8 +27,10 @@ class VisibilityState:
         self.workspaces: dict[int, dict[str, Any]] = {}
         self.windows: dict[int, dict[str, Any]] = {}
 
-    def opaque_window_visible(self) -> bool:
-        """Comprueba la ventana activa de cada workspace visible por salida."""
+    def should_freeze_wallpaper(self) -> bool:
+        """True si el wallpaper debe congelarse: hay una ventana enfocada que
+        no es terminal en algún workspace visible. Los workspaces vacíos no
+        cuentan: en el escritorio solo el fondo corre."""
         for workspace in self.workspaces.values():
             if not workspace.get("is_active"):
                 continue
@@ -32,9 +38,9 @@ class VisibilityState:
             if window_id is None:
                 continue
             window = self.windows.get(window_id)
-            # Durante actualizaciones no atómicas, pausar de forma conservadora
+            # Durante actualizaciones no atómicas, congelar de forma conservadora
             # hasta que llegue la descripción de la ventana.
-            if window is None or window.get("app_id") not in TRANSPARENT_APP_IDS:
+            if window is None or window.get("app_id") not in ANIMATED_APP_IDS:
                 return True
         return False
 
@@ -104,6 +110,93 @@ def set_wallpaper_paused(paused: bool) -> None:
     subprocess.run(args, check=False, stdout=subprocess.DEVNULL)
 
 
+def wallpaper_status() -> str:
+    try:
+        result = subprocess.run(
+            ["mpvpaper-wallpaper", "status"],
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return ""
+    return result.stdout.strip()
+
+
+def pause_reasons() -> list[tuple[str, str, str]]:
+    """Motivos de pausa presentes como (motivo, antigüedad, dueño).
+
+    Se listan todos, incluido el propio `opaque-window`: si después de pedir
+    animación sigue ahí, es información útil (otra instancia lo puso o el
+    `resume` no llegó), no algo que deba esconderse. La antigüedad se devuelve
+    aparte del motivo: si entrara en la firma de deduplicación, cambiaría cada
+    segundo y el aviso se repetiría en todos los eventos.
+    """
+    try:
+        result = subprocess.run(
+            ["mpvpaper-wallpaper", "reasons"],
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except OSError:
+        return []
+    reasons: list[tuple[str, str, str]] = []
+    for line in result.stdout.splitlines():
+        fields = line.split("\t")
+        # reason<TAB>age<TAB>owner
+        if len(fields) < 2:
+            continue
+        owner = fields[2] if len(fields) > 2 else "desconocido"
+        reasons.append((fields[0], fields[1], owner))
+    return reasons
+
+
+_paused_warning: tuple[str, ...] | None = None
+
+
+def warn_if_still_paused(desired_freeze: bool) -> None:
+    """Avisa en el journal cuando el fondo sigue pausado pese a querer animarlo.
+
+    Sin este aviso una pausa ajena es invisible: `status` solo dice 'paused' y el
+    fondo se queda en el último frame hasta que alguien piense en correr
+    `mpvpaper-wallpaper reasons`. Pasó el 2026-11-10: un motivo 'manual' de
+    origen 'cli' congeló el fondo tres horas y ningún cambio de foco lo retiró,
+    porque los motivos ajenos solo los retira una orden explícita `resume`.
+    Se avisa una sola vez por conjunto de motivos para no inundar el journal
+    con cada cambio de foco.
+    """
+    global _paused_warning
+    if desired_freeze:
+        return
+    if wallpaper_status() != "paused":
+        # Dejó de estar pausado: si vuelve a ocurrir, volverá a avisar.
+        _paused_warning = None
+        return
+    reasons = pause_reasons()
+    # Firma sin la antigüedad: ésta cambia cada segundo y el dedupe dejaría de
+    # servir (se vio en vivo: cinco avisos en siete segundos).
+    signature = tuple((reason, owner) for reason, _age, owner in reasons)
+    if signature == _paused_warning:
+        return
+    _paused_warning = signature
+    if reasons:
+        detail = "por: " + ", ".join(
+            f"{reason} ({age}, {owner})" for reason, age, owner in reasons
+        )
+    else:
+        detail = (
+            "sin ningún motivo registrado: es una pausa directa sobre el IPC de "
+            "mpv, y el próximo `pause` la conservará como motivo 'manual'"
+        )
+    print(
+        "niri-wallpaper-visibility: el fondo animado sigue pausado "
+        f"{detail}. Reanuda con: mpvpaper-wallpaper resume",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def main() -> int:
     if not os.environ.get("NIRI_SOCKET"):
         print("niri-wallpaper-visibility: NIRI_SOCKET no está definido", file=sys.stderr)
@@ -137,11 +230,13 @@ def main() -> int:
                 continue
             if not state.update(event):
                 continue
-            desired = state.opaque_window_visible()
-            if desired == applied:
-                continue
-            set_wallpaper_paused(desired)
-            applied = desired
+            desired = state.should_freeze_wallpaper()
+            if desired != applied:
+                set_wallpaper_paused(desired)
+                applied = desired
+            # Se comprueba también cuando no hubo que actuar: una pausa ajena
+            # puede aparecer (o desaparecer) sin que cambie la visibilidad.
+            warn_if_still_paused(desired)
     finally:
         # El motivo se conserva si niri corta el stream; systemd reiniciará el
         # watcher y reconciliará el estado completo recibido al reconectar.

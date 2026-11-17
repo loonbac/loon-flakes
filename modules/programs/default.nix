@@ -17,7 +17,6 @@
     ./obs-studio
     ./obs-pwvideo
     ./hyprlock
-    ./waydroid
     ./virtualbox
     ./gentle-ai
     ./pi-ssh-clipboard
@@ -25,6 +24,5 @@
     ./steamidra
     ./veadotube-mini
     ./pear-desktop
-    ./anydesk
   ];
 }

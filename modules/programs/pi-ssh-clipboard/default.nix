@@ -6,15 +6,14 @@ in
 {
   environment.systemPackages = [ bridge ];
 
-  # OpenSSH forwards a private Unix socket instead of a TCP port. The remote
-  # xclip-compatible shim used by Pi can therefore read an image only while
-  # this exact SSH connection is alive.
-  programs.ssh.extraConfig = ''
-    Host 192.168.0.2 192.168.0.10 100.81.168.104 100.73.247.39 loon-laptop nixos-pc
-      RemoteForward /run/user/1000/pi-ssh-clipboard.sock /run/user/1000/pi-clipboard-source.sock
-      StreamLocalBindMask 0177
-      StreamLocalBindUnlink yes
-  '';
+  # OpenSSH reenvía un socket Unix privado, no un puerto TCP: el shim
+  # xclip-compatible de Pi solo puede leer una imagen mientras esa conexión
+  # SSH exacta vive. El bloque que declaraba eso por host se retiró el
+  # 2026-11-13 con sus hosts (loon-laptop y nixos-pc dejaron de existir): no
+  # queda ningún peer al que reenviar el socket, y su lista `Host` guardaba
+  # IPs LAN/Tailscale y alias en el repo público. Si vuelve a haber una
+  # segunda máquina, re-declarar aquí `programs.ssh.extraConfig` con su
+  # `Host <alias>` y el RemoteForward al socket de Pi.
 
   services.openssh.settings = {
     AllowStreamLocalForwarding = "yes";
