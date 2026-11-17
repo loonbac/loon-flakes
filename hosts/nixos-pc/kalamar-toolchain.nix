@@ -15,7 +15,7 @@
 # el motor. Sin pins: todo sale de nixpkgs y lo avanza `rebuild update`; las
 # versiones de los entornos de Python las fija el propio proyecto en
 # engine/tools/requirements*.txt. Nada de esto deriva del juego.
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   # Dependencias del motor: build_game.py enlaza -lvulkan -lSDL3 -lopus -lvpx
@@ -55,6 +55,11 @@ in
 
     vulkan-tools # vulkaninfo: comprobar 1.3 + VK_EXT_external_memory_host
     uv # los dos entornos de Python del proyecto (el intérprete lo trae uv)
+
+    # Perfilado del runtime nativo: el perf del mismo kernelPackages que corre
+    # el sistema, para que los símbolos casen. Más gdb para depurar el ELF.
+    config.boot.kernelPackages.perf
+    gdb
   ]
   ++ engineDeps
   ++ [
@@ -81,4 +86,7 @@ in
       '';
     })
   ];
+
+  # Perfilar procesos propios sin ser root.
+  boot.kernel.sysctl."kernel.perf_event_paranoid" = 1;
 }
