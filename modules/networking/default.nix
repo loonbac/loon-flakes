@@ -22,6 +22,9 @@
     # Gestor de red (WiFi, ethernet, VPNs por GUI).
     networking.networkmanager.enable = true;
 
+    # Sincronizar el reloj con el servidor NTP público de Cloudflare.
+    networking.timeServers = [ "time.cloudflare.com" ];
+
     # Tethering USB con iPhone: ipheth expone el hotspot como una interfaz
     # Ethernet y usbmuxd prepara los permisos y la comunicación con iOS.
     # NetworkManager la detecta y configura automáticamente al activar
