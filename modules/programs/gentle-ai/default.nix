@@ -239,26 +239,29 @@ in
     ]
     ++ lib.optional cfg.gentleShell.enable gentleShellPackage;
 
-    # A system service running as loonbac is intentional: NixOS switch tracks
-    # and restarts changed system units, while already-active user oneshots are
-    # only reloaded. This makes an edited source declaration take effect during
-    # the same rebuild without requiring a login or a manual user-unit restart.
+    # A system service running as the primary user is intentional: NixOS
+    # switch tracks and restarts changed system units, while already-active
+    # user oneshots are only reloaded. This makes an edited source declaration
+    # take effect during the same rebuild without requiring a login or a
+    # manual user-unit restart. Who that user is comes from
+    # `loon.username`/`loon.home`, so a fork installs its own identity
+    # instead of loonbac's.
     systemd.services.gentle-ai-bootstrap = {
       description = "Reconcile the declared Gentle AI core for Pi";
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" "nss-lookup.target" ];
-      after = [ "network-online.target" "nss-lookup.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
-        User = "saito";
+        User = config.loon.username;
         Group = "users";
         ExecStart = "${bootstrap}/bin/gentle-ai-bootstrap";
         RemainAfterExit = true;
-        WorkingDirectory = "/home/saito";
+        WorkingDirectory = config.loon.home;
         Environment = [
-          "HOME=/home/saito"
-          "PI_CODING_AGENT_DIR=/home/saito/.pi/agent"
-          "GENTLE_AI_NIXOS_REPO=/home/saito/.nixos"
+          "HOME=${config.loon.home}"
+          "PI_CODING_AGENT_DIR=${config.loon.home}/.pi/agent"
+          "GENTLE_AI_NIXOS_REPO=${config.loon.home}/.nixos"
         ];
       };
     };
