@@ -43,7 +43,6 @@ let
   # the live catalogue instead of written by hand.
   piCompactionThreshold = pkgs.callPackage ../../../pkgs/pi-compaction-threshold { };
   gptFastModeShared = pkgs.callPackage ../../../pkgs/pi/gpt-fast-mode-shared { };
-  piJevContextGuard = pkgs.callPackage ../../../pkgs/pi-jev-context-guard { };
   bootstrap = pkgs.callPackage ../../../pkgs/gentle-ai-bootstrap {
     inherit
       engramLauncher
@@ -57,7 +56,7 @@ let
     gentleAiRuntimeSource = core.gentleAi.source;
     engramSourceMode = core.engram.mode;
     engramSourceRef = core.engram.ref;
-    inherit gptFastModeShared piJevContextGuard;
+    inherit gptFastModeShared;
     loonHome = config.loon.home;
     personalPiProviders = config.loon.personal.piProviders;
     personalJudges = config.loon.personal.judges;

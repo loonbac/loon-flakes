@@ -19,7 +19,6 @@
 , engramLauncher
 
 , gptFastModeShared
-, piJevContextGuard
 # Home del usuario principal: el módulo NixOS siempre lo pasa
 # explícito; el default conserva la máquina actual standalone.
 , loonHome ? "/home/loonbac"
@@ -59,7 +58,6 @@ let
     "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
     "npm:pi-secrets"
-    "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
     "@HOME@/.local/share/loon-pi-packages/pi-ghost-tools"
   ];
 
@@ -74,7 +72,6 @@ let
     "pi-antigravity"
     "pi-commandcode-provider"
     "pi-secrets"
-    "pi-jev-context-guard"
     "pi-ghost-tools"
   ];
 
@@ -1327,23 +1324,9 @@ writeShellApplication {
     }
     ${lib.optionalString gentleShellEnable "reconcile_gentle_shell"}
 
-    # Raiz de los paquetes locales de Pi. Solo el guard de contexto Jev queda
-    # enlazado aqui: los bytes son del flake y el home guarda la identidad.
+    # Raiz de los paquetes locales de Pi (LOON se instala aparte con `pi install`).
     local_package_root="$HOME/.local/share/loon-pi-packages"
     mkdir -p "$local_package_root"
-
-    # El guard de contexto Jev vivía como directorio copiado a mano en el home:
-    # el repo tenía su fuente pero nada la desplegaba, así que un cambio en
-    # pkgs/pi-jev-context-guard no llegaba nunca a Pi. Se enlaza como el resto:
-    # los bytes son del flake y el home solo guarda la identidad.
-    jev_guard_source="$local_package_root/pi-jev-context-guard"
-    if [ ! -L "$jev_guard_source" ] || [ "$(readlink -f "$jev_guard_source" || true)" != "${piJevContextGuard}" ]; then
-      if [ -e "$jev_guard_source" ] || [ -L "$jev_guard_source" ]; then
-        mkdir -p "$backup_dir/local-packages"
-        mv "$jev_guard_source" "$backup_dir/local-packages/pi-jev-context-guard"
-      fi
-      ln -s "${piJevContextGuard}" "$jev_guard_source"
-    fi
 
     # Install Pi only when absent. Subsequent upgrades belong to `pi update`,
     # which now sees a normal, writable global npm installation.
