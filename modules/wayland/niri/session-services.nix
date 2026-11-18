@@ -41,6 +41,10 @@ in
     description = "Barra custom de la sesión Niri";
     serviceConfig = resilientService // {
       ExecStart = "${pkgs.quickshell}/bin/qs -p /etc/quickshell/loonbar";
+      # La barra no debe adivinar el backend de brillo del host.
+      Environment = resilientService.Environment ++ [
+        "LOON_BRIGHTNESS_COMMAND=${if config.hardware.brightness.command == null then "screen-brightness" else config.hardware.brightness.command}"
+      ];
     };
   };
 

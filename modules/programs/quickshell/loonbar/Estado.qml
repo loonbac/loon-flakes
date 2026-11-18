@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 // Estado compartido por todas las barras (una por monitor).
@@ -9,6 +10,9 @@ import Quickshell.Io
 // (trayectoria, bandeja y Bluetooth se leen en `Barra.qml` desde sus módulos).
 QtObject {
     id: estado
+
+    // La unidad inyecta el backend configurado en NixOS (sysfs o DDC/CI).
+    readonly property string comandoBrillo: Quickshell.env("LOON_BRIGHTNESS_COMMAND") || "screen-brightness"
 
     // --- Reloj -------------------------------------------------------------
 
@@ -103,7 +107,7 @@ QtObject {
     property Poll sondeoBrillo: Poll {
         // En un monitor externo sin /sys/class/backlight responde
         // alt "unavailable" y el módulo se oculta.
-        comando: ["screen-brightness", "json"]
+        comando: ["sh", "-c", estado.comandoBrillo + " json"]
         intervalo: 1000
         onTextoChanged: estado.actualizarBrillo(texto)
     }
@@ -405,10 +409,10 @@ QtObject {
         comando: ["systemctl", "--user", "start", "--no-block", "nixos-updates-check.service"]
     }
     property Accion accionBrilloArriba: Accion {
-        comando: ["screen-brightness", "up", "5"]
+        comando: ["sh", "-c", estado.comandoBrillo + " up 5"]
     }
     property Accion accionBrilloAbajo: Accion {
-        comando: ["screen-brightness", "down", "5"]
+        comando: ["sh", "-c", estado.comandoBrillo + " down 5"]
     }
     property Accion accionSilenciarSalida: Accion {
         comando: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]
