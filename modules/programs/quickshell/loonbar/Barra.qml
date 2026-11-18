@@ -348,8 +348,10 @@ PanelWindow {
 
         readonly property bool activa: barra.islaExpandida
         // Un mínimo evita que la fila multimedia quede apretada cuando el
-        // título es corto; en reposo manda el ancho de las celdas.
-        readonly property int anchoActivo: Math.max(filaCentro.implicitWidth + 12, 260)
+        // título es corto; en reposo manda el ancho de las celdas. Se mantiene
+        // ajustado (210 px) para que la card no se estire hacia la derecha
+        // cuando el contenido multimedia es corto (L6).
+        readonly property int anchoActivo: Math.max(filaCentro.implicitWidth + 12, 210)
         readonly property int altoActivo: filaCentro.implicitHeight + 12
 
         anchors.horizontalCenter: parent.horizontalCenter
