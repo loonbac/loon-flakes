@@ -3,18 +3,20 @@ import Quickshell
 
 // Globo de ayuda: una ventana emergente anclada al ítem que la invoca.
 //
-// Se usa también para el calendario del reloj, así que el texto puede ser
-// multilínea y se dibuja en la misma tipografía monoespaciada de la barra, que
-// mantiene alineadas las columnas del calendario.
+// Por defecto dibuja texto multilínea con la tipografía de la barra. Si el
+// invocador pasa un `contenido`, se dibuja ese componente en su lugar: así el
+// calendario del reloj puede colorear el día actual sin convertir el globo en
+// un cálculo de columnas con caracteres monoespaciados.
 PopupWindow {
     id: globo
 
     property Item objetivo: null
     property string texto: ""
+    property Component contenido: null
     property bool mostrar: false
     property var paleta: null
 
-    visible: globo.mostrar && globo.texto !== ""
+    visible: globo.mostrar && (globo.texto !== "" || globo.contenido !== null)
     color: "transparent"
 
     anchor.item: globo.objetivo
@@ -22,8 +24,8 @@ PopupWindow {
     anchor.gravity: Edges.Bottom
     anchor.margins.top: 6
 
-    implicitWidth: etiqueta.implicitWidth + 24
-    implicitHeight: etiqueta.implicitHeight + 16
+    implicitWidth: (globo.contenido ? cargaContenido.implicitWidth : etiqueta.implicitWidth) + 24
+    implicitHeight: (globo.contenido ? cargaContenido.implicitHeight : etiqueta.implicitHeight) + 16
 
     Rectangle {
         anchors.fill: parent
@@ -34,6 +36,7 @@ PopupWindow {
 
         Text {
             id: etiqueta
+            visible: globo.contenido === null
             anchors.centerIn: parent
             text: globo.texto
             color: globo.paleta ? globo.paleta.foreground : "#F0EDE1"
@@ -41,6 +44,13 @@ PopupWindow {
             font.pixelSize: 14
             font.weight: Font.Medium
             lineHeight: 1.15
+        }
+
+        Loader {
+            id: cargaContenido
+            visible: globo.contenido !== null
+            sourceComponent: globo.contenido
+            anchors.centerIn: parent
         }
     }
 }
