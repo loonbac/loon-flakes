@@ -39,10 +39,24 @@ PanelWindow {
         right: 10
     }
 
-    implicitHeight: 56
-    // Reservar el alto visible más el margen superior evita que niri coloque
-    // ventanas debajo de la barra.
-    exclusiveZone: implicitHeight + margins.top
+    // Alto de reposo de la barra: la píldora central mide 44 px y deja 6 px
+    // arriba y abajo. La ventana crece para dibujar la isla expandida, pero la
+    // reserva (zona exclusiva) se queda fija en la de reposo (L5).
+    readonly property int altoReposo: 56
+    readonly property int altoIsla: pildoraCentro.altoActivo + 12
+
+    implicitHeight: barra.islaExpandida ? barra.altoIsla : barra.altoReposo
+    // La reserva NO se anima ni crece con la isla: si lo hiciera, niri bajaría
+    // las ventanas sólo para darle margen (L5). Se reserva el alto de reposo
+    // más el margen superior y la isla expandida pinta por encima.
+    exclusiveZone: barra.altoReposo + margins.top
+
+    Behavior on implicitHeight {
+        NumberAnimation {
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
+    }
 
     WlrLayershell.namespace: "loon:bar"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -72,7 +86,11 @@ PanelWindow {
         return elegido;
     }
     readonly property bool reproduccionActiva: barra.reproductor !== null && barra.reproductor.isPlaying
-    property bool mostrarIsla: false
+
+    // La isla sólo se abre mientras el ratón está encima de la card (L5); la
+    // reproducción es la condición que la habilita, no la que la despliega.
+    property bool ratonSobreIsla: false
+    readonly property bool islaExpandida: barra.reproduccionActiva && barra.ratonSobreIsla
 
     readonly property var adaptadorBluetooth: Bluetooth.defaultAdapter
     readonly property int dispositivosBluetooth: barra.contarBluetooth()
@@ -250,8 +268,11 @@ PanelWindow {
     Rectangle {
         id: pildoraIzquierda
 
+        // Anclada arriba, no centrada: la ventana crece hacia abajo cuando la
+        // isla se expande y las píldoras laterales no deben moverse (L5).
         anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
+        anchors.topMargin: barra.margins.top
         width: filaIzquierda.implicitWidth + 20
         height: 44
         radius: 10
@@ -312,72 +333,101 @@ PanelWindow {
         }
     }
 
-    // --- Píldora central: workspaces de niri -------------------------------
-
-    Timer {
-        id: temporizadorMostrarIsla
-        interval: 220
-        repeat: false
-        onTriggered: barra.mostrarIsla = true
-    }
-
-    Timer {
-        id: temporizadorOcultarIsla
-        interval: 250
-        repeat: false
-        onTriggered: barra.mostrarIsla = false
-    }
-
+    // --- Píldora central: la isla ---------------------------------------------
+    //
+    // Es la única superficie: en reposo muestra la fila de workspaces con la
+    // geometría aceptada (44 px de alto, radio 10). Mientras hay reproducción y
+    // el ratón está encima, `Workspaces` añade su fila multimedia dentro del
+    // mismo rectángulo y la píldora crece en ancho, alto y radio con un pequeño
+    // rebote elástico. No hay morph de la celda activa ni ventana emergente
+    // aparte (L4). El crecimiento es hacia abajo: el borde superior se queda
+    // anclado en la posición aceptada y el inferior invade la ventana de abajo
+    // sin desplazarla (L5).
     Rectangle {
         id: pildoraCentro
 
+        readonly property bool activa: barra.islaExpandida
+        // Un mínimo evita que la fila multimedia quede apretada cuando el
+        // título es corto; en reposo manda el ancho de las celdas.
+        readonly property int anchoActivo: Math.max(filaCentro.implicitWidth + 12, 260)
+        readonly property int altoActivo: filaCentro.implicitHeight + 12
+
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        width: filaCentro.implicitWidth + 12
-        height: 44
-        radius: 10
+        anchors.top: parent.top
+        anchors.topMargin: barra.margins.top
+        width: pildoraCentro.activa ? pildoraCentro.anchoActivo : filaCentro.implicitWidth + 12
+        height: pildoraCentro.activa ? pildoraCentro.altoActivo : 44
+        radius: pildoraCentro.activa ? 18 : 10
         color: barra.paleta ? barra.paleta.alfa(barra.paleta.background, 0.88) : "#E011181A"
         border.width: 1
         border.color: barra.paleta ? barra.paleta.alfa(barra.paleta.foreground, 0.25) : "#40F0EDE1"
 
+        Behavior on width {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.05
+            }
+        }
+
+        Behavior on height {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.05
+            }
+        }
+
+        Behavior on radius {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.05
+            }
+        }
+
+        // La fila se ancla arriba, no centrada: con la card creciendo hacia
+        // abajo las celdas de workspace se quedan donde estaban y la fila
+        // multimedia aparece debajo, dentro de la misma superficie.
         Workspaces {
             id: filaCentro
 
-            anchors.centerIn: parent
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 6
             estado: barra.estado
             paleta: barra.paleta
             reproductor: barra.reproductor
+            expandida: barra.islaExpandida
             salida: barra.pantalla ? barra.pantalla.name : ""
         }
 
+        // Hover de la card: `Qt.NoButton` deja pasar los clics a las celdas de
+        // workspace que quedan debajo; sólo mide la presencia del ratón.
+        Timer {
+            id: retardoEntradaIsla
+            interval: 120
+            repeat: false
+            onTriggered: {
+                if (zonaHoverIsla.containsMouse)
+                    barra.ratonSobreIsla = true;
+            }
+        }
+
         MouseArea {
+            id: zonaHoverIsla
+
             anchors.fill: parent
             acceptedButtons: Qt.NoButton
             hoverEnabled: true
-            onEntered: {
-                temporizadorOcultarIsla.stop();
-                temporizadorMostrarIsla.restart();
+            onContainsMouseChanged: {
+                if (containsMouse) {
+                    retardoEntradaIsla.restart();
+                } else {
+                    retardoEntradaIsla.stop();
+                    barra.ratonSobreIsla = false;
+                }
             }
-            onExited: {
-                temporizadorMostrarIsla.stop();
-                temporizadorOcultarIsla.restart();
-            }
-        }
-    }
-
-    IslaExpandida {
-        objetivo: pildoraCentro
-        paleta: barra.paleta
-        reproductor: barra.reproductor
-        mostrar: barra.mostrarIsla && barra.reproduccionActiva
-        onEntroRaton: {
-            temporizadorOcultarIsla.stop();
-            temporizadorMostrarIsla.stop();
-            barra.mostrarIsla = true;
-        }
-        onSalioRaton: {
-            temporizadorMostrarIsla.stop();
-            temporizadorOcultarIsla.restart();
         }
     }
 
@@ -386,8 +436,10 @@ PanelWindow {
     Rectangle {
         id: pildoraDerecha
 
+        // Igual que la izquierda: arriba y sin moverse cuando la ventana crece.
         anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
+        anchors.topMargin: barra.margins.top
         width: filaDerecha.implicitWidth + 20
         height: 44
         radius: 10
