@@ -20,8 +20,8 @@ QtObject {
 
     // Tipografía común: Nerd Font para los glifos de los módulos.
     readonly property string familia: "JetBrainsMono Nerd Font"
-    readonly property int tamanoTexto: 13
-    readonly property int tamanoIcono: 15
+    readonly property int tamanoTexto: 14
+    readonly property int tamanoIcono: 17
 
     property color background: "#11181A"
     property color backgroundAlt: "#1B2629"

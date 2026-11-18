@@ -27,7 +27,7 @@ Item {
 
     visible: boton.habilitado
     width: fila.width + 12
-    height: 32
+    height: 44
 
     Row {
         id: fila
@@ -41,7 +41,7 @@ Item {
             font.family: boton.paleta ? boton.paleta.familia : "monospace"
             font.pixelSize: boton.tamanoIcono
             font.weight: Font.DemiBold
-            height: 32
+            height: 44
             verticalAlignment: Text.AlignVCenter
         }
 
@@ -52,7 +52,7 @@ Item {
             font.family: boton.paleta ? boton.paleta.familia : "monospace"
             font.pixelSize: boton.tamanoTexto
             font.weight: Font.DemiBold
-            height: 32
+            height: 44
             verticalAlignment: Text.AlignVCenter
         }
     }
