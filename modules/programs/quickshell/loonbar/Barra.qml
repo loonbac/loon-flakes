@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Services.Mpris
 import Quickshell.Bluetooth
 
 // Barra de estado de la sesión Niri: una ventana layer-shell por monitor.
@@ -9,8 +8,8 @@ import Quickshell.Bluetooth
 // La estructura reproduce la barra anterior: dos píldoras laterales con los
 // módulos y una central con los workspaces de niri. Los datos vienen de
 // `Estado.qml` (comandos del sistema) y de los servicios de Quickshell
-// (bandeja y MPRIS por D-Bus, Bluetooth por BlueZ), así que la barra no necesita
-// binarios extra para esas tres integraciones.
+// (bandeja por D-Bus, Bluetooth por BlueZ), así que la barra no necesita
+// binarios extra para esas integraciones.
 PanelWindow {
     id: barra
 
@@ -49,42 +48,10 @@ PanelWindow {
 
     // --- Datos de servicios externos ---------------------------------------
 
-    // MPRIS: se ignora el reproductor genérico de los navegadores, igual que
-    // hacía la configuración anterior, y se prefiere el que está sonando.
-    readonly property var reproductor: {
-        const lista = Mpris.players.values;
-        const ignorados = ["firefox", "chromium", "brave"];
-        let elegido = null;
-        for (const candidato of lista) {
-            const identidad = String(candidato.identity || "").toLowerCase();
-            let ignorado = false;
-            for (const nombre of ignorados) {
-                if (identidad.indexOf(nombre) >= 0)
-                    ignorado = true;
-            }
-            if (ignorado)
-                continue;
-            if (elegido === null)
-                elegido = candidato;
-            if (candidato.isPlaying) {
-                elegido = candidato;
-                break;
-            }
-        }
-        return elegido;
-    }
-
     readonly property var adaptadorBluetooth: Bluetooth.defaultAdapter
     readonly property int dispositivosBluetooth: barra.contarBluetooth()
 
     // --- Utilidades de presentación ----------------------------------------
-
-    function recortar(texto) {
-        // Mismo límite de 25 caracteres que tenía el módulo anterior.
-        if (texto.length <= 25)
-            return texto;
-        return texto.slice(0, 24) + "…";
-    }
 
     function contarBluetooth() {
         const adaptador = barra.adaptadorBluetooth;
@@ -298,35 +265,6 @@ PanelWindow {
                     : (barra.paleta ? barra.paleta.foreground : "#F0EDE1")
                 tooltip: barra.estado.inhibidorActivo ? "Idle Inhibitor: Activo" : "Idle Inhibitor: Inactivo"
                 onClic: barra.estado.alternarInhibidor()
-            }
-
-            // Reproductor MPRIS.
-            Boton {
-                paleta: barra.paleta
-                habilitado: barra.reproductor !== null
-                icono: barra.reproductor && barra.reproductor.isPlaying ? "\u{F02CE}" : "⏸"
-                texto: barra.reproductor ? barra.recortar(barra.reproductor.trackTitle || "") : ""
-                colorTexto: barra.reproductor && barra.reproductor.isPlaying
-                    ? (barra.paleta ? barra.paleta.foreground : "#F0EDE1")
-                    : (barra.paleta ? barra.paleta.muted : "#8C8877")
-                tooltip: barra.reproductor
-                    ? (barra.reproductor.trackArtist || barra.reproductor.identity) + "\n" + (barra.reproductor.trackTitle || "")
-                    : ""
-                onClic: {
-                    const jugador = barra.reproductor;
-                    if (jugador && jugador.canTogglePlaying)
-                        jugador.togglePlaying();
-                }
-                onRuedaArriba: {
-                    const jugador = barra.reproductor;
-                    if (jugador && jugador.canGoNext)
-                        jugador.next();
-                }
-                onRuedaAbajo: {
-                    const jugador = barra.reproductor;
-                    if (jugador && jugador.canGoPrevious)
-                        jugador.previous();
-                }
             }
 
             // Bandeja del sistema.
