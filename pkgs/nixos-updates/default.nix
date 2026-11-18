@@ -493,8 +493,10 @@ def bar_status(cache_dir):
 
     lines = []
     if state == "checking":
-        alt, text = "checking", "…"
-        lines.append("Buscando actualizaciones…")
+        # El glifo de refrescar ya comunica el estado; un texto de puntos
+        # suspensivos en la barra sólo añadía ruido (revisión de la captura).
+        alt, text = "checking", ""
+        lines.append("Buscando actualizaciones")
     elif state == "error":
         alt, text = "error", "!"
         lines.append(error or "La última comprobación falló.")
