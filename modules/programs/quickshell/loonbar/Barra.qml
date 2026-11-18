@@ -34,14 +34,14 @@ PanelWindow {
     }
 
     margins {
-        top: 6
+        top: 0
         left: 10
         right: 10
     }
 
-    implicitHeight: 56
-    // Reservar el alto visible más el margen superior evita que niri coloque
-    // ventanas debajo de la barra.
+    implicitHeight: 44
+    // La barra toca el borde superior; reservar ese alto evita que niri
+    // coloque ventanas debajo.
     exclusiveZone: implicitHeight + margins.top
 
     WlrLayershell.namespace: "loon:bar"
