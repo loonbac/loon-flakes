@@ -2,9 +2,10 @@ import QtQuick
 
 // Workspaces de niri y, debajo, la actividad multimedia del sistema.
 //
-// La card entera es la isla dinámica: en reposo muestra solo la fila de
-// workspaces con la geometría aceptada (celdas de 32 px, radio 7, spacing 3).
-// Mientras algo se reproduce y el ratón está encima (`expandida`), se añaden dos
+// La card entera es la isla dinámica: en reposo muestra la fila de workspaces
+// con la geometría aceptada (celdas de 32 px, radio 7, spacing 3) y un pequeño
+// ecualizador en la celda activa cuando algo se reproduce (L8). Mientras el
+// ratón está encima (`expandida`), se añaden dos
 // filas: arriba el indicador de reproducción con artista y título, debajo los
 // controles grandes centrados; `Barra.qml` agranda la card completa: una sola
 // superficie, sin morph de la celda activa ni ventana emergente aparte.
@@ -112,6 +113,56 @@ Column {
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: foco.ejecutar()
+                }
+
+                // Pista compacta en reposo: mientras algo suena, la celda
+                // activa lleva un ecualizador en la esquina. Así se ve que la
+                // isla tiene contenido sin ensanchar la card ni mover celdas.
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.topMargin: 2
+                    anchors.right: parent.right
+                    anchors.rightMargin: 2
+                    width: 16
+                    height: 12
+                    radius: 4
+                    visible: celda.modelData.is_focused
+                        && workspaces.reproduciendo
+                        && !workspaces.expandida
+                    color: workspaces.colorAcento()
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 2
+
+                        Repeater {
+                            model: 3
+
+                            Rectangle {
+                                width: 2
+                                height: 4
+                                radius: 1
+                                color: workspaces.paleta
+                                    ? workspaces.paleta.sobreAcento
+                                    : "#111111"
+
+                                SequentialAnimation on height {
+                                    running: workspaces.reproduciendo && !workspaces.expandida
+                                    loops: Animation.Infinite
+                                    NumberAnimation {
+                                        to: 9
+                                        duration: 180 + index * 60
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                    NumberAnimation {
+                                        to: 3
+                                        duration: 220 + index * 40
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Accion {
