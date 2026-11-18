@@ -141,6 +141,15 @@ QtObject {
         onTextoChanged: estado.actualizarUpdates(texto)
     }
 
+    // El servicio de updates avisa aquí cuando termina, para que la barra no
+    // espere el siguiente ciclo de 5 minutos.
+    property IpcHandler ipcUpdates: IpcHandler {
+        target: "barra"
+        function refrescarUpdates(): void {
+            estado.sondeoUpdates.trigger();
+        }
+    }
+
     // --- Brillo -------------------------------------------------------------
 
     property bool brilloVisible: false
@@ -458,12 +467,6 @@ QtObject {
         estado.cpuOciosoAnterior = ocioso;
     }
 
-    property Poll sondeoCpu: Poll {
-        comando: ["sh", "-c", "grep '^cpu ' /proc/stat"]
-        intervalo: 2000
-        onTextoChanged: estado.actualizarCpu(texto)
-    }
-
     // --- Memoria -----------------------------------------------------------
 
     property real memoriaTotal: 0
@@ -482,10 +485,20 @@ QtObject {
         estado.memoriaUsada = (total - disponible) / 1073741824;
     }
 
-    property Poll sondeoMemoria: Poll {
-        comando: ["sh", "-c", "free -b | sed -n 2p"]
-        intervalo: 2000
-        onTextoChanged: estado.actualizarMemoria(texto)
+    function actualizarMetricas(texto) {
+        const lineas = texto.trim().split("\n");
+        if (lineas.length >= 1)
+            estado.actualizarCpu(lineas[0].replace(/^cpu\s+/, "cpu "));
+        if (lineas.length >= 2)
+            estado.actualizarMemoria(lineas[1]);
+    }
+
+    // CPU y memoria comparten un solo proceso cada 5 s: son valores informativos,
+    // no interactivos, y dos sondeos separados costaban dos execves cada 2 s.
+    property Poll sondeoMetricas: Poll {
+        comando: ["sh", "-c", "grep '^cpu ' /proc/stat; free -b | sed -n 2p"]
+        intervalo: 5000
+        onTextoChanged: estado.actualizarMetricas(texto)
     }
 
     // --- Batería -----------------------------------------------------------
@@ -513,7 +526,7 @@ QtObject {
     property Poll sondeoBateria: Poll {
         // Sin BAT0 (un escritorio) el comando falla y el módulo queda oculto.
         comando: ["sh", "-c", "cat /sys/class/power_supply/BAT0/capacity /sys/class/power_supply/BAT0/status"]
-        intervalo: 5000
+        intervalo: 10000
         onTextoChanged: estado.actualizarBateria(texto)
     }
 

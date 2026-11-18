@@ -11,6 +11,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${nixosUpdatesPkg}/bin/nixos-updates check";
+      # Avisar a la barra para que relea el estado sin esperar su poll de 5 min.
+      # El guion delante ignora el fallo cuando la sesión no tiene barra activa.
+      ExecStartPost = "-${pkgs.quickshell}/bin/qs -p /etc/quickshell/loonbar ipc call barra refrescarUpdates";
       Nice = 19;
       IOSchedulingClass = "idle";
       IOSchedulingPriority = 7;
