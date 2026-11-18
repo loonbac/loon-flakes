@@ -22,15 +22,17 @@ in
 {
   environment.systemPackages = [
     newtabDashboard
-    # Helium tal como lo lanza el escritorio, con el flag que deja a la pagina leer su
-    # propio archivo de datos. Sin el, el navegador trata cada file:// como un origen
-    # distinto y bloquea la lectura, y el panel solo puede refrescarse recargandose.
+    # Helium tal como lo lanza el escritorio. --allow-file-access-from-files deja a la
+    # pagina leer su propio archivo de datos; sin el, cada file:// es un origen distinto
+    # y el panel solo puede refrescarse recargandose. El puerto CDP local permite que
+    # flow-mcp se adjunte a ESTA sesion (con la cuenta ya iniciada) en lugar de abrir
+    # su perfil privado headless. Queda enlazado a 127.0.0.1, no a todas las interfaces.
     (pkgs.symlinkJoin {
       name = "helium";
       paths = [ helium-browser ];
       postBuild = ''
         for desktop in $out/share/applications/*.desktop; do
-          sed -i "s|^Exec=helium|Exec=${helium-browser}/bin/helium --allow-file-access-from-files|" "$desktop"
+          sed -i "s|^Exec=helium|Exec=${helium-browser}/bin/helium --allow-file-access-from-files --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1|" "$desktop"
           sed -i "s|^TryExec=helium|TryExec=${helium-browser}/bin/helium|" "$desktop"
         done
       '';
