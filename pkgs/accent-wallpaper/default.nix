@@ -213,8 +213,8 @@ $critical = rgb({crit_hex.lstrip('#')})
 """
     atomic_write(hypr_colors_path, hypr_colors_content)
 
-    # La barra Quickshell relee este archivo cada 30 s. Publicarlo al final hace
-    # que la próxima lectura encuentre al resto de consumidores con la misma paleta.
+    # Publicar al final la paleta hace que la barra encuentre a los demás
+    # consumidores con la misma paleta cuando avisamos por IPC.
     atomic_write(shell_colors_path, shell_colors_content)
         
     print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
@@ -247,6 +247,13 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     ${pkgs.coreutils}/bin/mv -f "$temporary" "$target"
   }
 
+  notificar_barra() {
+    # La barra se recarga por IPC porque FileView puede perder el reemplazo
+    # atómico de los archivos. El prefijo '-' la hace opcional: la paleta se
+    # publica igual aunque no haya sesión o la barra esté arrancando.
+    "${pkgs.quickshell}/bin/qs" -p /etc/quickshell/loonbar ipc call paleta recargar >/dev/null 2>&1 || true
+  }
+
   apply_cached_palette() {
     local cache=$1
     atomic_copy "$cache/accent.txt" "$HOME/.config/mpvpaper/accent.txt"
@@ -257,6 +264,7 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     atomic_copy "$cache/hypr-colors.conf" "$HOME/.config/hypr/colors.conf"
     # Publicar al final la paleta que relee la barra Quickshell.
     atomic_copy "$cache/loon-shell-colors.css" "$HOME/.config/loon-shell/colors.css"
+    notificar_barra
   }
 
   cache_current_palette() {
@@ -373,9 +381,9 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   cache_current_palette "$PALETTE_CACHE"
 
   # ---- Propagación en vivo ----
-  # La barra Quickshell relee ~/.config/loon-shell/colors.css y accent.css
-  # cada 30 s, así que no hace falta señalarla ni reiniciar su unidad: el
-  # cambio de color llega en la siguiente lectura, sin reconstruir la barra.
+  # Avisar a la barra para que relea ~/.config/loon-shell/colors.css y
+  # accent.css sin esperar a FileView ni reiniciar su unidad.
+  notificar_barra
 
   # Recargar notificaciones SwayNC
   "$SWAYNC_CLIENT" -R 2>/dev/null || true

@@ -41,6 +41,10 @@ in
     description = "Barra custom de la sesión Niri";
     serviceConfig = resilientService // {
       ExecStart = "${pkgs.quickshell}/bin/qs -p /etc/quickshell/loonbar";
+      # Reaplicar la paleta cacheada del wallpaper antes de arrancar: cualquier
+      # rebuild puede dejar los archivos en los valores sembrados por tmpfiles.
+      # El guion delante la hace opcional si no hay wallpaper activo.
+      ExecStartPre = "-${accentWallpaper}/bin/accent-wallpaper";
       # La barra no debe adivinar el backend de brillo del host.
       Environment = resilientService.Environment ++ [
         "LOON_BRIGHTNESS_COMMAND=${if config.hardware.brightness.command == null then "screen-brightness" else config.hardware.brightness.command}"

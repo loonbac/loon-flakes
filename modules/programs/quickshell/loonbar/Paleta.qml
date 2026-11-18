@@ -5,9 +5,9 @@ import Quickshell.Io
 // Paleta y tipografía de la barra.
 //
 // Los colores salen de ~/.config/loon-shell/colors.css y accent.css, que escribe
-// `accent-wallpaper` con el color del wallpaper animado. Se releen cada 30 s y
-// se parsean aquí (no con @import de CSS): así la barra sigue el acento sin
-// reiniciar el servicio de Quickshell. FileView observa ambos archivos.
+// `accent-wallpaper` con el color del wallpaper animado. FileView observa ambos
+// archivos y el generador avisa además por IPC: la barra sigue el acento sin
+// reiniciar el servicio de Quickshell ni depender de un sondeo periódico.
 //
 // Los valores por defecto son los mismos que siembra el módulo NixOS en esos
 // archivos, para que la barra se vea bien antes del primer rebuild.
@@ -35,6 +35,16 @@ QtObject {
     property color muted: "#8C8877"
     property color warning: "#E6A545"
     property color critical: "#E6506B"
+
+    // El generador de la paleta avisa aquí tras publicar los archivos, para
+    // que el cambio llegue aunque FileView no detecte el reemplazo atómico.
+    property IpcHandler ipcPaleta: IpcHandler {
+        target: "paleta"
+        function recargar(): void {
+            paleta.archivoColores.reload();
+            paleta.archivoAcento.reload();
+        }
+    }
 
     // Mismo efecto que `alpha(@color, 0.88)` de la hoja de estilos anterior.
     function alfa(color, opacidad) {
