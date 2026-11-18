@@ -109,7 +109,7 @@ integrado. Quickshell, loon-launch y los servicios de niri se inician con tu
 sesión y se recuperan solos si fallan.
 
 > **Ojo**: `rebuild update` también actualiza el `flake.lock`, lo que trae
-> las últimas versiones de Zen Browser y VS Code Insiders (ver abajo).
+> las últimas versiones de Helium Browser y VS Code Insiders (ver abajo).
 
 ---
 
@@ -759,7 +759,7 @@ dejando el resto transparente.
   deja ajustarlo con la rueda del mouse. En el PC un servicio junta los cambios
   y sincroniza el valor real cada 30 segundos.
 - **Programas de todas las máquinas**: git, gh, btop, fastfetch, ghostty,
-  nodejs, zen-browser, helium-browser, vscode-insiders, equibop, fish, yazi,
+  nodejs, helium-browser, vscode-insiders, equibop, fish, yazi,
   mpvpaper/mpv, oh-my-posh, los programitas propios (niri-cycle, loon-launch,
   rebuild, mpvpaper-wallpaper, niri-backdrop), Gentle-AI, Engram, Pi,
   `gentle-ai-bootstrap`, `gentle-stack-update` y herramientas de diagnóstico.
@@ -790,12 +790,11 @@ dejando el resto transparente.
 |----------------------------|-------------------------------------------------|
 | `nixpkgs`                  | la base `nixos-26.05`                           |
 | `citron-nextendo`          | AppImages estables + su módulo                  |
-| `zen-browser`              | Zen Browser (no viene en nixpkgs)               |
 | `helium-browser`           | Helium Browser (no viene en nixpkgs)            |
 | `code-insiders-flake`      | VS Code Insiders (se actualiza a diario)       |
 
 **Programas que expone el flake**: `rebuild`, `loon-launch`, `niri-cycle`,
-`vscode-insiders`, `zen-browser`, `helium-browser`, `gentle-ai`, `engram`,
+`vscode-insiders`, `helium-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update`,
 `steamidra`, `citron-nextendo`, `citron-nextendo-v3`, `veadotube-mini` y
 `obs-pwvideo`.

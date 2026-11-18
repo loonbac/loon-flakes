@@ -100,7 +100,7 @@
     LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.libpq.out}/lib";
     SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
-    BROWSER = "zen-browser";
+    BROWSER = "helium";
     NPM_CONFIG_PREFIX = "${config.loon.home}/.npm-global";
   };
 

@@ -27,11 +27,6 @@
       url = "github:loonbac/loon-launch";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Zen Browser (no está en nixpkgs; flake oficial de la wiki de NixOS).
-    zen-browser = {
-      url = "github:youwen5/zen-browser-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     # Helium Browser (no está en nixpkgs; navegador enfocado en privacidad basado en Chromium).
     helium-browser = {
       url = "github:schembriaiden/helium-browser-nix-flake";
@@ -70,7 +65,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, zen-browser, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, nix-flatpak, lanzaboote, helium-browser }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -180,11 +175,10 @@
 
       # "compilación final": como `cargo build` junta todos los crates,
       # aquí juntamos hosts + módulos en una configuración completa.
-      # `specialArgs` pasa paquetes de otros flakes (zen-browser) a los módulos.
+      # `specialArgs` pasa paquetes de otros flakes (helium-browser) a los módulos.
       mkHost = hostName: hostModules: lib.nixosSystem {
         inherit system;
         specialArgs = {
-          zen-browser = zen-browser.packages.${system}.default;
           helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
@@ -239,7 +233,6 @@
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
-        zen-browser = zen-browser.packages.${system}.default;
         helium-browser = helium-browser.packages.${system}.default;
         nixos-updates = pkgs.callPackage ./pkgs/nixos-updates { };
         nixos-ssh = pkgs.callPackage ./pkgs/nixos-ssh { };
