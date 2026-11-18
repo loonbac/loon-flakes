@@ -15,7 +15,7 @@ Row {
     property var ventana: null
 
     spacing: 6
-    height: 32
+    height: 44
     visible: repetidor.count > 0
 
     Repeater {
@@ -26,17 +26,17 @@ Row {
             id: entrada
             required property var modelData
 
-            width: 18
-            height: 32
+            width: 20
+            height: 44
 
             Image {
                 id: glifo
                 anchors.centerIn: parent
-                width: 16
-                height: 16
+                width: 18
+                height: 18
                 source: entrada.modelData.icon
-                sourceSize.width: 16
-                sourceSize.height: 16
+                sourceSize.width: 18
+                sourceSize.height: 18
                 fillMode: Image.PreserveAspectFit
                 smooth: true
             }

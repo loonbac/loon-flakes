@@ -39,9 +39,9 @@ PanelWindow {
         right: 10
     }
 
-    implicitHeight: 42
-    // Reserva el mismo alto que ocupaba la barra anterior (42 de barra + 6 de
-    // margen superior) para que las ventanas de niri no queden debajo.
+    implicitHeight: 56
+    // Reservar el alto visible más el margen superior evita que niri coloque
+    // ventanas debajo de la barra.
     exclusiveZone: implicitHeight + margins.top
 
     WlrLayershell.namespace: "loon:bar"
@@ -260,8 +260,8 @@ PanelWindow {
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         width: filaIzquierda.implicitWidth + 20
-        height: 32
-        radius: 8
+        height: 44
+        radius: 10
         color: barra.paleta ? barra.paleta.alfa(barra.paleta.background, 0.88) : "#E011181A"
         border.width: 1
         border.color: barra.paleta ? barra.paleta.alfa(barra.paleta.foreground, 0.25) : "#40F0EDE1"
@@ -356,8 +356,8 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         width: filaCentro.implicitWidth + 12
-        height: 32
-        radius: 8
+        height: 44
+        radius: 10
         color: barra.paleta ? barra.paleta.alfa(barra.paleta.background, 0.88) : "#E011181A"
         border.width: 1
         border.color: barra.paleta ? barra.paleta.alfa(barra.paleta.foreground, 0.25) : "#40F0EDE1"
@@ -380,8 +380,8 @@ PanelWindow {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         width: filaDerecha.implicitWidth + 20
-        height: 32
-        radius: 8
+        height: 44
+        radius: 10
         color: barra.paleta ? barra.paleta.alfa(barra.paleta.background, 0.88) : "#E011181A"
         border.width: 1
         border.color: barra.paleta ? barra.paleta.alfa(barra.paleta.foreground, 0.25) : "#40F0EDE1"

@@ -18,7 +18,7 @@ Item {
     readonly property var diasSemana: ["L", "M", "X", "J", "V", "S", "D"]
 
     width: etiqueta.width + 12
-    height: 32
+    height: 44
 
     // Número de semana ISO-8601, igual que el calendario que había antes.
     function semanaIso(fecha) {
