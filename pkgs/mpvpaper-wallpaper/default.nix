@@ -333,7 +333,7 @@ let
     # Publicar la paleta antes de crear la superficie que hará el fade. En
     # selecciones repetidas accent-wallpaper responde desde su caché.
     if "${accent-wallpaper}/bin/accent-wallpaper" from "$video" >/dev/null 2>&1; then
-      # Dar un frame al monitor CSS de Waybar sin reiniciar la barra.
+      # Dar un frame antes de publicar la paleta que consume la barra.
       ${pkgs.coreutils}/bin/sleep 0.05
       return 0
     fi

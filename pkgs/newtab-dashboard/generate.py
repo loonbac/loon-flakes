@@ -5,7 +5,7 @@ Lee tres familias de datos y escribe un HTML autocontenido:
 
   * La paleta del fondo de pantalla, para que el acento de la pagina sea el mismo
     que el del escritorio. Se lee del archivo que ya escribe `accent-wallpaper`,
-    en orden de preferencia: waybar/colors.css (paleta completa), mpvpaper/accent.txt,
+    en orden de preferencia: loon-shell/colors.css (paleta completa), mpvpaper/accent.txt,
     hypr/colors.conf. Si ninguno existe, la pagina funciona con el acento por defecto.
 
   * Las sesiones de Pi, que son la unica fuente real de tokens y de dinero. Cada
@@ -86,7 +86,7 @@ def wallpaper_palette():
     """
     palette = {}
 
-    css = read_text(HOME / ".config" / "waybar" / "colors.css")
+    css = read_text(HOME / ".config" / "loon-shell" / "colors.css")
     for name, value in re.findall(r"@define-color\s+([a-z0-9_]+)\s+(#[0-9A-Fa-f]{6})", css):
         palette[name] = value
 

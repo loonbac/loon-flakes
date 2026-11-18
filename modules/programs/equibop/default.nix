@@ -334,7 +334,7 @@ let
 
         # libvesktop se carga dinámicamente desde app.asar. Electron no ve
         # sus dependencias Nix por defecto, así que el tray nativo falla y
-        # Waybar recibe el menú vacío de Electron. El wrapper garantiza que
+        # la bandeja de la barra recibe el menú vacío de Electron. El wrapper garantiza que
         # dlopen encuentre tanto libstdc++ como GLib al arrancar Equibop.
         wrapProgram "$out/bin/equibop" \
           --set PULSE_PROP 'application.name=Equibop application.process.binary=equibop application.icon_name=equibop media.role=phone' \

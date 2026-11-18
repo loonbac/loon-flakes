@@ -19,7 +19,7 @@ in
   systemd.tmpfiles.rules = [
     "d ${config.loon.home}/.config/loon-shell 0755 ${config.loon.username} users -"
     # accent-wallpaper escribe estos archivos reales; las reglas f solo los
-    # siembran cuando todavía no existen, igual que hacía la config de Waybar.
+    # siembran cuando todavía no existen, igual que hacía la configuración anterior.
     "f ${config.loon.home}/.config/loon-shell/colors.css 0644 ${config.loon.username} users - ${paletteDefaults}"
     "f ${config.loon.home}/.config/loon-shell/accent.css 0644 ${config.loon.username} users - ${accentDefaults}"
   ];

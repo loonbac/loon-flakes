@@ -26,7 +26,7 @@ niri_backdrop=$(bin niri-backdrop)
 moonlight=$(bin moonlight)
 pgrep_cmd=$(bin pgrep)
 setsid_cmd=$(bin setsid)
-waybar_unit=waybar.service
+bar_unit=quickshell.service
 swaync_unit=swaync.service
 udiskie_unit=udiskie.service
 clip_persist_unit=wl-clip-persist.service
@@ -68,7 +68,7 @@ valid_state() {
     and (.mode | type == "string" and test("^[0-9]{2,5}x[0-9]{2,5}@[0-9]{1,3}\\.[0-9]{1,3}$"))
     and (.brightness | type == "number" and . >= 0 and . <= 100 and floor == .)
     and (.processes | type == "object"
-      and (.animated_wallpaper,.static_wallpaper,.waybar,.swaync,.udiskie,.clip_persist,
+      and (.animated_wallpaper,.static_wallpaper,.quickshell,.swaync,.udiskie,.clip_persist,
            .wl_paste_text,.wl_paste_image,.loon_launch | type == "boolean"))
     and (.timer_active | type == "boolean")
   ' "$state_file" >/dev/null 2>&1
@@ -134,7 +134,7 @@ snapshot() {
   boot=$(boot_id) || { err "cannot read boot ID"; return 1; }
   animated=$(bool running '[b]in/mpvpaper ')
   static=$(bool running 'awww-daemon.*--namespace wallpaper')
-  bar=$(bool unit_active "$waybar_unit")
+  bar=$(bool unit_active "$bar_unit")
   notifications=$(bool unit_active "$swaync_unit")
   disks=$(bool unit_active "$udiskie_unit")
   persist=$(bool unit_active "$clip_persist_unit")
@@ -147,7 +147,7 @@ snapshot() {
     --argjson disks "$disks" --argjson persist "$persist" --argjson text "$text" --argjson image "$image" \
     --argjson launcher "$launcher" --argjson timer "$timer" \
     '{version:1,boot_id:$boot_id,phase:"snapshot",output:$output,mode:$mode,brightness:$brightness,
-      processes:{animated_wallpaper:$animated,static_wallpaper:$static,waybar:$bar,swaync:$notifications,
+      processes:{animated_wallpaper:$animated,static_wallpaper:$static,quickshell:$bar,swaync:$notifications,
         udiskie:$disks,clip_persist:$persist,wl_paste_text:$text,wl_paste_image:$image,loon_launch:$launcher},
       timer_active:$timer}'
 }
@@ -162,7 +162,7 @@ apply_values() {
   set_brightness_checked "$target" || failed=1
   "$mpvpaper_wallpaper" stop >/dev/null 2>&1 || failed=1
   "$niri_backdrop" stop >/dev/null 2>&1 || failed=1
-  stop_unit "$waybar_unit" || failed=1
+  stop_unit "$bar_unit" || failed=1
   stop_unit "$swaync_unit" || failed=1
   stop_unit "$udiskie_unit" || failed=1
   stop_unit "$clip_persist_unit" || failed=1
@@ -183,7 +183,7 @@ restore_values() {
   set_brightness_checked "$brightness" || failed=1
   if [ "$(state_bool .processes.animated_wallpaper)" = true ]; then start_if_absent '[b]in/mpvpaper ' "$mpvpaper_wallpaper" || failed=1; fi
   if [ "$(state_bool .processes.static_wallpaper)" = true ]; then start_if_absent 'awww-daemon.*--namespace wallpaper' "$niri_backdrop" || failed=1; fi
-  if [ "$(state_bool .processes.waybar)" = true ]; then start_unit "$waybar_unit" || failed=1; fi
+  if [ "$(state_bool .processes.quickshell)" = true ]; then start_unit "$bar_unit" || failed=1; fi
   if [ "$(state_bool .processes.swaync)" = true ]; then start_unit "$swaync_unit" || failed=1; fi
   if [ "$(state_bool .processes.udiskie)" = true ]; then start_unit "$udiskie_unit" || failed=1; fi
   if [ "$(state_bool .processes.clip_persist)" = true ]; then start_unit "$clip_persist_unit" || failed=1; fi

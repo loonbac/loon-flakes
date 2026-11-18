@@ -19,7 +19,7 @@
     }
   ];
 
-  # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para Waybar) ----
+  # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para la barra Quickshell) ----
   fonts.packages = with pkgs; [
     nerd-fonts.symbols-only
     nerd-fonts.fira-code

@@ -44,7 +44,7 @@ un archivo gigante imposible de leer.
     ├── programs/                      # programas de uso diario
     │   ├── fish/                      # la terminal con linda presentación
     │   ├── ghostty/                   # la ventana de terminal
-    │   ├── waybar/                    # la barra inferior con reloj, volumen…
+    │   ├── quickshell/                # la barra con reloj, volumen…
     │   ├── equibop/                   # Discord con arreglo para llamadas con VPN
     │   └── gentle-ai/                 # Pi + Gentle AI + Engram
     ├── wayland/                       # el escritorio gráfico
@@ -105,7 +105,7 @@ Al aplicar, también se revisa que la configuración del escritorio (`niri`)
 sea válida, usando un entorno limpio. Los archivos que niri necesita se crean
 solos, así que una máquina recién instalada no depende de nada previo. Si
 falta la imagen opcional del banner del launcher, se usa un degradado
-integrado. Waybar, loon-launch y los servicios de niri se inician con tu
+integrado. Quickshell, loon-launch y los servicios de niri se inician con tu
 sesión y se recuperan solos si fallan.
 
 > **Ojo**: `rebuild update` también actualiza el `flake.lock`, lo que trae
@@ -267,7 +267,7 @@ accent-wallpaper from VIDEO  # analiza un video específico
 
 Guarda el color en `~/.config/mpvpaper/accent.txt` y `~/.config/niri/accent.kdl`
 (niri lo recarga en vivo al cambiar). Tanto el fondo animado como el fijo lo
-disparan solos al cambiar; waybar y Pi actualizan sus colores sin reiniciar.
+disparan solos al cambiar; la barra y Pi actualizan sus colores sin reiniciar.
 
 ### `niri-backdrop` — fondo fijo global
 
@@ -699,15 +699,14 @@ Un `.exe` con permiso de ejecución también corre como `./programa.exe`. No
 todo programa Windows funciona con Wine; los que pidan librerías extra se
 preparan con `winetricks`.
 
-### waybar (`waybar/`)
+### quickshell (`quickshell/`)
 
-La barra inferior (reloj, volumen, red, brillo, batería, ventanas…),
-configurada por NixOS (archivos reales en `/etc/waybar/`, los tuyos son
-enlaces). Arranca sola con la sesión.
+La barra superior (reloj, volumen, red, brillo, batería, workspaces…), escrita
+en QML y gestionada por NixOS: los archivos viven en `/etc/quickshell/loonbar/`
+y los arranca `quickshell.service` con la sesión.
 
-- **Editar**: `modules/programs/waybar/config.jsonc` (qué muestra) y
-  `modules/programs/waybar/style.css` (cómo se ve) → `rebuild`.
-- **Recargarla** sin cerrar sesión: `killall waybar && waybar &`.
+- **Editar**: `modules/programs/quickshell/loonbar/*.qml` → `rebuild`.
+- **Recargarla** sin cerrar sesión: `systemctl --user restart quickshell.service`.
 
 ### equibop (`equibop/`)
 
@@ -756,7 +755,7 @@ dejando el resto transparente.
 - **Idioma y zona**: `America/Lima`, español Perú, teclado `es`.
 - **Programas no-libres permitidos** (`allowUnfree = true`): microcode Intel, etc.
 - **Brillo**: en `loon-laptop` controla el panel interno Intel; en `nixos-pc`
-  controla el monitor por cable (DDC/CI). Waybar muestra icono y porcentaje y
+  controla el monitor por cable (DDC/CI). La barra muestra icono y porcentaje y
   deja ajustarlo con la rueda del mouse. En el PC un servicio junta los cambios
   y sincroniza el valor real cada 30 segundos.
 - **Programas de todas las máquinas**: git, gh, btop, fastfetch, ghostty,

@@ -73,7 +73,7 @@ layout {
 spawn-at-startup "mpvpaper-wallpaper"
 // Lanza el fondo estático del backdrop (imagen, fondo de todo).
 spawn-at-startup "niri-backdrop"
-// Los procesos persistentes (Waybar, SwayNC, automontaje, portapapeles,
+// Los procesos persistentes (Quickshell, SwayNC, automontaje, portapapeles,
 // loon-launch e Hypridle) son servicios systemd de usuario supervisados en
 // session-services.nix. Aquí quedan solo inicializadores de wallpaper y el
 // monitor de batería, que pueden terminar normalmente si no aplican al host.
@@ -121,7 +121,7 @@ binds {
     Super+Shift+V { spawn-sh "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"; }
 
     // Centro de notificaciones (SwayNC): abre/cierra el panel con las
-    // notificaciones acumuladas (el icono del tray en waybar también).
+    // notificaciones acumuladas (el icono del tray en la barra también).
     Super+N { spawn "swaync-client" "-t" "-sw"; }
 
     // Nix inserta aquí los binds y el backend de brillo específicos del host.
@@ -214,10 +214,6 @@ window-rule {
     clip-to-geometry false
     border { off; }
 }
-
-// loon-bar: barra de tareas Wayland Layer Shell (panel anclado en todos los
-// workspaces). No necesita layer-rule: el KeyboardMode::None del código ya
-// evita que robe el foco; block-out-from solo acepta screencast/screen-capture.
 
 // ghostty: transparencia real a nivel de compositor (opacity afecta toda
 // la ventana, no solo el fondo — el background-opacity de ghostty no produce
