@@ -328,7 +328,7 @@ COMMON_NAMES = {
     "git": "Git",
     "gh": "GitHub CLI",
     "tailscale": "Tailscale",
-    "waybar": "Waybar",
+    "quickshell": "Quickshell",
     "niri": "Niri",
     "yazi": "Yazi",
     "btop": "btop",
@@ -483,7 +483,7 @@ def pending_count(cache_dir):
     count = read_int(cache_dir / "count")
     return 0 if read_text(cache_dir / "applicable") == "0" else count
 
-def waybar_status(cache_dir):
+def bar_status(cache_dir):
     state = read_text(cache_dir / "state", "unknown")
     count = read_int(cache_dir / "count")
     pending = pending_count(cache_dir)
@@ -582,8 +582,8 @@ def main():
     elif mode == "applicability":
         record_applicability(cache_dir, sys.argv[2] if len(sys.argv) > 2 else "")
 
-    elif mode == "waybar":
-        print(json.dumps(waybar_status(cache_dir), ensure_ascii=False))
+    elif mode == "bar":
+        print(json.dumps(bar_status(cache_dir), ensure_ascii=False))
 
     elif mode == "banner":
         state = read_text(cache_dir / "state", "unknown")
@@ -655,11 +655,6 @@ if __name__ == "__main__":
 
     CMD="''${1:-show}"
 
-    notify_waybar() {
-      ${pkgs.systemd}/bin/systemctl --user kill \
-        --kill-whom=main --signal=RTMIN+9 waybar.service >/dev/null 2>&1 || true
-    }
-
     write_atomic() {
       local destination="$1"
       shift
@@ -676,7 +671,6 @@ if __name__ == "__main__":
       if [ -f "$RUN_LOG" ]; then
         ${pkgs.coreutils}/bin/mv -f "$RUN_LOG" "$CACHE_DIR/latest.log"
       fi
-      notify_waybar
     }
 
     FINALIZED=0
@@ -684,7 +678,7 @@ if __name__ == "__main__":
     cleanup() {
       local code=$?
       ${pkgs.coreutils}/bin/rm -f "$BASE_TMP" "$CANDIDATE_TMP" "$DRY_TMP"
-      # Solo `check` puede dejar constancia de un fallo. Un lector (waybar,
+      # Solo `check` puede dejar constancia de un fallo. Un lector (bar,
       # banner, count, show) que muere por SIGPIPE al cerrarse el pipe no debe
       # pintar la barra como si la comprobación hubiera fallado.
       case "$CMD" in
@@ -777,7 +771,6 @@ if __name__ == "__main__":
       fi
       write_atomic "$CACHE_DIR/state" "ok"
       FINALIZED=1
-      notify_waybar
     }
 
     case "$CMD" in
@@ -797,7 +790,6 @@ if __name__ == "__main__":
         : > "$RUN_LOG"
         write_atomic "$CACHE_DIR/state" "checking"
         write_atomic "$CACHE_DIR/last-check" "$(${pkgs.coreutils}/bin/date +%s)"
-        notify_waybar
 
         echo -e "\033[36m󰍉\033[0m Buscando actualizaciones de NixOS..."
         mkdir -p "$FLAKE_CACHE"
@@ -949,8 +941,10 @@ if __name__ == "__main__":
         ${pkgs.python3}/bin/python3 ${pythonScript} banner
         ;;
 
-      waybar)
-        ${pkgs.python3}/bin/python3 ${pythonScript} waybar
+      bar)
+        # La barra Quickshell consulta este modo periódicamente; no hace falta
+        # señalarla cuando cambia el estado.
+        ${pkgs.python3}/bin/python3 ${pythonScript} bar
         ;;
 
       count)

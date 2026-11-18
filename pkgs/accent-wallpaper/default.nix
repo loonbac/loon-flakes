@@ -5,8 +5,8 @@
 #   ~/.config/mpvpaper/accent.txt    -> hex del color de acento principal
 #   ~/.config/niri/accent.kdl        -> override de niri (border active-color)
 #   ~/.config/gtk-4.0/gtk.css        -> override de apps GTK (selección)
-#   ~/.config/waybar/colors.css      -> paleta completa para Waybar (background, surface, foreground, accent, highlight, warning, critical, color0-15)
-#   ~/.config/waybar/accent.css      -> compatibilidad de acento Waybar
+#   ~/.config/loon-shell/colors.css  -> paleta compartida de la barra Quickshell (background, surface, foreground, accent, highlight, warning, critical, color0-15)
+#   ~/.config/loon-shell/accent.css  -> acento compartido (accent y on_accent)
 #   ~/.config/swaync/accent.css      -> acento de notificaciones (SwayNC)
 #
 # Regla de accent (decisión del dueño): SOLO los fondos animados (video)
@@ -153,19 +153,19 @@ def main():
     accent_txt_path = os.path.join(home, '.config/mpvpaper/accent.txt')
     niri_kdl_path = os.path.join(home, '.config/niri/accent.kdl')
     gtk_css_path = os.path.join(home, '.config/gtk-4.0/gtk.css')
-    waybar_colors_path = os.path.join(home, '.config/waybar/colors.css')
-    waybar_accent_path = os.path.join(home, '.config/waybar/accent.css')
+    shell_colors_path = os.path.join(home, '.config/loon-shell/colors.css')
+    shell_accent_path = os.path.join(home, '.config/loon-shell/accent.css')
     swaync_accent_path = os.path.join(home, '.config/swaync/accent.css')
     hypr_colors_path = os.path.join(home, '.config/hypr/colors.conf')
     
-    for p in [accent_txt_path, niri_kdl_path, gtk_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path, hypr_colors_path]:
+    for p in [accent_txt_path, niri_kdl_path, gtk_css_path, shell_colors_path, shell_accent_path, swaync_accent_path, hypr_colors_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
         
     atomic_write(accent_txt_path, accent_hex + '\n')
     atomic_write(niri_kdl_path, f'layout {{\n    border {{\n        active-color "{accent_hex}"\n    }}\n}}\n')
     atomic_write(gtk_css_path, f'@define-color accent {accent_hex};\n\n.nautilus-window .view:selected,\n.nautilus-window .view:selected:focus,\n.nautilus-window .sidebar .view:selected {{\n    background-color: @accent;\n    color: #ffffff;\n}}\n')
         
-    waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
+    shell_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
 @define-color background {bg_hex};
 @define-color background_alt {surface_hex};
 @define-color surface {surface_hex};
@@ -195,7 +195,7 @@ def main():
 @define-color color14 {highlight_hex};
 @define-color color15 {fg_hex};
 """
-    atomic_write(waybar_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+    atomic_write(shell_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
     atomic_write(swaync_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
         
     hypr_colors_content = f"""# Paleta dinámica generada desde el wallpaper
@@ -213,9 +213,9 @@ $critical = rgb({crit_hex.lstrip('#')})
 """
     atomic_write(hypr_colors_path, hypr_colors_content)
 
-    # Waybar observa este import. Publicarlo al final hace que la actualización
-    # visual ocurra cuando el resto de consumidores ya tiene la misma paleta.
-    atomic_write(waybar_colors_path, waybar_colors_content)
+    # La barra Quickshell relee este archivo cada 30 s. Publicarlo al final hace
+    # que la próxima lectura encuentre al resto de consumidores con la misma paleta.
+    atomic_write(shell_colors_path, shell_colors_content)
         
     print(f"Paleta de wallpaper aplicada: Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
 
@@ -252,11 +252,11 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     atomic_copy "$cache/accent.txt" "$HOME/.config/mpvpaper/accent.txt"
     atomic_copy "$cache/niri-accent.kdl" "$HOME/.config/niri/accent.kdl"
     atomic_copy "$cache/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
-    atomic_copy "$cache/waybar-accent.css" "$HOME/.config/waybar/accent.css"
+    atomic_copy "$cache/loon-shell-accent.css" "$HOME/.config/loon-shell/accent.css"
     atomic_copy "$cache/swaync-accent.css" "$HOME/.config/swaync/accent.css"
     atomic_copy "$cache/hypr-colors.conf" "$HOME/.config/hypr/colors.conf"
-    # Publicar el import observado por Waybar al final.
-    atomic_copy "$cache/waybar-colors.css" "$HOME/.config/waybar/colors.css"
+    # Publicar al final la paleta que relee la barra Quickshell.
+    atomic_copy "$cache/loon-shell-colors.css" "$HOME/.config/loon-shell/colors.css"
   }
 
   cache_current_palette() {
@@ -267,8 +267,8 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     ${pkgs.coreutils}/bin/cp "$HOME/.config/mpvpaper/accent.txt" "$temporary/accent.txt"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/niri/accent.kdl" "$temporary/niri-accent.kdl"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/gtk-4.0/gtk.css" "$temporary/gtk.css"
-    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/colors.css" "$temporary/waybar-colors.css"
-    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/accent.css" "$temporary/waybar-accent.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/loon-shell/colors.css" "$temporary/loon-shell-colors.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/loon-shell/accent.css" "$temporary/loon-shell-accent.css"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/swaync/accent.css" "$temporary/swaync-accent.css"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/hypr/colors.conf" "$temporary/hypr-colors.conf"
     : > "$temporary/complete"
@@ -338,7 +338,8 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   exec 9>"$RUNTIME_DIR/change.lock"
   ${pkgs.util-linux}/bin/flock 9
   CACHE_KEY="$({
-    ${pkgs.coreutils}/bin/printf '%s\n' 'palette-v2'
+    # v3: los archivos de la caché pasaron a llamarse loon-shell-*.css.
+    ${pkgs.coreutils}/bin/printf '%s\n' 'palette-v3'
     # %y incluye nanosegundos, evitando reutilizar una paleta obsoleta si un
     # archivo se reemplaza muy rápido por otro del mismo tamaño.
     ${pkgs.coreutils}/bin/stat --printf='%n\n%s\n%y\n' "$TARGET"
@@ -372,10 +373,9 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   cache_current_palette "$PALETTE_CACHE"
 
   # ---- Propagación en vivo ----
-  # Waybar observa style.css y sus imports porque la configuración activa
-  # reload_style_on_change. colors.css se aplica dentro del mismo proceso: no
-  # enviar SIGUSR2 ni reiniciar la unidad, pues eso reconstruye las barras y
-  # produce un parpadeo visible durante el crossfade del wallpaper.
+  # La barra Quickshell relee ~/.config/loon-shell/colors.css y accent.css
+  # cada 30 s, así que no hace falta señalarla ni reiniciar su unidad: el
+  # cambio de color llega en la siguiente lectura, sin reconstruir la barra.
 
   # Recargar notificaciones SwayNC
   "$SWAYNC_CLIENT" -R 2>/dev/null || true

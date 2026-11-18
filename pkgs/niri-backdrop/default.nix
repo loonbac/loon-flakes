@@ -67,10 +67,10 @@ pkgs.writeShellScriptBin "niri-backdrop" ''
     ensure_daemon
     if [ "$GENERATE_ACCENT" = true ]; then
       # Preparar y publicar la paleta antes del primer frame del fade evita que
-      # Waybar cambie de color cuando la transición ya terminó. La caché de
+      # la barra cambie de color cuando la transición ya terminó. La caché de
       # accent-wallpaper hace que selecciones repetidas sean casi instantáneas.
       if "$ACCENT_WALLPAPER" from "$IMG" >/dev/null 2>&1; then
-        # Dar un frame al monitor CSS de Waybar sin reiniciar la barra.
+        # Dar un frame antes de publicar la paleta que consume la barra.
         ${pkgs.coreutils}/bin/sleep 0.05
       else
         echo "niri-backdrop: no se pudo preparar la paleta; se conserva la anterior" >&2

@@ -138,15 +138,6 @@ def percent_from_raw(current: int, maximum: int) -> int:
     return min(100, max(0, (current * 100 + maximum // 2) // maximum))
 
 
-def signal_waybar() -> None:
-    subprocess.run(
-        ["pkill", "-RTMIN+8", "waybar"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-
-
 def output_json() -> int:
     state = read_state()
     if state is None:
@@ -243,7 +234,6 @@ def daemon() -> int:
         current, maximum = read_hardware(bus)
         percent = percent_from_raw(current, maximum)
         write_state(percent, maximum)
-        signal_waybar()
         last_sync = time.monotonic()
         pending = b""
 
@@ -257,7 +247,6 @@ def daemon() -> int:
                 if actual != percent:
                     percent = actual
                     write_state(percent, maximum)
-                    signal_waybar()
                 continue
 
             # Una ventana corta agrupa una ráfaga de rueda/teclas en una sola
@@ -288,7 +277,6 @@ def daemon() -> int:
                 last_sync = time.monotonic()
             if percent != previous or force_sync:
                 write_state(percent, maximum)
-                signal_waybar()
             if percent != previous:
                 set_hardware(bus, percent, maximum)
     except Exception as error:

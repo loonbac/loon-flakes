@@ -83,7 +83,7 @@ exactos y las trampas aprendidas en el camino.
     ├── services/              # openssh, tailscale (+ts-bypass), udisks2, nixos-updates,
     │                          #   moonlight-power
     ├── programs/              # 21 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
-    │                          #   waybar, yazi, wine, virtualbox, waydroid, steam, steamidra,
+    │                          #   quickshell, yazi, wine, virtualbox, waydroid, steam, steamidra,
     │                          #   veadotube-mini, equibop, gentle-ai, obs-studio, obs-pwvideo,
     │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch)
     ├── wayland/
@@ -166,7 +166,7 @@ misma razón y separar lo que tiene dueño, dependencias o ciclo de vida propios
    `lib.mkIf (config.networking.hostName == ...)` dentro de `modules/` para
    decidir qué instalar: el módulo expone su interfaz (opción `enable`,
    parámetros) y el host compone lo que necesita. Deuda hoy: `tailscale`
-   (ts-bypass), `moonlight-power`, `waybar`, `niri` y `system` bifurcan por
+   (ts-bypass), `moonlight-power`, `quickshell`, `niri` y `system` bifurcan por
    hostname.
 5. **Composición explícita.** La única capa de composición es `flake.nix`
    (`mkHost`) + `hosts/<host>/default.nix`: `mkHost` inyecta `./modules`
@@ -764,7 +764,7 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
 - **Niri desde cero**: el build incluye `niri-config-check`, que valida
   `config.kdl` con un HOME vacío y un `accent.kdl` mínimo. Tras aplicar, probar
   también `niri validate --config /etc/niri/config.kdl` en el host destino.
-- **Procesos de sesión**: Waybar, SwayNC, loon-launch, Hypridle, udiskie y los
+- **Procesos de sesión**: Quickshell, SwayNC, loon-launch, Hypridle, udiskie y los
   watchers del portapapeles viven en `modules/wayland/niri/session-services.nix`.
   No volver a duplicarlos con `spawn-at-startup`; comprobarlos con
   `systemctl --user status loon-niri-session.target`.

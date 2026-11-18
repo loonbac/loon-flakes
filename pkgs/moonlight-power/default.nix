@@ -17,7 +17,7 @@
 let
   runtimeInputs = with pkgs; [
     bash coreutils findutils gawk gnugrep iw jq networkmanager procps
-    systemd util-linux niri waybar swaynotificationcenter udiskie
+    systemd util-linux niri quickshell swaynotificationcenter udiskie
     wl-clipboard wl-clip-persist cliphist moonlight-qt
     mpvpaperWallpaper niriBackdrop screenBrightness loonLaunch
   ];

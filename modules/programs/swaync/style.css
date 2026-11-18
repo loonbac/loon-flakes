@@ -1,5 +1,5 @@
 /* style.css de SwayNC gestionado por NixOS (módulo programs/swaync).
-   Lenguaje visual igual a waybar: fondo surface_container, esquinas de 20px,
+   Lenguaje visual igual a la barra Quickshell: fondo surface_container, esquinas de 20px,
    borde y detalles con el acento dinámico del wallpaper (accent.css).
    Ruta absoluta a propósito: style.css es un symlink a /etc/swaync/style.css
    y el @import relativo se resolvería contra el dir del archivo físico. */
@@ -10,7 +10,7 @@
 @define-color surface_high #252b2d;  /* surface_container_high */
 @define-color text #dee3e6;          /* on_surface */
 @define-color text_dim #bfc8cc;      /* on_surface_variant */
-@define-color critical #f38ba8;      /* mismo rojo que state.css de waybar */
+@define-color critical #f38ba8;      /* mismo rojo que el estado crítico de la barra */
 
 * {
   font-family: "JetBrainsMono Nerd Font";

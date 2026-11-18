@@ -62,7 +62,7 @@ in
 
   # Los monitores externos no exponen /sys/class/backlight. DDC/CI viaja por
   # los buses I2C de la NVIDIA; este backend controla el monitor principal
-  # GM3CC236 conectado a DP-2 y alimenta el indicador de Waybar.
+  # GM3CC236 conectado a DP-2 y alimenta el indicador de brillo de la barra.
   hardware.i2c.enable = true;
   users.users.${config.loon.username}.extraGroups = [ "i2c" ];
   environment.systemPackages = [
