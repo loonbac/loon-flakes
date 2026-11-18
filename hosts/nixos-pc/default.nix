@@ -33,6 +33,10 @@
     ];
   };
 
+  # La barra solo se muestra en el monitor principal horizontal; el vertical
+  # secundario (HDMI-A-2) queda libre.
+  loon.quickshell.screen = "DP-2";
+
   # Este equipo usa un teclado físico ANSI estadounidense.
   services.xserver.xkb.layout = "us";
   console.keyMap = "us";

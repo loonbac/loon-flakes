@@ -10,17 +10,25 @@ let
   accentDefaults = "@define-color accent #AB9A5E; @define-color on_accent #000000;";
 in
 {
-  environment.systemPackages = with pkgs; [
-    quickshell
-  ];
+  options.loon.quickshell.screen = lib.mkOption {
+    type = lib.types.nullOr lib.types.str;
+    default = null;
+    description = "Nombre de la salida Wayland donde se muestra la barra; null la muestra en todas.";
+  };
 
-  environment.etc."quickshell/loonbar".source = ./loonbar;
+  config = {
+    environment.systemPackages = with pkgs; [
+      quickshell
+    ];
 
-  systemd.tmpfiles.rules = [
-    "d ${config.loon.home}/.config/loon-shell 0755 ${config.loon.username} users -"
-    # accent-wallpaper escribe estos archivos reales; las reglas f solo los
-    # siembran cuando todavía no existen, igual que hacía la configuración anterior.
-    "f ${config.loon.home}/.config/loon-shell/colors.css 0644 ${config.loon.username} users - ${paletteDefaults}"
-    "f ${config.loon.home}/.config/loon-shell/accent.css 0644 ${config.loon.username} users - ${accentDefaults}"
-  ];
+    environment.etc."quickshell/loonbar".source = ./loonbar;
+
+    systemd.tmpfiles.rules = [
+      "d ${config.loon.home}/.config/loon-shell 0755 ${config.loon.username} users -"
+      # accent-wallpaper escribe estos archivos reales; las reglas f solo los
+      # siembran cuando todavía no existen, igual que hacía la configuración anterior.
+      "f ${config.loon.home}/.config/loon-shell/colors.css 0644 ${config.loon.username} users - ${paletteDefaults}"
+      "f ${config.loon.home}/.config/loon-shell/accent.css 0644 ${config.loon.username} users - ${accentDefaults}"
+    ];
+  };
 }

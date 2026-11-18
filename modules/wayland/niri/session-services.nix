@@ -48,6 +48,8 @@ in
       # La barra no debe adivinar el backend de brillo del host.
       Environment = resilientService.Environment ++ [
         "LOON_BRIGHTNESS_COMMAND=${if config.hardware.brightness.command == null then "screen-brightness" else config.hardware.brightness.command}"
+        # Salida elegida por cada host; vacío significa «todas las pantallas».
+        "LOON_BAR_SCREEN=${if config.loon.quickshell.screen == null then "" else config.loon.quickshell.screen}"
       ];
     };
   };
