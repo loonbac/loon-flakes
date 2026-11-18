@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Networking
+import Quickshell.Services.Pipewire
 
 // Estado compartido por todas las barras (una por monitor).
 //
@@ -104,7 +106,10 @@ QtObject {
         onTriggered: estado.eventosNiri.running = true
     }
 
-    Component.onCompleted: estado.eventosNiri.running = true
+    Component.onCompleted: {
+        estado.eventosNiri.running = true;
+        estado.sondeoRed.trigger();
+    }
 
     // --- Actualizaciones de NixOS ------------------------------------------
 
@@ -167,64 +172,56 @@ QtObject {
         estado.sondeoBrillo.trigger();
     }
 
-    // --- Audio (PipeWire con wpctl) ----------------------------------------
+    // --- Audio (servicio nativo de PipeWire) -------------------------------
 
-    property int volumenSalida: 0
-    property bool salidaSilenciada: false
-    property string salidaDescripcion: ""
-    property int volumenEntrada: 0
-    property bool entradaSilenciada: false
+    readonly property var salida: Pipewire.defaultAudioSink
+    readonly property var entrada: Pipewire.defaultAudioSource
 
-    function leerVolumen(lineas) {
-        let volumen = 0;
-        let silenciado = false;
-        let descripcion = "";
-        for (const linea of lineas) {
-            const valor = /^Volume:\s*([\d.]+)/.exec(linea);
-            if (valor) {
-                volumen = Math.round(parseFloat(valor[1]) * 100);
-                silenciado = linea.indexOf("[MUTED]") >= 0;
-                continue;
-            }
-            const desc = /node\.description\s*=\s*"([^"]*)"/.exec(linea);
-            if (desc)
-                descripcion = desc[1];
-        }
-        return {
-            volumen: volumen,
-            silenciado: silenciado,
-            descripcion: descripcion
-        };
+    // Sin este tracker las propiedades de los nodos no notifican cambios.
+    property PwObjectTracker trackerAudio: PwObjectTracker {
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
     }
 
-    function actualizarAudio(texto) {
-        const lineas = texto.split("\n");
-        const separador = lineas.indexOf("--");
-        const salida = estado.leerVolumen(separador >= 0 ? lineas.slice(0, separador) : lineas);
-        const entrada = estado.leerVolumen(separador >= 0 ? lineas.slice(separador + 1) : []);
-
-        estado.volumenSalida = salida.volumen;
-        estado.salidaSilenciada = salida.silenciado;
-        estado.salidaDescripcion = salida.descripcion;
-        estado.volumenEntrada = entrada.volumen;
-        estado.entradaSilenciada = entrada.silenciado;
+    function volumenDe(nodo) {
+        if (nodo === null || nodo.audio === null)
+            return 0;
+        return Math.round(nodo.audio.volume * 100);
     }
 
-    property Poll sondeoAudio: Poll {
-        comando: [
-            "sh", "-c",
-            "wpctl get-volume @DEFAULT_AUDIO_SINK@; " +
-            "wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -m1 node.description; " +
-            "echo --; " +
-            "wpctl get-volume @DEFAULT_AUDIO_SOURCE@"
-        ]
-        intervalo: 1500
-        onTextoChanged: estado.actualizarAudio(texto)
+    function silenciadoDe(nodo) {
+        return nodo !== null && nodo.audio !== null && nodo.audio.muted;
     }
 
-    function refrescarAudio() {
-        estado.sondeoAudio.trigger();
+    function descripcionDe(nodo) {
+        if (nodo === null)
+            return "";
+        return nodo.description || nodo.name || "";
     }
+
+    function ajustarVolumen(nodo, delta) {
+        if (nodo === null || nodo.audio === null)
+            return;
+        nodo.audio.volume = Math.max(0, Math.min(1, nodo.audio.volume + delta));
+    }
+
+    function alternarSilencio(nodo) {
+        if (nodo === null || nodo.audio === null)
+            return;
+        nodo.audio.muted = !nodo.audio.muted;
+    }
+
+    function alternarSalida() { estado.alternarSilencio(estado.salida); }
+    function alternarEntrada() { estado.alternarSilencio(estado.entrada); }
+    function subirSalida() { estado.ajustarVolumen(estado.salida, 0.02); }
+    function bajarSalida() { estado.ajustarVolumen(estado.salida, -0.02); }
+    function subirEntrada() { estado.ajustarVolumen(estado.entrada, 0.02); }
+    function bajarEntrada() { estado.ajustarVolumen(estado.entrada, -0.02); }
+
+    readonly property int volumenSalida: estado.volumenDe(estado.salida)
+    readonly property bool salidaSilenciada: estado.silenciadoDe(estado.salida)
+    readonly property string salidaDescripcion: estado.descripcionDe(estado.salida)
+    readonly property int volumenEntrada: estado.volumenDe(estado.entrada)
+    readonly property bool entradaSilenciada: estado.silenciadoDe(estado.entrada)
 
     // --- Red (NetworkManager con nmcli) ------------------------------------
 
@@ -330,6 +327,26 @@ QtObject {
         }
     }
 
+    // Networking notifica los cambios de enlace; el comando de IP solo se
+    // ejecuta cuando cambia la conexión, no cada 3 segundos.
+    function claveRed() {
+        const partes = [];
+        for (const dispositivo of Networking.devices.values) {
+            if (!dispositivo.connected)
+                continue;
+            let nombre = "";
+            for (const red of dispositivo.networks.values) {
+                if (red.connected)
+                    nombre = red.name || "";
+            }
+            partes.push(dispositivo.name + ":" + nombre);
+        }
+        return partes.join(",");
+    }
+
+    property string redClave: estado.claveRed()
+    onRedClaveChanged: estado.sondeoRed.trigger()
+
     property Poll sondeoRed: Poll {
         comando: [
             "sh", "-c",
@@ -337,12 +354,8 @@ QtObject {
             "echo --inalambrico--; " +
             "cat /proc/net/wireless 2>/dev/null"
         ]
-        intervalo: 3000
+        intervalo: 0
         onTextoChanged: estado.actualizarRed(texto)
-    }
-
-    function refrescarRed() {
-        estado.sondeoRed.trigger();
     }
 
     // --- CPU ---------------------------------------------------------------
@@ -464,23 +477,5 @@ QtObject {
     }
     property Accion accionBrilloAbajo: Accion {
         comando: ["sh", "-c", estado.comandoBrillo + " down 5"]
-    }
-    property Accion accionSilenciarSalida: Accion {
-        comando: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]
-    }
-    property Accion accionSilenciarEntrada: Accion {
-        comando: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]
-    }
-    property Accion accionSalidaMas: Accion {
-        comando: ["wpctl", "set-volume", "--limit", "1.0", "@DEFAULT_AUDIO_SINK@", "2%+"]
-    }
-    property Accion accionSalidaMenos: Accion {
-        comando: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "2%-"]
-    }
-    property Accion accionEntradaMas: Accion {
-        comando: ["wpctl", "set-volume", "--limit", "1.0", "@DEFAULT_AUDIO_SOURCE@", "2%+"]
-    }
-    property Accion accionEntradaMenos: Accion {
-        comando: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", "2%-"]
     }
 }
