@@ -4,10 +4,10 @@ import QtQuick
 //
 // La card entera es la isla dinámica: en reposo muestra solo la fila de
 // workspaces con la geometría aceptada (celdas de 32 px, radio 7, spacing 3).
-// Mientras algo se reproduce y el ratón está encima (`expandida`), se añade una
-// segunda fila con ecualizador, título y controles esenciales, y `Barra.qml`
-// agranda la card completa: una sola superficie, sin morph de la celda activa ni
-// ventana emergente aparte.
+// Mientras algo se reproduce y el ratón está encima (`expandida`), se añaden dos
+// filas: arriba el indicador de reproducción con artista y título, debajo los
+// controles grandes centrados; `Barra.qml` agranda la card completa: una sola
+// superficie, sin morph de la celda activa ni ventana emergente aparte.
 Column {
     id: workspaces
 
@@ -123,150 +123,254 @@ Column {
     //
     // Solo existe mientras se reproduce y la isla está expandida por hover (S3,
     // L5); al desaparecer no deja hueco, así la card recupera su alto de reposo
-    // sin transición de contenido.
-    Row {
+    // sin transición de contenido. Se apila en dos niveles (L6): arriba el
+    // indicador de reproducción con artista y título, debajo los controles
+    // grandes y centrados. El ancho es el de la fila de workspaces para que el
+    // bloque quede centrado en la card sin ensancharla.
+    Column {
         id: filaMultimedia
 
         visible: workspaces.reproduciendo && workspaces.expandida
-        height: 32
-        spacing: 8
+        width: Math.max(186, filaWorkspaces.implicitWidth)
+        spacing: 6
 
-        // Ecualizador de tres barras: identidad de la isla mientras suena algo.
-        Item {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 14
-            height: 32
+        // Nivel superior: indicador de reproducción, artista y título.
+        Row {
+            id: filaAhora
 
+            anchors.horizontalCenter: parent.horizontalCenter
+            height: 30
+            spacing: 8
+
+            // Cápsula con ecualizador de cinco barras: la señal visible de que
+            // algo se está reproduciendo, como el indicador del iPhone (L6).
             Rectangle {
-                anchors.bottom: parent.bottom
-                width: 3
-                height: 10
-                radius: 1.5
-                color: workspaces.colorAcento()
+                anchors.verticalCenter: parent.verticalCenter
+                width: 28
+                height: 28
+                radius: 9
+                color: workspaces.paleta
+                    ? workspaces.paleta.alfa(workspaces.colorAcento(), 0.18)
+                    : "#33AB9A5E"
+                border.width: 1
+                border.color: workspaces.paleta
+                    ? workspaces.paleta.alfa(workspaces.colorAcento(), 0.38)
+                    : "#61AB9A5E"
 
-                SequentialAnimation on height {
-                    running: workspaces.reproduciendo
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 5; duration: 280; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 16; duration: 320; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 9; duration: 220; easing.type: Easing.InOutQuad }
+                Item {
+                    anchors.centerIn: parent
+                    width: 18
+                    height: 14
+
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        height: 6
+                        radius: 1
+                        color: workspaces.colorAcento()
+
+                        SequentialAnimation on height {
+                            running: workspaces.reproduciendo
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 13; duration: 280; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 4; duration: 240; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 9; duration: 300; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 4
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        height: 11
+                        radius: 1
+                        color: workspaces.colorAcento()
+
+                        SequentialAnimation on height {
+                            running: workspaces.reproduciendo
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 5; duration: 220; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 14; duration: 320; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 7; duration: 260; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 8
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        height: 9
+                        radius: 1
+                        color: workspaces.colorAcento()
+
+                        SequentialAnimation on height {
+                            running: workspaces.reproduciendo
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 14; duration: 300; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 6; duration: 200; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 12; duration: 280; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 12
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        height: 12
+                        radius: 1
+                        color: workspaces.colorAcento()
+
+                        SequentialAnimation on height {
+                            running: workspaces.reproduciendo
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 6; duration: 260; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 10; duration: 240; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 4; duration: 300; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 16
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        height: 5
+                        radius: 1
+                        color: workspaces.colorAcento()
+
+                        SequentialAnimation on height {
+                            running: workspaces.reproduciendo
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 9; duration: 320; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 3; duration: 220; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 13; duration: 280; easing.type: Easing.InOutQuad }
+                        }
+                    }
                 }
             }
 
-            Rectangle {
-                anchors.bottom: parent.bottom
-                x: 5
-                width: 3
-                height: 18
-                radius: 1.5
-                color: workspaces.colorAcento()
+            // Artista pequeño y título grande en negrita, recortados con elipsis
+            // para que la card no se estire hacia la derecha (L3, L6).
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 150
+                spacing: 0
 
-                SequentialAnimation on height {
-                    running: workspaces.reproduciendo
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 20; duration: 240; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 7; duration: 300; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 14; duration: 260; easing.type: Easing.InOutQuad }
+                Text {
+                    width: parent.width
+                    text: workspaces.reproductor && workspaces.reproductor.trackArtist
+                        ? String(workspaces.reproductor.trackArtist)
+                        : (workspaces.reproductor && workspaces.reproductor.identity
+                            ? String(workspaces.reproductor.identity) : "")
+                    elide: Text.ElideRight
+                    color: workspaces.colorPista()
+                    opacity: 0.65
+                    font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
+                    font.pixelSize: Math.max(9, (workspaces.paleta ? workspaces.paleta.tamanoTexto : 14) - 4)
+                }
+
+                Text {
+                    width: parent.width
+                    text: workspaces.reproductor && workspaces.reproductor.trackTitle
+                        ? String(workspaces.reproductor.trackTitle)
+                        : "Reproduciendo"
+                    elide: Text.ElideRight
+                    color: workspaces.colorPista()
+                    font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
+                    font.pixelSize: workspaces.paleta ? workspaces.paleta.tamanoTexto : 14
+                    font.weight: Font.Bold
+                }
+            }
+        }
+
+        // Nivel inferior: controles grandes, centrados bajo el título.
+        Row {
+            id: filaControles
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            height: 44
+            spacing: 16
+
+            // Anterior: 36x36 con fondo tenue.
+            Item {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 36
+                height: 36
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 18
+                    color: workspaces.paleta
+                        ? workspaces.paleta.alfa(workspaces.colorPista(), 0.10)
+                        : "#1AF0EDE1"
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "\u{F048}"
+                    color: workspaces.colorPista()
+                    opacity: workspaces.puedeAnterior() ? 0.95 : 0.3
+                    font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
+                    font.pixelSize: 15
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: workspaces.puedeAnterior()
+                    onClicked: workspaces.reproductor.previous()
                 }
             }
 
+            // Alternar: 44x44 relleno de acento con glifo de contraste.
             Rectangle {
-                anchors.bottom: parent.bottom
-                x: 10
-                width: 3
-                height: 13
-                radius: 1.5
+                anchors.verticalCenter: parent.verticalCenter
+                width: 44
+                height: 44
+                radius: 22
                 color: workspaces.colorAcento()
 
-                SequentialAnimation on height {
-                    running: workspaces.reproduciendo
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 16; duration: 340; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 6; duration: 200; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 11; duration: 280; easing.type: Easing.InOutQuad }
+                Text {
+                    anchors.centerIn: parent
+                    text: workspaces.reproduciendo ? "\u{F04C}" : "\u{F04B}"
+                    color: workspaces.paleta ? workspaces.paleta.sobreAcento : "#111111"
+                    font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
+                    font.pixelSize: 18
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: workspaces.puedeAlternar()
+                    onClicked: workspaces.reproductor.togglePlaying()
                 }
             }
-        }
 
-        // Título de la pista: grande, pesado y recortado con elipsis (L3).
-        Text {
-            id: tituloPista
+            // Siguiente: 36x36 con fondo tenue.
+            Item {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 36
+                height: 36
 
-            anchors.verticalCenter: parent.verticalCenter
-            readonly property string pista: workspaces.reproductor && workspaces.reproductor.trackTitle
-                ? String(workspaces.reproductor.trackTitle)
-                : ""
-            text: tituloPista.pista !== "" ? tituloPista.pista : "Reproduciendo"
-            width: Math.min(implicitWidth, 150)
-            elide: Text.ElideRight
-            color: workspaces.colorPista()
-            font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
-            font.pixelSize: (workspaces.paleta ? workspaces.paleta.tamanoTexto : 14) - 1
-            font.weight: Font.DemiBold
-        }
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 18
+                    color: workspaces.paleta
+                        ? workspaces.paleta.alfa(workspaces.colorPista(), 0.10)
+                        : "#1AF0EDE1"
+                }
 
-        // Controles esenciales: anterior, alternar y siguiente.
-        Item {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 16
-            height: 32
+                Text {
+                    anchors.centerIn: parent
+                    text: "\u{F051}"
+                    color: workspaces.colorPista()
+                    opacity: workspaces.puedeSiguiente() ? 0.95 : 0.3
+                    font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
+                    font.pixelSize: 15
+                }
 
-            Text {
-                anchors.centerIn: parent
-                text: "\u{F048}"
-                color: workspaces.colorPista()
-                opacity: workspaces.puedeAnterior() ? 0.95 : 0.3
-                font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
-                font.pixelSize: 13
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                enabled: workspaces.puedeAnterior()
-                onClicked: workspaces.reproductor.previous()
-            }
-        }
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 24
-            height: 24
-            radius: 12
-            color: workspaces.colorAcento()
-
-            Text {
-                anchors.centerIn: parent
-                text: workspaces.reproduciendo ? "\u{F04C}" : "\u{F04B}"
-                color: workspaces.paleta ? workspaces.paleta.sobreAcento : "#111111"
-                font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
-                font.pixelSize: 12
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                enabled: workspaces.puedeAlternar()
-                onClicked: workspaces.reproductor.togglePlaying()
-            }
-        }
-
-        Item {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 16
-            height: 32
-
-            Text {
-                anchors.centerIn: parent
-                text: "\u{F051}"
-                color: workspaces.colorPista()
-                opacity: workspaces.puedeSiguiente() ? 0.95 : 0.3
-                font.family: workspaces.paleta ? workspaces.paleta.familia : "monospace"
-                font.pixelSize: 13
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                enabled: workspaces.puedeSiguiente()
-                onClicked: workspaces.reproductor.next()
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: workspaces.puedeSiguiente()
+                    onClicked: workspaces.reproductor.next()
+                }
             }
         }
     }
