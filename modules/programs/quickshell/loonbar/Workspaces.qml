@@ -13,7 +13,7 @@ Row {
     property string salida: ""
 
     spacing: 3
-    height: 44
+    height: 22
 
     function lista() {
         const todas = workspaces.estado ? workspaces.estado.workspaces : [];
@@ -45,37 +45,16 @@ Row {
     }
 
     Repeater {
-        id: repetidor
         model: workspaces.lista()
 
         delegate: Rectangle {
             id: celda
             required property var modelData
 
-            width: Math.max(56, etiqueta.implicitWidth + 24)
-            height: 44
-            radius: 10
+            width: Math.max(42, etiqueta.implicitWidth + 20)
+            height: 22
+            radius: 6
             color: workspaces.colorFondo(celda.modelData)
-
-            // Redondear solo los extremos de la tira; las esquinas interiores
-            // se cuadran para que no queden muescas entre celdas.
-            Rectangle {
-                visible: index > 0
-                anchors.left: parent.left
-                anchors.top: parent.top
-                width: celda.radius
-                height: parent.height
-                color: celda.color
-            }
-
-            Rectangle {
-                visible: index < repetidor.count - 1
-                anchors.right: parent.right
-                anchors.top: parent.top
-                width: celda.radius
-                height: parent.height
-                color: celda.color
-            }
 
             Text {
                 id: etiqueta
