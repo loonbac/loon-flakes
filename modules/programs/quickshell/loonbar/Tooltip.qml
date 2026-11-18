@@ -24,7 +24,9 @@ PopupWindow {
     anchor.gravity: Edges.Bottom
     anchor.margins.top: 6
 
-    implicitWidth: (globo.contenido ? cargaContenido.implicitWidth : etiqueta.implicitWidth) + 24
+    readonly property int anchoTexto: Math.min(etiqueta.implicitWidth, 620)
+
+    implicitWidth: (globo.contenido ? cargaContenido.implicitWidth : globo.anchoTexto) + 24
     implicitHeight: (globo.contenido ? cargaContenido.implicitHeight : etiqueta.implicitHeight) + 16
 
     Rectangle {
@@ -41,7 +43,7 @@ PopupWindow {
             text: globo.texto
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
-            width: Math.min(etiqueta.implicitWidth, 620)
+            width: globo.anchoTexto
             color: globo.paleta ? globo.paleta.foreground : "#F0EDE1"
             font.family: globo.paleta ? globo.paleta.familia : "monospace"
             font.pixelSize: 14
