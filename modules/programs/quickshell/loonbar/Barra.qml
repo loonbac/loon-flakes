@@ -65,25 +65,27 @@ PanelWindow {
 
     readonly property var reproductor: {
         const lista = Mpris.players.values;
-        const ignorados = ["firefox", "chromium", "brave"];
+        const navegadores = ["firefox", "chromium", "brave", "helium", "chrome"];
         let elegido = null;
+        let navegadorReproduciendo = null;
         for (const candidato of lista) {
             const identidad = String(candidato.identity || "").toLowerCase();
-            let ignorado = false;
-            for (const nombre of ignorados) {
+            let esNavegador = false;
+            for (const nombre of navegadores) {
                 if (identidad.indexOf(nombre) >= 0)
-                    ignorado = true;
+                    esNavegador = true;
             }
-            if (ignorado)
-                continue;
-            if (elegido === null)
+            // Prefiere un reproductor dedicado, pero un navegador que esté
+            // reproduciendo también cuenta: es lo que el usuario usa a diario
+            // y, sin él, no aparece ninguna pista de que la isla está activa.
+            if (candidato.isPlaying && !esNavegador)
+                return candidato;
+            if (candidato.isPlaying && esNavegador && navegadorReproduciendo === null)
+                navegadorReproduciendo = candidato;
+            if (elegido === null && !esNavegador)
                 elegido = candidato;
-            if (candidato.isPlaying) {
-                elegido = candidato;
-                break;
-            }
         }
-        return elegido;
+        return navegadorReproduciendo || elegido;
     }
     readonly property bool reproduccionActiva: barra.reproductor !== null && barra.reproductor.isPlaying
 
