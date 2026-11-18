@@ -39,6 +39,9 @@ PopupWindow {
             visible: globo.contenido === null
             anchors.centerIn: parent
             text: globo.texto
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+            width: Math.min(etiqueta.implicitWidth, 620)
             color: globo.paleta ? globo.paleta.foreground : "#F0EDE1"
             font.family: globo.paleta ? globo.paleta.familia : "monospace"
             font.pixelSize: 14

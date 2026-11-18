@@ -298,7 +298,6 @@ if __name__ == "__main__":
   '';
 
   pythonScript = pkgs.writeText "nixos-updates-formatter.py" ''
-import html
 import json
 import os
 import sys
@@ -529,11 +528,10 @@ def bar_status(cache_dir):
     if state in ("checking", "error") and last_success > 0:
         lines.append("Último resultado válido: %s" % format_time(last_success))
 
-    tooltip = html.escape("\n".join(lines))
     return {
         "text": text,
         "alt": alt,
-        "tooltip": "<tt><span size=\"13000\">%s</span></tt>" % tooltip,
+        "tooltip": "\n".join(lines),
     }
 
 def main():
