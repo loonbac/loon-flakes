@@ -108,7 +108,9 @@ QtObject {
 
     Component.onCompleted: {
         estado.eventosNiri.running = true;
+        estado.descubrirBrillo.running = true;
         estado.sondeoRed.trigger();
+        estado.refrescarBrillo();
     }
 
     // --- Actualizaciones de NixOS ------------------------------------------
@@ -160,11 +162,83 @@ QtObject {
         estado.brilloVisible = estado.brilloAlt !== "unavailable" && estado.brilloTexto !== "";
     }
 
+    // El estado vive en archivos: DDC/CI publica state.json y el panel interno
+    // expone sysfs. FileView notifica cambios sin lanzar un comando por segundo.
+    property string rutaEstadoDdc: (Quickshell.env("XDG_RUNTIME_DIR") || "") + "/ddc-brightness/state.json"
+    property string rutaBrillo: ""
+    property string rutaBrilloMax: ""
+
+    function leerBrilloArchivos() {
+        let porcentaje = -1;
+        const ddc = estado.archivoDdc.text().trim();
+        if (ddc !== "") {
+            try {
+                const datos = JSON.parse(ddc);
+                if (datos.percentage !== undefined)
+                    porcentaje = Number(datos.percentage);
+            } catch (error) {
+                porcentaje = -1;
+            }
+        }
+        if ((!isFinite(porcentaje) || porcentaje < 0) && estado.rutaBrillo !== "") {
+            const actual = Number(estado.archivoBrillo.text().trim());
+            const maximo = Number(estado.archivoBrilloMax.text().trim());
+            if (isFinite(actual) && isFinite(maximo) && maximo > 0)
+                porcentaje = Math.round(actual * 100 / maximo);
+        }
+        if (!isFinite(porcentaje) || porcentaje < 0) {
+            estado.sondeoBrillo.trigger();
+            return;
+        }
+        estado.brilloAlt = porcentaje < 30 ? "low" : (porcentaje < 65 ? "medium" : "high");
+        estado.brilloTexto = porcentaje + "%";
+        estado.brilloTooltip = "Brillo del monitor: " + porcentaje + "%";
+        estado.brilloVisible = true;
+    }
+
+    property FileView archivoDdc: FileView {
+        path: estado.rutaEstadoDdc
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property FileView archivoBrillo: FileView {
+        path: estado.rutaBrillo
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property FileView archivoBrilloMax: FileView {
+        path: estado.rutaBrilloMax
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property Process descubrirBrillo: Process {
+        command: ["sh", "-c", "ls /sys/class/backlight/*/brightness 2>/dev/null | head -1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const ruta = text.trim();
+                estado.rutaBrillo = ruta;
+                estado.rutaBrilloMax = ruta.replace(/brightness$/, "max_brightness");
+            }
+        }
+    }
+
+    // Fallback para hosts sin archivos observables y refresco inmediato tras
+    // una acción de rueda; no tiene temporizador.
     property Poll sondeoBrillo: Poll {
-        // En un monitor externo sin /sys/class/backlight responde
-        // alt "unavailable" y el módulo se oculta.
         comando: ["sh", "-c", estado.comandoBrillo + " json"]
-        intervalo: 1000
+        intervalo: 0
         onTextoChanged: estado.actualizarBrillo(texto)
     }
 
