@@ -1,7 +1,7 @@
 # Módulo "system/packages": catálogo de paquetes instalados a nivel de sistema
 # y los runtimes de desarrollo que consumen. No define configuración del
 # sistema: solo qué software global está disponible.
-{ lib, pkgs, zen-browser, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, ... }:
+{ lib, pkgs, helium-browser, vscode-insiders, antigravity-cli, port, loonLaunch, ... }:
 let
   codexLatest = pkgs.writeShellApplication {
     name = "codex";
@@ -106,7 +106,6 @@ in
     # como el perfil del sistema va antes en el PATH, tapaba esa instalación:
     # instalar la nueva no cambiaba nada porque nunca ganaba. Si alguna unidad
     # de sistema necesita el binario, se declara en esa unidad, no aquí.
-    zen-browser
     helium-browser
     vscode-insiders
     antigravity
