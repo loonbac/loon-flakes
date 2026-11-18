@@ -1,11 +1,11 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 
-// Reloj de la barra con calendario en el globo de ayuda.
+// Reloj de la barra con fecha completa y calendario en el globo de ayuda.
 //
-// El reloj anterior mostraba la hora y, al pasar el ratón, el mes en curso; la
-// rueda y el clic derecho movían el calendario de mes, así que aquí se conserva
-// lo mismo: la rueda cambia de mes y el clic vuelve al actual.
+// El reloj anterior mostraba solo la hora y, al pasar el ratón, el mes en curso;
+// ahora la barra muestra también «día mes año». La rueda y el clic derecho
+// siguen moviendo el calendario del globo y volviendo al mes actual.
 Item {
     id: reloj
 
@@ -20,8 +20,11 @@ Item {
 
     readonly property string tituloMes: reloj.tituloCalendario()
     readonly property var celdas: reloj.celdasCalendario()
+    readonly property string textoFecha: reloj.fecha.getDate() + " "
+        + reloj.meses[reloj.fecha.getMonth()] + " "
+        + reloj.fecha.getFullYear()
 
-    width: etiqueta.width + 12
+    width: fila.implicitWidth + 12
     height: 44
 
     // Número de semana ISO-8601, igual que el calendario que había antes.
@@ -148,14 +151,27 @@ Item {
         }
     }
 
-    Text {
-        id: etiqueta
+    Row {
+        id: fila
         anchors.centerIn: parent
-        text: Qt.formatTime(reloj.fecha, "hh:mm AP")
-        color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
-        font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
-        font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
-        font.weight: Font.Bold
+        spacing: 8
+
+        Text {
+            id: etiqueta
+            text: Qt.formatTime(reloj.fecha, "hh:mm AP")
+            color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
+            font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
+            font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
+            font.weight: Font.Bold
+        }
+
+        Text {
+            text: reloj.textoFecha
+            color: reloj.paleta ? reloj.paleta.muted : "#8C8877"
+            font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
+            font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
+            font.weight: Font.Medium
+        }
     }
 
     MouseArea {
