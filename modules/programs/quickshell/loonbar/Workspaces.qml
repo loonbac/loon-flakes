@@ -12,8 +12,8 @@ Row {
     property var paleta: null
     property string salida: ""
 
-    spacing: 2
-    height: 36
+    spacing: 3
+    height: 22
 
     function lista() {
         const todas = workspaces.estado ? workspaces.estado.workspaces : [];
@@ -51,8 +51,8 @@ Row {
             id: celda
             required property var modelData
 
-            width: Math.max(30, etiqueta.implicitWidth + 16)
-            height: 36
+            width: Math.max(42, etiqueta.implicitWidth + 20)
+            height: 22
             radius: 6
             color: workspaces.colorFondo(celda.modelData)
 
