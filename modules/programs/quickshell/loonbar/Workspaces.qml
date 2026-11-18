@@ -78,6 +78,9 @@ Column {
     Row {
         id: filaWorkspaces
 
+        // La columna se ensancha al aparecer la fila multimedia; sin este
+        // anclaje los workspaces quedarían alineados a la izquierda (L7).
+        anchors.horizontalCenter: parent.horizontalCenter
         spacing: 3
         height: 32
 
