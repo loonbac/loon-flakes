@@ -36,6 +36,41 @@ QtObject {
     property color warning: "#E6A545"
     property color critical: "#E6506B"
 
+    // Transición suave cuando cambia el fondo: cada color se interpola desde
+    // su valor anterior, no salta al instante en que se publica la paleta.
+    readonly property int duracionTransicion: 450
+
+    Behavior on background {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on backgroundAlt {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on surface {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on foreground {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on accent {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on sobreAcento {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on highlight {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on muted {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on warning {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+    Behavior on critical {
+        ColorAnimation { duration: paleta.duracionTransicion; easing.type: Easing.InOutQuad }
+    }
+
     // El generador de la paleta avisa aquí tras publicar los archivos, para
     // que el cambio llegue aunque FileView no detecte el reemplazo atómico.
     property IpcHandler ipcPaleta: IpcHandler {
