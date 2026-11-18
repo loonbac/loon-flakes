@@ -45,6 +45,7 @@ Row {
     }
 
     Repeater {
+        id: repetidor
         model: workspaces.lista()
 
         delegate: Rectangle {
@@ -55,6 +56,26 @@ Row {
             height: 44
             radius: 10
             color: workspaces.colorFondo(celda.modelData)
+
+            // Redondear solo los extremos de la tira; las esquinas interiores
+            // se cuadran para que no queden muescas entre celdas.
+            Rectangle {
+                visible: index > 0
+                anchors.left: parent.left
+                anchors.top: parent.top
+                width: celda.radius
+                height: parent.height
+                color: celda.color
+            }
+
+            Rectangle {
+                visible: index < repetidor.count - 1
+                anchors.right: parent.right
+                anchors.top: parent.top
+                width: celda.radius
+                height: parent.height
+                color: celda.color
+            }
 
             Text {
                 id: etiqueta
