@@ -16,44 +16,95 @@ QtObject {
 
     // --- Reloj -------------------------------------------------------------
 
-    // Objeto Date de ahora mismo; se refresca cada segundo (el reloj solo
-    // muestra minutos, pero el tooltip y el calendario salen de aquí).
-    property date ahora: new Date()
-
-    property Timer latidoReloj: Timer {
-        interval: 1000
-        repeat: true
-        running: true
-        onTriggered: estado.ahora = new Date()
+    // SystemClock emite en el instante exacto del segundo, sin lanzar un
+    // proceso ni depender de un Timer que se desfasa.
+    property SystemClock relojSistema: SystemClock {
+        precision: SystemClock.Seconds
     }
+    readonly property date ahora: estado.relojSistema.date
 
     // --- Workspaces de niri -------------------------------------------------
 
-    // No hay plugin QML de niri, así que se consulta su IPC por CLI.
+    // Un solo stream IPC para todo el shell: niri envía el estado completo al
+    // conectar y después eventos incrementales. No hay sondeo ni un proceso
+    // por monitor.
     property var workspaces: []
-    // Último JSON leído: si no cambió no se reparsea, para no reconstruir los
-    // botones de workspace cada 1,5 s (parpadeo).
-    property string workspacesCrudo: ""
 
-    property Poll sondeoWorkspaces: Poll {
-        comando: ["niri", "msg", "--json", "workspaces"]
-        intervalo: 1500
-        onTextoChanged: {
-            const crudo = estado.sondeoWorkspaces.texto;
-            if (crudo === estado.workspacesCrudo)
-                return;
-            estado.workspacesCrudo = crudo;
-            if (crudo.trim() === "") {
-                estado.workspaces = [];
-                return;
+    function activarWorkspace(id, enfocado) {
+        const actuales = estado.workspaces;
+        let objetivo = null;
+        for (let i = 0; i < actuales.length; i++) {
+            if (actuales[i].id === id)
+                objetivo = actuales[i];
+        }
+        const salida = objetivo !== null ? objetivo.output : null;
+        const nuevo = [];
+        for (let i = 0; i < actuales.length; i++) {
+            const copia = Object.assign({}, actuales[i]);
+            if (salida !== null && copia.output === salida)
+                copia.is_active = false;
+            copia.is_focused = false;
+            if (copia.id === id) {
+                copia.is_active = true;
+                copia.is_focused = enfocado;
             }
-            try {
-                estado.workspaces = JSON.parse(crudo);
-            } catch (error) {
-                // JSON incompleto o niri caído: se conserva lo último bueno.
-            }
+            nuevo.push(copia);
+        }
+        estado.workspaces = nuevo;
+    }
+
+    function procesarEventoNiri(linea) {
+        const texto = String(linea).trim();
+        if (texto === "")
+            return;
+        let evento;
+        try {
+            evento = JSON.parse(texto);
+        } catch (error) {
+            return;
+        }
+        if (evento.WorkspacesChanged !== undefined) {
+            estado.workspaces = evento.WorkspacesChanged.workspaces || [];
+        } else if (evento.WorkspaceActivated !== undefined) {
+            estado.activarWorkspace(evento.WorkspaceActivated.id,
+                                    evento.WorkspaceActivated.focused === true);
+        } else if (evento.WorkspaceUrgencyChanged !== undefined) {
+            estado.cambiarWorkspace(evento.WorkspaceUrgencyChanged.id,
+                                    { is_urgent: evento.WorkspaceUrgencyChanged.urgent === true });
+        } else if (evento.WorkspaceActiveWindowChanged !== undefined) {
+            estado.cambiarWorkspace(evento.WorkspaceActiveWindowChanged.id,
+                                    { active_window_id: evento.WorkspaceActiveWindowChanged.window_id });
         }
     }
+
+    function cambiarWorkspace(id, cambios) {
+        const nuevo = [];
+        for (let i = 0; i < estado.workspaces.length; i++) {
+            const copia = Object.assign({}, estado.workspaces[i]);
+            if (copia.id === id) {
+                for (const clave in cambios)
+                    copia[clave] = cambios[clave];
+            }
+            nuevo.push(copia);
+        }
+        estado.workspaces = nuevo;
+    }
+
+    property Process eventosNiri: Process {
+        command: ["niri", "msg", "--json", "event-stream"]
+        stdout: SplitParser {
+            onRead: linea => estado.procesarEventoNiri(linea)
+        }
+        onExited: estado.reintentarNiri.start()
+    }
+
+    property Timer reintentarNiri: Timer {
+        interval: 1000
+        repeat: false
+        onTriggered: estado.eventosNiri.running = true
+    }
+
+    Component.onCompleted: estado.eventosNiri.running = true
 
     // --- Actualizaciones de NixOS ------------------------------------------
 
