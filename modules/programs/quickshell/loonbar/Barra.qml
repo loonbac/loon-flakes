@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Services.Mpris
 import Quickshell.Bluetooth
 
 // Barra de estado de la sesión Niri: una ventana layer-shell por monitor.
@@ -47,6 +48,31 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     // --- Datos de servicios externos ---------------------------------------
+
+    readonly property var reproductor: {
+        const lista = Mpris.players.values;
+        const ignorados = ["firefox", "chromium", "brave"];
+        let elegido = null;
+        for (const candidato of lista) {
+            const identidad = String(candidato.identity || "").toLowerCase();
+            let ignorado = false;
+            for (const nombre of ignorados) {
+                if (identidad.indexOf(nombre) >= 0)
+                    ignorado = true;
+            }
+            if (ignorado)
+                continue;
+            if (elegido === null)
+                elegido = candidato;
+            if (candidato.isPlaying) {
+                elegido = candidato;
+                break;
+            }
+        }
+        return elegido;
+    }
+    readonly property bool reproduccionActiva: barra.reproductor !== null && barra.reproductor.isPlaying
+    property bool mostrarIsla: false
 
     readonly property var adaptadorBluetooth: Bluetooth.defaultAdapter
     readonly property int dispositivosBluetooth: barra.contarBluetooth()
@@ -288,6 +314,20 @@ PanelWindow {
 
     // --- Píldora central: workspaces de niri -------------------------------
 
+    Timer {
+        id: temporizadorMostrarIsla
+        interval: 220
+        repeat: false
+        onTriggered: barra.mostrarIsla = true
+    }
+
+    Timer {
+        id: temporizadorOcultarIsla
+        interval: 250
+        repeat: false
+        onTriggered: barra.mostrarIsla = false
+    }
+
     Rectangle {
         id: pildoraCentro
 
@@ -306,7 +346,38 @@ PanelWindow {
             anchors.centerIn: parent
             estado: barra.estado
             paleta: barra.paleta
+            reproductor: barra.reproductor
             salida: barra.pantalla ? barra.pantalla.name : ""
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            onEntered: {
+                temporizadorOcultarIsla.stop();
+                temporizadorMostrarIsla.restart();
+            }
+            onExited: {
+                temporizadorMostrarIsla.stop();
+                temporizadorOcultarIsla.restart();
+            }
+        }
+    }
+
+    IslaExpandida {
+        objetivo: pildoraCentro
+        paleta: barra.paleta
+        reproductor: barra.reproductor
+        mostrar: barra.mostrarIsla && barra.reproduccionActiva
+        onEntroRaton: {
+            temporizadorOcultarIsla.stop();
+            temporizadorMostrarIsla.stop();
+            barra.mostrarIsla = true;
+        }
+        onSalioRaton: {
+            temporizadorMostrarIsla.stop();
+            temporizadorOcultarIsla.restart();
         }
     }
 
