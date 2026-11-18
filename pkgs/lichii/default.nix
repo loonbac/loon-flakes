@@ -59,6 +59,21 @@ let
         echo "lichii: descarga completada" >&2
       fi
 
+      # El actualizador interno del AppImage guarda la versión anterior como
+      # "$app.prev" (~150 MB) y no refresca nuestra nota de versión. Si hay un
+      # .prev, hubo una actualización desde la propia app: retiramos el
+      # respaldo e invalidamos la nota para que el bloque de abajo vuelva a
+      # consultar el tag. No conservamos versiones previas.
+      prev_found=0
+      for prev in "$data_dir"/*.prev; do
+        [ -e "$prev" ] || continue
+        prev_found=1
+        rm -f -- "$prev"
+      done
+      if [ "$prev_found" -eq 1 ]; then
+        rm -f "$data_dir/release"
+      fi
+
       # Qué release está instalada. El asset redirige a un CDN cuya URL no
       # lleva el tag, así que se lee el redirect de /releases/latest: una
       # petición HEAD, sin API, sin token y sin fijar versión en el repo.
