@@ -167,7 +167,7 @@ Item {
 
         Text {
             text: reloj.textoFecha
-            color: reloj.paleta ? reloj.paleta.muted : "#8C8877"
+            color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
             font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
             font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
             font.weight: Font.Medium
