@@ -1,12 +1,13 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 // Paleta y tipografía de la barra.
 //
 // Los colores salen de ~/.config/loon-shell/colors.css y accent.css, que escribe
 // `accent-wallpaper` con el color del wallpaper animado. Se releen cada 30 s y
 // se parsean aquí (no con @import de CSS): así la barra sigue el acento sin
-// reiniciar el servicio de Quickshell.
+// reiniciar el servicio de Quickshell. FileView observa ambos archivos.
 //
 // Los valores por defecto son los mismos que siembra el módulo NixOS en esos
 // archivos, para que la barra se vea bien antes del primer rebuild.
@@ -90,9 +91,30 @@ QtObject {
         }
     }
 
-    property Poll lector: Poll {
-        comando: ["sh", "-c", "cat " + paleta.rutaColors + " " + paleta.rutaAccent + " 2>/dev/null"]
-        intervalo: 30000
-        onTextoChanged: paleta.aplicar(texto)
+    function sincronizar() {
+        const colores = paleta.archivoColores.text();
+        if (colores !== "")
+            paleta.aplicar(colores);
+        const acento = paleta.archivoAcento.text();
+        if (acento !== "")
+            paleta.aplicar(acento);
+    }
+
+    property FileView archivoColores: FileView {
+        path: paleta.rutaColors
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: paleta.sincronizar()
+        onTextChanged: paleta.sincronizar()
+    }
+
+    property FileView archivoAcento: FileView {
+        path: paleta.rutaAccent
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: paleta.sincronizar()
+        onTextChanged: paleta.sincronizar()
     }
 }

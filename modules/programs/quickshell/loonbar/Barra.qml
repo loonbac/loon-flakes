@@ -443,16 +443,13 @@ PanelWindow {
                     : (barra.paleta ? barra.paleta.foreground : "#F0EDE1")
                 tooltip: barra.tooltipSalida()
                 onClic: {
-                    barra.estado.accionSilenciarSalida.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.alternarSalida();
                 }
                 onRuedaArriba: {
-                    barra.estado.accionSalidaMas.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.subirSalida();
                 }
                 onRuedaAbajo: {
-                    barra.estado.accionSalidaMenos.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.bajarSalida();
                 }
             }
 
@@ -467,16 +464,13 @@ PanelWindow {
                     ? "Micrófono: silenciado"
                     : "Micrófono: " + barra.estado.volumenEntrada + "%"
                 onClic: {
-                    barra.estado.accionSilenciarEntrada.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.alternarEntrada();
                 }
                 onRuedaArriba: {
-                    barra.estado.accionEntradaMas.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.subirEntrada();
                 }
                 onRuedaAbajo: {
-                    barra.estado.accionEntradaMenos.ejecutar();
-                    barra.estado.refrescarAudio();
+                    barra.estado.bajarEntrada();
                 }
             }
 

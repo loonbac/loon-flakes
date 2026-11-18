@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Networking
+import Quickshell.Services.Pipewire
 
 // Estado compartido por todas las barras (una por monitor).
 //
@@ -16,43 +18,99 @@ QtObject {
 
     // --- Reloj -------------------------------------------------------------
 
-    // Objeto Date de ahora mismo; se refresca cada segundo (el reloj solo
-    // muestra minutos, pero el tooltip y el calendario salen de aquí).
-    property date ahora: new Date()
-
-    property Timer latidoReloj: Timer {
-        interval: 1000
-        repeat: true
-        running: true
-        onTriggered: estado.ahora = new Date()
+    // SystemClock emite en el instante exacto del segundo, sin lanzar un
+    // proceso ni depender de un Timer que se desfasa.
+    property SystemClock relojSistema: SystemClock {
+        precision: SystemClock.Seconds
     }
+    readonly property date ahora: estado.relojSistema.date
 
     // --- Workspaces de niri -------------------------------------------------
 
-    // No hay plugin QML de niri, así que se consulta su IPC por CLI.
+    // Un solo stream IPC para todo el shell: niri envía el estado completo al
+    // conectar y después eventos incrementales. No hay sondeo ni un proceso
+    // por monitor.
     property var workspaces: []
-    // Último JSON leído: si no cambió no se reparsea, para no reconstruir los
-    // botones de workspace cada 1,5 s (parpadeo).
-    property string workspacesCrudo: ""
 
-    property Poll sondeoWorkspaces: Poll {
-        comando: ["niri", "msg", "--json", "workspaces"]
-        intervalo: 1500
-        onTextoChanged: {
-            const crudo = estado.sondeoWorkspaces.texto;
-            if (crudo === estado.workspacesCrudo)
-                return;
-            estado.workspacesCrudo = crudo;
-            if (crudo.trim() === "") {
-                estado.workspaces = [];
-                return;
-            }
-            try {
-                estado.workspaces = JSON.parse(crudo);
-            } catch (error) {
-                // JSON incompleto o niri caído: se conserva lo último bueno.
-            }
+    function activarWorkspace(id, enfocado) {
+        const actuales = estado.workspaces;
+        let objetivo = null;
+        for (let i = 0; i < actuales.length; i++) {
+            if (actuales[i].id === id)
+                objetivo = actuales[i];
         }
+        const salida = objetivo !== null ? objetivo.output : null;
+        const nuevo = [];
+        for (let i = 0; i < actuales.length; i++) {
+            const copia = Object.assign({}, actuales[i]);
+            if (salida !== null && copia.output === salida)
+                copia.is_active = false;
+            copia.is_focused = false;
+            if (copia.id === id) {
+                copia.is_active = true;
+                copia.is_focused = enfocado;
+            }
+            nuevo.push(copia);
+        }
+        estado.workspaces = nuevo;
+    }
+
+    function procesarEventoNiri(linea) {
+        const texto = String(linea).trim();
+        if (texto === "")
+            return;
+        let evento;
+        try {
+            evento = JSON.parse(texto);
+        } catch (error) {
+            return;
+        }
+        if (evento.WorkspacesChanged !== undefined) {
+            estado.workspaces = evento.WorkspacesChanged.workspaces || [];
+        } else if (evento.WorkspaceActivated !== undefined) {
+            estado.activarWorkspace(evento.WorkspaceActivated.id,
+                                    evento.WorkspaceActivated.focused === true);
+        } else if (evento.WorkspaceUrgencyChanged !== undefined) {
+            estado.cambiarWorkspace(evento.WorkspaceUrgencyChanged.id,
+                                    { is_urgent: evento.WorkspaceUrgencyChanged.urgent === true });
+        } else if (evento.WorkspaceActiveWindowChanged !== undefined) {
+            estado.cambiarWorkspace(evento.WorkspaceActiveWindowChanged.id,
+                                    { active_window_id: evento.WorkspaceActiveWindowChanged.window_id });
+        }
+    }
+
+    function cambiarWorkspace(id, cambios) {
+        const nuevo = [];
+        for (let i = 0; i < estado.workspaces.length; i++) {
+            const copia = Object.assign({}, estado.workspaces[i]);
+            if (copia.id === id) {
+                for (const clave in cambios)
+                    copia[clave] = cambios[clave];
+            }
+            nuevo.push(copia);
+        }
+        estado.workspaces = nuevo;
+    }
+
+    property Process eventosNiri: Process {
+        command: ["niri", "msg", "--json", "event-stream"]
+        stdout: SplitParser {
+            onRead: linea => estado.procesarEventoNiri(linea)
+        }
+        onExited: estado.reintentarNiri.start()
+    }
+
+    property Timer reintentarNiri: Timer {
+        interval: 1000
+        repeat: false
+        onTriggered: estado.eventosNiri.running = true
+    }
+
+    Component.onCompleted: {
+        estado.eventosNiri.running = true;
+        estado.descubrirBrillo.running = true;
+        estado.sondeoRed.trigger();
+        estado.refrescarBrillo();
     }
 
     // --- Actualizaciones de NixOS ------------------------------------------
@@ -83,6 +141,15 @@ QtObject {
         onTextoChanged: estado.actualizarUpdates(texto)
     }
 
+    // El servicio de updates avisa aquí cuando termina, para que la barra no
+    // espere el siguiente ciclo de 5 minutos.
+    property IpcHandler ipcUpdates: IpcHandler {
+        target: "barra"
+        function refrescarUpdates(): void {
+            estado.sondeoUpdates.trigger();
+        }
+    }
+
     // --- Brillo -------------------------------------------------------------
 
     property bool brilloVisible: false
@@ -104,11 +171,83 @@ QtObject {
         estado.brilloVisible = estado.brilloAlt !== "unavailable" && estado.brilloTexto !== "";
     }
 
+    // El estado vive en archivos: DDC/CI publica state.json y el panel interno
+    // expone sysfs. FileView notifica cambios sin lanzar un comando por segundo.
+    property string rutaEstadoDdc: (Quickshell.env("XDG_RUNTIME_DIR") || "") + "/ddc-brightness/state.json"
+    property string rutaBrillo: ""
+    property string rutaBrilloMax: ""
+
+    function leerBrilloArchivos() {
+        let porcentaje = -1;
+        const ddc = estado.archivoDdc.text().trim();
+        if (ddc !== "") {
+            try {
+                const datos = JSON.parse(ddc);
+                if (datos.percentage !== undefined)
+                    porcentaje = Number(datos.percentage);
+            } catch (error) {
+                porcentaje = -1;
+            }
+        }
+        if ((!isFinite(porcentaje) || porcentaje < 0) && estado.rutaBrillo !== "") {
+            const actual = Number(estado.archivoBrillo.text().trim());
+            const maximo = Number(estado.archivoBrilloMax.text().trim());
+            if (isFinite(actual) && isFinite(maximo) && maximo > 0)
+                porcentaje = Math.round(actual * 100 / maximo);
+        }
+        if (!isFinite(porcentaje) || porcentaje < 0) {
+            estado.sondeoBrillo.trigger();
+            return;
+        }
+        estado.brilloAlt = porcentaje < 30 ? "low" : (porcentaje < 65 ? "medium" : "high");
+        estado.brilloTexto = porcentaje + "%";
+        estado.brilloTooltip = "Brillo del monitor: " + porcentaje + "%";
+        estado.brilloVisible = true;
+    }
+
+    property FileView archivoDdc: FileView {
+        path: estado.rutaEstadoDdc
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property FileView archivoBrillo: FileView {
+        path: estado.rutaBrillo
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property FileView archivoBrilloMax: FileView {
+        path: estado.rutaBrilloMax
+        watchChanges: true
+        printErrors: false
+        onFileChanged: this.reload()
+        onLoaded: estado.leerBrilloArchivos()
+        onTextChanged: estado.leerBrilloArchivos()
+    }
+
+    property Process descubrirBrillo: Process {
+        command: ["sh", "-c", "ls /sys/class/backlight/*/brightness 2>/dev/null | head -1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const ruta = text.trim();
+                estado.rutaBrillo = ruta;
+                estado.rutaBrilloMax = ruta.replace(/brightness$/, "max_brightness");
+            }
+        }
+    }
+
+    // Fallback para hosts sin archivos observables y refresco inmediato tras
+    // una acción de rueda; no tiene temporizador.
     property Poll sondeoBrillo: Poll {
-        // En un monitor externo sin /sys/class/backlight responde
-        // alt "unavailable" y el módulo se oculta.
         comando: ["sh", "-c", estado.comandoBrillo + " json"]
-        intervalo: 1000
+        intervalo: 0
         onTextoChanged: estado.actualizarBrillo(texto)
     }
 
@@ -116,64 +255,56 @@ QtObject {
         estado.sondeoBrillo.trigger();
     }
 
-    // --- Audio (PipeWire con wpctl) ----------------------------------------
+    // --- Audio (servicio nativo de PipeWire) -------------------------------
 
-    property int volumenSalida: 0
-    property bool salidaSilenciada: false
-    property string salidaDescripcion: ""
-    property int volumenEntrada: 0
-    property bool entradaSilenciada: false
+    readonly property var salida: Pipewire.defaultAudioSink
+    readonly property var entrada: Pipewire.defaultAudioSource
 
-    function leerVolumen(lineas) {
-        let volumen = 0;
-        let silenciado = false;
-        let descripcion = "";
-        for (const linea of lineas) {
-            const valor = /^Volume:\s*([\d.]+)/.exec(linea);
-            if (valor) {
-                volumen = Math.round(parseFloat(valor[1]) * 100);
-                silenciado = linea.indexOf("[MUTED]") >= 0;
-                continue;
-            }
-            const desc = /node\.description\s*=\s*"([^"]*)"/.exec(linea);
-            if (desc)
-                descripcion = desc[1];
-        }
-        return {
-            volumen: volumen,
-            silenciado: silenciado,
-            descripcion: descripcion
-        };
+    // Sin este tracker las propiedades de los nodos no notifican cambios.
+    property PwObjectTracker trackerAudio: PwObjectTracker {
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
     }
 
-    function actualizarAudio(texto) {
-        const lineas = texto.split("\n");
-        const separador = lineas.indexOf("--");
-        const salida = estado.leerVolumen(separador >= 0 ? lineas.slice(0, separador) : lineas);
-        const entrada = estado.leerVolumen(separador >= 0 ? lineas.slice(separador + 1) : []);
-
-        estado.volumenSalida = salida.volumen;
-        estado.salidaSilenciada = salida.silenciado;
-        estado.salidaDescripcion = salida.descripcion;
-        estado.volumenEntrada = entrada.volumen;
-        estado.entradaSilenciada = entrada.silenciado;
+    function volumenDe(nodo) {
+        if (nodo === null || nodo.audio === null)
+            return 0;
+        return Math.round(nodo.audio.volume * 100);
     }
 
-    property Poll sondeoAudio: Poll {
-        comando: [
-            "sh", "-c",
-            "wpctl get-volume @DEFAULT_AUDIO_SINK@; " +
-            "wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -m1 node.description; " +
-            "echo --; " +
-            "wpctl get-volume @DEFAULT_AUDIO_SOURCE@"
-        ]
-        intervalo: 1500
-        onTextoChanged: estado.actualizarAudio(texto)
+    function silenciadoDe(nodo) {
+        return nodo !== null && nodo.audio !== null && nodo.audio.muted;
     }
 
-    function refrescarAudio() {
-        estado.sondeoAudio.trigger();
+    function descripcionDe(nodo) {
+        if (nodo === null)
+            return "";
+        return nodo.description || nodo.name || "";
     }
+
+    function ajustarVolumen(nodo, delta) {
+        if (nodo === null || nodo.audio === null)
+            return;
+        nodo.audio.volume = Math.max(0, Math.min(1, nodo.audio.volume + delta));
+    }
+
+    function alternarSilencio(nodo) {
+        if (nodo === null || nodo.audio === null)
+            return;
+        nodo.audio.muted = !nodo.audio.muted;
+    }
+
+    function alternarSalida() { estado.alternarSilencio(estado.salida); }
+    function alternarEntrada() { estado.alternarSilencio(estado.entrada); }
+    function subirSalida() { estado.ajustarVolumen(estado.salida, 0.02); }
+    function bajarSalida() { estado.ajustarVolumen(estado.salida, -0.02); }
+    function subirEntrada() { estado.ajustarVolumen(estado.entrada, 0.02); }
+    function bajarEntrada() { estado.ajustarVolumen(estado.entrada, -0.02); }
+
+    readonly property int volumenSalida: estado.volumenDe(estado.salida)
+    readonly property bool salidaSilenciada: estado.silenciadoDe(estado.salida)
+    readonly property string salidaDescripcion: estado.descripcionDe(estado.salida)
+    readonly property int volumenEntrada: estado.volumenDe(estado.entrada)
+    readonly property bool entradaSilenciada: estado.silenciadoDe(estado.entrada)
 
     // --- Red (NetworkManager con nmcli) ------------------------------------
 
@@ -279,6 +410,26 @@ QtObject {
         }
     }
 
+    // Networking notifica los cambios de enlace; el comando de IP solo se
+    // ejecuta cuando cambia la conexión, no cada 3 segundos.
+    function claveRed() {
+        const partes = [];
+        for (const dispositivo of Networking.devices.values) {
+            if (!dispositivo.connected)
+                continue;
+            let nombre = "";
+            for (const red of dispositivo.networks.values) {
+                if (red.connected)
+                    nombre = red.name || "";
+            }
+            partes.push(dispositivo.name + ":" + nombre);
+        }
+        return partes.join(",");
+    }
+
+    property string redClave: estado.claveRed()
+    onRedClaveChanged: estado.sondeoRed.trigger()
+
     property Poll sondeoRed: Poll {
         comando: [
             "sh", "-c",
@@ -286,12 +437,8 @@ QtObject {
             "echo --inalambrico--; " +
             "cat /proc/net/wireless 2>/dev/null"
         ]
-        intervalo: 3000
+        intervalo: 0
         onTextoChanged: estado.actualizarRed(texto)
-    }
-
-    function refrescarRed() {
-        estado.sondeoRed.trigger();
     }
 
     // --- CPU ---------------------------------------------------------------
@@ -320,12 +467,6 @@ QtObject {
         estado.cpuOciosoAnterior = ocioso;
     }
 
-    property Poll sondeoCpu: Poll {
-        comando: ["sh", "-c", "grep '^cpu ' /proc/stat"]
-        intervalo: 2000
-        onTextoChanged: estado.actualizarCpu(texto)
-    }
-
     // --- Memoria -----------------------------------------------------------
 
     property real memoriaTotal: 0
@@ -344,10 +485,20 @@ QtObject {
         estado.memoriaUsada = (total - disponible) / 1073741824;
     }
 
-    property Poll sondeoMemoria: Poll {
-        comando: ["sh", "-c", "free -b | sed -n 2p"]
-        intervalo: 2000
-        onTextoChanged: estado.actualizarMemoria(texto)
+    function actualizarMetricas(texto) {
+        const lineas = texto.trim().split("\n");
+        if (lineas.length >= 1)
+            estado.actualizarCpu(lineas[0].replace(/^cpu\s+/, "cpu "));
+        if (lineas.length >= 2)
+            estado.actualizarMemoria(lineas[1]);
+    }
+
+    // CPU y memoria comparten un solo proceso cada 5 s: son valores informativos,
+    // no interactivos, y dos sondeos separados costaban dos execves cada 2 s.
+    property Poll sondeoMetricas: Poll {
+        comando: ["sh", "-c", "grep '^cpu ' /proc/stat; free -b | sed -n 2p"]
+        intervalo: 5000
+        onTextoChanged: estado.actualizarMetricas(texto)
     }
 
     // --- Batería -----------------------------------------------------------
@@ -375,7 +526,7 @@ QtObject {
     property Poll sondeoBateria: Poll {
         // Sin BAT0 (un escritorio) el comando falla y el módulo queda oculto.
         comando: ["sh", "-c", "cat /sys/class/power_supply/BAT0/capacity /sys/class/power_supply/BAT0/status"]
-        intervalo: 5000
+        intervalo: 10000
         onTextoChanged: estado.actualizarBateria(texto)
     }
 
@@ -413,23 +564,5 @@ QtObject {
     }
     property Accion accionBrilloAbajo: Accion {
         comando: ["sh", "-c", estado.comandoBrillo + " down 5"]
-    }
-    property Accion accionSilenciarSalida: Accion {
-        comando: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]
-    }
-    property Accion accionSilenciarEntrada: Accion {
-        comando: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]
-    }
-    property Accion accionSalidaMas: Accion {
-        comando: ["wpctl", "set-volume", "--limit", "1.0", "@DEFAULT_AUDIO_SINK@", "2%+"]
-    }
-    property Accion accionSalidaMenos: Accion {
-        comando: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "2%-"]
-    }
-    property Accion accionEntradaMas: Accion {
-        comando: ["wpctl", "set-volume", "--limit", "1.0", "@DEFAULT_AUDIO_SOURCE@", "2%+"]
-    }
-    property Accion accionEntradaMenos: Accion {
-        comando: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", "2%-"]
     }
 }
