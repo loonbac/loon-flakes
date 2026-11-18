@@ -7,7 +7,7 @@
     ./fish
     ./ghostty
     ./rust
-    ./waybar
+    ./quickshell
     ./swaync
     ./equibop
     ./omafiles

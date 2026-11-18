@@ -22,9 +22,9 @@ let
     RestartSec = "1s";
     Environment = [
       "HOME=${config.loon.home}"
-      # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
-      # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
-      # del sistema completo, igual que los procesos lanzados por Niri.
+      # Las unidades NixOS reciben por defecto un PATH mínimo. La barra y los
+      # Exec de los .desktop necesitan los wrappers y paquetes del sistema
+      # completo, igual que los procesos lanzados por Niri.
       "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
     ];
   };
@@ -37,11 +37,10 @@ in
     partOf = [ "graphical-session.target" ];
   };
 
-  systemd.user.services.waybar = sessionUnit // {
+  systemd.user.services.quickshell = sessionUnit // {
     description = "Barra custom de la sesión Niri";
     serviceConfig = resilientService // {
-      ExecStart = "${pkgs.waybar}/bin/waybar --config /etc/waybar/config.jsonc --style /etc/waybar/style.css";
-      ExecReload = "${pkgs.coreutils}/bin/kill -SIGUSR2 $MAINPID";
+      ExecStart = "${pkgs.quickshell}/bin/qs -p /etc/quickshell/loonbar";
     };
   };
 
