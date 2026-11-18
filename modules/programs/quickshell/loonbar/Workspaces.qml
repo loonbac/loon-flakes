@@ -13,7 +13,7 @@ Row {
     property string salida: ""
 
     spacing: 3
-    height: 22
+    height: 44
 
     function lista() {
         const todas = workspaces.estado ? workspaces.estado.workspaces : [];
@@ -51,9 +51,9 @@ Row {
             id: celda
             required property var modelData
 
-            width: Math.max(42, etiqueta.implicitWidth + 20)
-            height: 22
-            radius: 6
+            width: Math.max(56, etiqueta.implicitWidth + 24)
+            height: 44
+            radius: 10
             color: workspaces.colorFondo(celda.modelData)
 
             Text {
