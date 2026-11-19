@@ -17,10 +17,13 @@ Item {
     readonly property var meses: ["enero", "febrero", "marzo", "abril", "mayo", "junio",
         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     readonly property var diasSemana: ["L", "M", "X", "J", "V", "S", "D"]
+    readonly property var nombresDias: ["domingo", "lunes", "martes", "miércoles",
+        "jueves", "viernes", "sábado"]
 
     readonly property string tituloMes: reloj.tituloCalendario()
     readonly property var celdas: reloj.celdasCalendario()
-    readonly property string textoFecha: reloj.fecha.getDate() + " "
+    readonly property string textoFecha: reloj.nombresDias[reloj.fecha.getDay()] + " "
+        + reloj.fecha.getDate() + " "
         + reloj.meses[reloj.fecha.getMonth()] + " "
         + reloj.fecha.getFullYear()
 
