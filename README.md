@@ -796,8 +796,7 @@ dejando el resto transparente.
 **Programas que expone el flake**: `rebuild`, `loon-launch`, `niri-cycle`,
 `vscode-insiders`, `helium-browser`, `gentle-ai`, `engram`,
 `engram-update`, `pi`, `gentle-ai-bootstrap`, `gentle-stack-update`,
-`steamidra`, `citron-nextendo`, `citron-nextendo-v3`, `veadotube-mini` y
-`obs-pwvideo`.
+`citron-nextendo`, `citron-nextendo-v3`, `veadotube-mini` y `obs-pwvideo`.
 
 **VS Code Insiders**: el flake original solo publica un archivito (`meta.json`
 con versión + código + enlace, actualizado a diario). Lo leemos y construimos

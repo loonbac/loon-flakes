@@ -21,8 +21,6 @@
     ./virtualbox
     ./gentle-ai
     ./pi-ssh-clipboard
-    ./steam
-    ./steamidra
     ./veadotube-mini
     ./pear-desktop
     ./anydesk

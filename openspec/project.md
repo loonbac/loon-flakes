@@ -12,7 +12,7 @@ Workspace Root: /home/loonbac/.nixos
   - `nixos-pc`: AMD Ryzen 7 5700X desktop with NVIDIA GPU (primary machine).
 - **Repository Structure**:
   - `flake.nix` & `flake.lock`: Entrypoint flake declaring inputs, outputs, packages, and NixOS configurations.
-  - `pkgs/`: Custom derivation packages (`rebuild`, `steamidra`, `vision-cursor`, etc.).
+  - `pkgs/`: Custom derivation packages (`rebuild`, `cargo-target-cache`, `pi-compaction-threshold`, etc.).
     `loon-launch` is not here: it lives in `github:loonbac/loon-launch` and reaches
     the system as a flake input.
   - `modules/`: Modular NixOS configuration categories (`system/`, `networking/`, `services/`, `wayland/`, `programs/`, `users/`).
@@ -24,17 +24,6 @@ Workspace Root: /home/loonbac/.nixos
 - **Package Build Verification**: `nix build .#<package>` builds specific derivations under `pkgs/`.
 - **System Build Verification**: `nixos-rebuild build --flake .#<host>` verifies end-to-end system generation.
 - **Strict TDD**: Set to `false` in `openspec/config.yaml` as the repository uses declarative Nix evaluation and package builds rather than an automated unit-test runner.
-
-## Active SDD Scope & Boundary Guardrails
-
-- **Scope**: Create a standalone, externally consumable NixOS module and package interface for SteaMidra (Midrags/SFF).
-- **Deliverables**:
-  1. A pinned `x86_64-linux` package derivation for SteaMidra.
-  2. An opt-in NixOS module interface (with configurable options) without hard-coded usernames, home directories, or host hardware assumptions.
-- **Non-Goals / Exclusions**:
-  - Do NOT refactor the rest of the personal NixOS configuration.
-  - Do NOT modify unrelated users, hardware profiles, hosts, or unrelated modules.
-  - Keep changes strictly focused on the SteaMidra package and module surface.
 
 ## SDD Preflight Configuration
 

@@ -43,8 +43,8 @@ PLUMBING = [
 # publica con retraso). mpvpaper SÍ va: pkgs/mpvpaper-fixed le cambia src y
 # version, así que ese hash nunca existirá en cache.nixos.org.
 THIRD_PARTY = [
-    r"antigravity", r"^loon-", r"^loon$", r"citron", r"millennium", r"^accela",
-    r"sls-steam", r"veadotube-mini", r"^obs-", r"^wrapped-obs-", r"^steamidra",
+    r"antigravity", r"^loon-", r"^loon$", r"citron",
+    r"veadotube-mini", r"^obs-", r"^wrapped-obs-",
     r"newtab-dashboard", r"^gentle-", r"^engram", r"^pi-", r"^pi$", r"cline",
     r"better-claude", r"^helium", r"code-insiders", r"vscode",
     r"equibop", r"pear-desktop", r"cargo-target-cache", r"anydesk",
