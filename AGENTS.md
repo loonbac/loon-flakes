@@ -63,7 +63,7 @@ exactos y las trampas aprendidas en el camino.
 │   │                          #   operación de sistema, energía y red
 │   ├── mpvpaper-wallpaper/ niri-cycle/ accent-wallpaper/ mac-plymouth/ ...
 │   │                          #   wallpaper, niri y aspecto
-│   ├── obs-*/ equibop-*/ veadotube-mini/ karaoke-separator/ steamidra/ ...
+│   ├── obs-*/ equibop-*/ veadotube-mini/ karaoke-separator/ ...
 │   │                          #   streaming y gaming
 │   └── pi*/ gentle-ai*/ engram*/ cline*/ gga/   # stack de agentes (launchers mutables)
 ├── hosts/                     # identidad + hardware por máquina; solo compone
@@ -82,8 +82,8 @@ exactos y las trampas aprendidas en el camino.
     ├── networking/            # networkmanager, firewall
     ├── services/              # openssh, tailscale (+ts-bypass), udisks2, nixos-updates,
     │                          #   moonlight-power
-    ├── programs/              # 21 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
-    │                          #   quickshell, yazi, wine, virtualbox, waydroid, steam, steamidra,
+    ├── programs/              # 19 módulos: fish, ghostty, rust, gtk, hyprlock, nautilus, swaync,
+    │                          #   quickshell, yazi, wine, virtualbox, waydroid,
     │                          #   veadotube-mini, equibop, gentle-ai, obs-studio, obs-pwvideo,
     │                          #   pi-ssh-clipboard, pear-desktop (Pear + sink virtual pear_twitch)
     ├── wayland/

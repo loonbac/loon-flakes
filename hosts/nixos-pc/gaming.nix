@@ -17,17 +17,12 @@ let
 in
 {
   programs.gamemode.enable = true;
-  programs.steamidra.enable = true;
+  # Steam normal de nixpkgs, sin Millennium/SLSsteam/Accela ni temas custom.
+  programs.steam.enable = true;
   programs.citron-nextendo = {
     enable = true;
     # El Ryzen 7 5700X soporta el baseline x86-64-v3 de la build optimizada.
     package = citron-nextendo.packages.${pkgs.stdenv.hostPlatform.system}.citron-nextendo-v3;
-  };
-
-  loon.programs.steam = {
-    enable = true;
-    spaceThemeFix.enable = true;
-    slssteam.enable = false;
   };
 
   # Sober y PokeMMO se instalan desde Flathub. Este módulo se importa solo en

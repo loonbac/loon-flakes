@@ -92,27 +92,6 @@
         "type": "github"
       }
     },
-    "flake-parts": {
-      "inputs": {
-        "nixpkgs-lib": [
-          "nix-tools-steam",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1788450739,
-        "narHash": "sha256-glZLQlzIn1fXH6PazR2iUmTo7kzzyYSshrWhLS9TqCU=",
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "rev": "31729ca8cbdb4fa927b34e5f4353e6a83f39e993",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -196,45 +175,6 @@
         "type": "github"
       }
     },
-    "millennium": {
-      "inputs": {
-        "millennium-src": "millennium-src",
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-bun": "nixpkgs-bun"
-      },
-      "locked": {
-        "dir": "packages/nix",
-        "lastModified": 1791991619,
-        "narHash": "sha256-JquPo1pb8gQTazVr5UBEOsWhoV9YR4/yOVtMyR4lQXM=",
-        "owner": "SteamClientHomebrew",
-        "repo": "Millennium",
-        "rev": "4ecc644bf728090215294ceeb2c7cc5e22abac66",
-        "type": "github"
-      },
-      "original": {
-        "dir": "packages/nix",
-        "owner": "SteamClientHomebrew",
-        "repo": "Millennium",
-        "type": "github"
-      }
-    },
-    "millennium-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791947497,
-        "narHash": "sha256-sNpoyJ+IjrTiDGfX2QiKVg4jkrJR7n9PdBeOYJSS4n8=",
-        "owner": "SteamClientHomebrew",
-        "repo": "Millennium",
-        "rev": "401d532543a0fbff469653ccba802bdd7e45f861",
-        "type": "github"
-      },
-      "original": {
-        "owner": "SteamClientHomebrew",
-        "repo": "Millennium",
-        "rev": "401d532543a0fbff469653ccba802bdd7e45f861",
-        "type": "github"
-      }
-    },
     "nix-flatpak": {
       "locked": {
         "lastModified": 1791644268,
@@ -250,54 +190,19 @@
         "type": "github"
       }
     },
-    "nix-tools-steam": {
-      "inputs": {
-        "flake-parts": "flake-parts",
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "umip-kmod": "umip-kmod"
-      },
-      "locked": {
-        "lastModified": 1792008006,
-        "narHash": "sha256-shpBMeYXf3qv/b/wPLV9ARluYd/lh8QGR5a/I+HsJvA=",
-        "owner": "HANDZCZ",
-        "repo": "nix-tools-steam",
-        "rev": "08cfa252aca3ece458a21630dc1a1f7478fb4a4e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "HANDZCZ",
-        "repo": "nix-tools-steam",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790769526,
-        "narHash": "sha256-6j4yqqBUvIbBn29k0y/2jqlv/YJd8CRkTBYhfm5Z/8c=",
-        "rev": "c9fe7d12cd78d1adcd12dd15e24432dde5b155a0",
-        "type": "tarball",
-        "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.11pre1082837.c9fe7d12cd78/nixexprs.tar.zst?lastModified=1790769526&rev=c9fe7d12cd78d1adcd12dd15e24432dde5b155a0"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.zst"
-      }
-    },
-    "nixpkgs-bun": {
-      "locked": {
-        "lastModified": 1790822859,
-        "narHash": "sha256-69xHQhAeMAD2wDXO7T2pcOZIF9Sga2W+JkmY2a11Ops=",
-        "owner": "nixos",
+        "lastModified": 1791883866,
+        "narHash": "sha256-yvkDdToRZ4IgPc9tSBzzCYJvTLf8n5eE3rgUkpCuD5A=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c59305bab2065cfecc4944690d9eedbb56f3a9fa",
+        "rev": "a033e66ab94a6bedf2c3d58d93a36319d3cbbbaf",
         "type": "github"
       },
       "original": {
-        "owner": "nixos",
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
         "repo": "nixpkgs",
-        "rev": "c59305bab2065cfecc4944690d9eedbb56f3a9fa",
         "type": "github"
       }
     },
@@ -313,22 +218,6 @@
       "original": {
         "owner": "NixOS",
         "ref": "nixpkgs-26.05-darwin",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1791883866,
-        "narHash": "sha256-yvkDdToRZ4IgPc9tSBzzCYJvTLf8n5eE3rgUkpCuD5A=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "a033e66ab94a6bedf2c3d58d93a36319d3cbbbaf",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-26.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -400,12 +289,9 @@
         "helium-browser": "helium-browser",
         "lanzaboote": "lanzaboote",
         "loon-launch": "loon-launch",
-        "millennium": "millennium",
         "nix-flatpak": "nix-flatpak",
-        "nix-tools-steam": "nix-tools-steam",
-        "nixpkgs": "nixpkgs_2",
-        "port": "port",
-        "space-theme-fix": "space-theme-fix"
+        "nixpkgs": "nixpkgs",
+        "port": "port"
       }
     },
     "rust-overlay": {
@@ -426,22 +312,6 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "space-theme-fix": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791106283,
-        "narHash": "sha256-oKXuaHizrH8TRPZwoihWH9t9A8eCmnAKCDEnvAIVnjY=",
-        "owner": "Apollo-Nebula",
-        "repo": "SpaceTheme-Fix",
-        "rev": "fbd2e0f63d63009c0ffd3c0776ffc3d1ab098ffb",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Apollo-Nebula",
-        "repo": "SpaceTheme-Fix",
         "type": "github"
       }
     },
@@ -472,31 +342,6 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
-        "type": "github"
-      }
-    },
-    "umip-kmod": {
-      "inputs": {
-        "flake-parts": [
-          "nix-tools-steam",
-          "flake-parts"
-        ],
-        "nixpkgs": [
-          "nix-tools-steam",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1784619300,
-        "narHash": "sha256-HHcadH6fIPPMeggUmN1+mHMvafMXzsrjYkQ8kwBV7Rg=",
-        "owner": "HANDZCZ",
-        "repo": "umip-kmod",
-        "rev": "1661a05562fc3a24cda66ab30256baffb5b0f173",
-        "type": "github"
-      },
-      "original": {
-        "owner": "HANDZCZ",
-        "repo": "umip-kmod",
         "type": "github"
       }
     },
