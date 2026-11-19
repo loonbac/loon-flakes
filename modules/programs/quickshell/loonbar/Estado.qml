@@ -353,7 +353,8 @@ QtObject {
                     tipo: "",
                     conectado: false,
                     conexion: "",
-                    ip: ""
+                    ip: "",
+                    puerta: ""
                 };
                 lista.push(actual);
                 continue;
@@ -368,6 +369,8 @@ QtObject {
                 actual.conexion = valor;
             } else if (clave.indexOf("IP4.ADDRESS") === 0 && actual.ip === "") {
                 actual.ip = valor.split("/")[0];
+            } else if (clave === "IP4.GATEWAY" && actual.puerta === "") {
+                actual.puerta = valor;
             }
         }
 
@@ -401,12 +404,21 @@ QtObject {
         estado.redTipo = elegido.tipo;
         estado.redNombre = elegido.conexion;
         estado.redIp = elegido.ip;
+        // El nombre del perfil de NetworkManager ("Conexión cableada 1")
+        // confunde en el tooltip: se muestra el tipo de enlace y sus datos.
+        const detalle = [
+            "Interfaz: " + elegido.dispositivo,
+            "IP: " + (elegido.ip !== "" ? elegido.ip : "—")
+        ];
+        if (elegido.puerta !== "")
+            detalle.push("Puerta: " + elegido.puerta);
         if (elegido.tipo === "wifi") {
             estado.redSenal = estado.senalWifi(elegido.dispositivo, inalambrico);
-            estado.redTooltip = elegido.conexion + " (" + estado.redSenal + "%)\n" + elegido.ip;
+            estado.redTooltip = (elegido.conexion !== "" ? elegido.conexion : "Wi-Fi")
+                + " (" + estado.redSenal + "%)\n" + detalle.join("\n");
         } else {
             estado.redSenal = 100;
-            estado.redTooltip = elegido.conexion + "\n" + elegido.ip;
+            estado.redTooltip = "Conexión cableada\n" + detalle.join("\n");
         }
     }
 
@@ -433,7 +445,7 @@ QtObject {
     property Poll sondeoRed: Poll {
         comando: [
             "sh", "-c",
-            "nmcli -t -f GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.CONNECTION,IP4.ADDRESS device show; " +
+            "nmcli -t -f GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.CONNECTION,IP4.ADDRESS,IP4.GATEWAY device show; " +
             "echo --inalambrico--; " +
             "cat /proc/net/wireless 2>/dev/null"
         ]
