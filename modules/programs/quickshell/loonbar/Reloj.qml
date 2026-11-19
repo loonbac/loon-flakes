@@ -158,7 +158,7 @@ Item {
 
         Text {
             id: etiqueta
-            text: Qt.formatTime(reloj.fecha, "hh:mm AP")
+            text: reloj.textoFecha
             color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
             font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
             font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
@@ -166,7 +166,7 @@ Item {
         }
 
         Text {
-            text: reloj.textoFecha
+            text: Qt.formatTime(reloj.fecha, "hh:mm AP")
             color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
             font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
             font.pixelSize: reloj.paleta ? reloj.paleta.tamanoTexto : 13
