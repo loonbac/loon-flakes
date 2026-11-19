@@ -1,5 +1,10 @@
+//@ pragma UseQApplication
 import QtQuick
 import Quickshell
+
+// Los menus contextuales de la bandeja se dibujan con QtWidgets. Sin este
+// pragma, SystemTrayItem.display() falla en silencio y el click derecho
+// no muestra ninguna opcion.
 
 // Entrada del shell: el servicio lo arranca con `qs -p /etc/quickshell/loonbar`.
 //
