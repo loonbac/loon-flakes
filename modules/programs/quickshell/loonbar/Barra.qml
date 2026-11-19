@@ -49,7 +49,10 @@ PanelWindow {
     // La reserva NO se anima ni crece con la isla: si lo hiciera, niri bajaría
     // las ventanas sólo para darle margen (L5). Se reserva el alto de reposo
     // más el margen superior y la isla expandida pinta por encima.
-    exclusiveZone: barra.altoReposo + margins.top
+    // El margen visible superior mide 12 px (6 de la capa + 6 internos). niri
+    // añade 8 px de gap a la ventana, así que se restan para que la separación
+    // inferior también quede en 12 px.
+    exclusiveZone: barra.altoReposo + margins.top - 8
 
     Behavior on implicitHeight {
         NumberAnimation {
