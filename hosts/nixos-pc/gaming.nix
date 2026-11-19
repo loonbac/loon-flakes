@@ -87,6 +87,21 @@ in
     pkgs.lunar-client
   ];
 
+  # El paddle L4 del GameSir G7 HE llega como BTN_WEST (308) en el nodo del
+  # gamepad. Se reemite como F14 sin grabar el dispositivo, así que el juego
+  # sigue viendo el botón original y puede remapearlo por su cuenta.
+  # R4 no genera ningún evento con este firmware; no se puede mapear todavía.
+  systemd.services.gamesir-g7-hotkey = {
+    description = "Map GameSir G7 HE L4 paddle to F14";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "systemd-udev-settle.service" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.callPackage ../../pkgs/gamesir-g7-hotkey { }}/bin/gamesir-g7-hotkey";
+      Restart = "always";
+      RestartSec = 2;
+    };
+  };
+
   # Reglas udev para mandos de juego (GameSir G7 HE y similares sobre hidraw)
   services.udev.extraRules = ''
     # GameSir-G7 HE Controller for Xbox (Vendor 3537, Product 1082)
