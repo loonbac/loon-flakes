@@ -50,6 +50,9 @@ in
         "LOON_BRIGHTNESS_COMMAND=${if config.hardware.brightness.command == null then "screen-brightness" else config.hardware.brightness.command}"
         # Salida elegida por cada host; vacío significa «todas las pantallas».
         "LOON_BAR_SCREEN=${if config.loon.quickshell.screen == null then "" else config.loon.quickshell.screen}"
+        # QStyle usado por los menus QtWidgets de la bandeja. El wrapper de
+        # Quickshell anade sus propios QT_PLUGIN_PATH delante de este valor.
+        "QT_PLUGIN_PATH=${pkgs.adwaita-qt6}/lib/qt-6/plugins"
       ];
     };
   };

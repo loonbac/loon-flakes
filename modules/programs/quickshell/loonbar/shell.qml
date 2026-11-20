@@ -1,10 +1,14 @@
 //@ pragma UseQApplication
+//@ pragma RespectSystemStyle
+//@ pragma Env QT_STYLE_OVERRIDE = Adwaita-Dark
+//@ pragma Env QT_QUICK_CONTROLS_STYLE = Fusion
 import QtQuick
 import Quickshell
 
-// Los menus contextuales de la bandeja se dibujan con QtWidgets. Sin este
-// pragma, SystemTrayItem.display() falla en silencio y el click derecho
-// no muestra ninguna opcion.
+// Los menus contextuales de la bandeja se dibujan con QtWidgets. UseQApplication
+// los habilita; RespectSystemStyle conserva QT_STYLE_OVERRIDE para que Adwaita-Dark
+// les de el mismo aspecto oscuro que el resto del escritorio. Quitar cualquiera
+// de los dos pragmas devuelve los menus a el tema claro de Fusion.
 
 // Entrada del shell: el servicio lo arranca con `qs -p /etc/quickshell/loonbar`.
 //
