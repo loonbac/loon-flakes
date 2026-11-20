@@ -21,6 +21,9 @@ result-*
 odd/
 .codegraph/
 
+# Maquetas HTML del canvas de diseno: artefactos locales, no config del sistema
+design/
+
 # Node dependencies
 node_modules
 node_modules/
