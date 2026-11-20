@@ -1,17 +1,38 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell
+import Quickshell.Io
 
 // Reloj de la barra con fecha completa y calendario en el globo de ayuda.
 //
-// El reloj anterior mostraba solo la hora y, al pasar el ratón, el mes en curso;
-// ahora la barra muestra también «día mes año». La rueda y el clic derecho
-// siguen moviendo el calendario del globo y volviendo al mes actual.
+// Por defecto muestra «día mes año» junto a la hora; el clic izquierdo alterna
+// entre ese formato y solo la hora, y guarda la elección en ~/.config/loon-shell.
+// La rueda y el clic derecho siguen moviendo el calendario del globo y volviendo
+// al mes actual.
 Item {
     id: reloj
 
     property var estado: null
     property var paleta: null
     property int desfaseMes: 0
+
+    // Sin archivo guardado, `soloHora` es false: se mantiene el formato completo.
+    // El clic izquierdo escribe 1/0 y FileView lo lee al arrancar de nuevo.
+    property bool soloHora: false
+
+    FileView {
+        id: preferenciaReloj
+        path: Quickshell.env("HOME") + "/.config/loon-shell/reloj-solo-hora"
+        // El archivo todavía no existe en el primer arranque: no es un error.
+        printErrors: false
+        onLoaded: reloj.soloHora = preferenciaReloj.text().trim() === "1"
+        onSaveFailed: console.error("No se pudo guardar la preferencia del reloj")
+    }
+
+    function alternarModo() {
+        reloj.soloHora = !reloj.soloHora;
+        preferenciaReloj.setText(reloj.soloHora ? "1" : "0");
+    }
 
     readonly property var fecha: reloj.estado ? reloj.estado.ahora : new Date()
     readonly property var meses: ["enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -161,6 +182,7 @@ Item {
 
         Text {
             id: etiqueta
+            visible: !reloj.soloHora
             text: reloj.textoFecha
             color: reloj.paleta ? reloj.paleta.foreground : "#F0EDE1"
             font.family: reloj.paleta ? reloj.paleta.familia : "monospace"
@@ -183,7 +205,11 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
 
-        onClicked: reloj.desfaseMes = 0;
+        onClicked: evento => {
+            if (evento.button === Qt.LeftButton)
+                reloj.alternarModo();
+            reloj.desfaseMes = 0;
+        }
 
         onWheel: evento => {
             if (evento.angleDelta.y > 0)
