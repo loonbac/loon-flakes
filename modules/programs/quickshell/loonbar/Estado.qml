@@ -293,16 +293,11 @@ QtObject {
         nodo.audio.muted = !nodo.audio.muted;
     }
 
-    function alternarSalida() { estado.alternarSilencio(estado.salida); }
     function alternarEntrada() { estado.alternarSilencio(estado.entrada); }
-    function subirSalida() { estado.ajustarVolumen(estado.salida, 0.02); }
-    function bajarSalida() { estado.ajustarVolumen(estado.salida, -0.02); }
     function subirEntrada() { estado.ajustarVolumen(estado.entrada, 0.02); }
     function bajarEntrada() { estado.ajustarVolumen(estado.entrada, -0.02); }
 
     readonly property int volumenSalida: estado.volumenDe(estado.salida)
-    readonly property bool salidaSilenciada: estado.silenciadoDe(estado.salida)
-    readonly property string salidaDescripcion: estado.descripcionDe(estado.salida)
     readonly property int volumenEntrada: estado.volumenDe(estado.entrada)
     readonly property bool entradaSilenciada: estado.silenciadoDe(estado.entrada)
 

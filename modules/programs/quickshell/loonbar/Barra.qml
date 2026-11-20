@@ -180,25 +180,6 @@ PanelWindow {
         return "";
     }
 
-    function iconoVolumen() {
-        const estado = barra.estado;
-        if (estado.salidaSilenciada)
-            return "\u{F075F}";
-        if (estado.volumenSalida >= 67)
-            return "\uF028";
-        if (estado.volumenSalida >= 34)
-            return "\uF027";
-        return "\uF026";
-    }
-
-    function tooltipSalida() {
-        const estado = barra.estado;
-        let texto = estado.salidaSilenciada ? "Silenciado" : "Volumen: " + estado.volumenSalida + "%";
-        if (estado.salidaDescripcion !== "")
-            texto += "\n" + estado.salidaDescripcion;
-        return texto;
-    }
-
     function iconoRed() {
         const estado = barra.estado;
         if (estado.redTipo === "ethernet")
@@ -438,6 +419,20 @@ PanelWindow {
         }
     }
 
+    // Indicador de volumen: nace desde la isla central y se desliza hacia la
+    // derecha cuando cambia el volumen de salida. No reserva espacio ni texto.
+    IndicadorVolumen {
+        id: indicadorVolumen
+
+        paleta: barra.paleta
+        estado: barra.estado
+        anchors.left: pildoraCentro.right
+        anchors.leftMargin: indicadorVolumen.margen
+        anchors.verticalCenter: pildoraCentro.verticalCenter
+        // Nace detrás de la píldora central y emerge hacia la derecha.
+        z: -1
+    }
+
     // --- Píldora derecha ---------------------------------------------------
 
     Rectangle {
@@ -499,26 +494,6 @@ PanelWindow {
                     return barra.dispositivosBluetooth > 0 ? barra.paleta.highlight : barra.paleta.foreground;
                 }
                 tooltip: barra.tooltipBluetooth()
-            }
-
-            // Volumen de salida.
-            Boton {
-                paleta: barra.paleta
-                icono: barra.iconoVolumen()
-                texto: barra.estado.salidaSilenciada ? "off" : barra.estado.volumenSalida + "%"
-                colorTexto: barra.estado.salidaSilenciada
-                    ? (barra.paleta ? barra.paleta.muted : "#8C8877")
-                    : (barra.paleta ? barra.paleta.foreground : "#F0EDE1")
-                tooltip: barra.tooltipSalida()
-                onClic: {
-                    barra.estado.alternarSalida();
-                }
-                onRuedaArriba: {
-                    barra.estado.subirSalida();
-                }
-                onRuedaAbajo: {
-                    barra.estado.bajarSalida();
-                }
             }
 
             // Volumen del micrófono.
