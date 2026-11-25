@@ -20,20 +20,6 @@
 
   networking.hostName = "nixos-pc";
 
-  # Only this host's Pi holds these two Antigravity logins. Both catalogues carry
-  # Claude 5.5 and Gemini 4 Argon today, so no account is named here: pi-antigravity
-  # fails over on a quota wall without checking whether the target account can serve
-  # the model in use, which is how a session ended up on a catalogue without 5.5 and
-  # the native review could not resolve its reviewer. This unit keeps the active
-  # account on one that has the models, and moves only when the current one cannot
-  # serve them.
-  services.antigravity-keeper = {
-    requiredModels = [
-      "claude-opus-5-5"
-      "claude-sonnet-5-5"
-    ];
-  };
-
   # La barra solo se muestra en el monitor principal horizontal; el vertical
   # secundario (HDMI-A-2) queda libre.
   loon.quickshell.screen = "DP-2";
