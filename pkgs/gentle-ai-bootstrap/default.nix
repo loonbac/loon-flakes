@@ -56,7 +56,6 @@ let
     "npm:pi-discord-activity"
     "npm:pi-web-access"
     "npm:pi-btw"
-    "npm:pi-antigravity"
     "npm:pi-commandcode-provider"
     "npm:pi-secrets"
     "@HOME@/.local/share/loon-pi-packages/pi-jev-context-guard"
@@ -71,7 +70,6 @@ let
     "gentle-engram"
     "pi-web-access"
     "pi-btw"
-    "pi-antigravity"
     "pi-commandcode-provider"
     "pi-secrets"
     "pi-jev-context-guard"
@@ -343,6 +341,12 @@ let
     # gentle-pi ≥ 3.5.1 ya incluye `ask_user_question`/`ask_user_choice`; mantener
     # el paquete externo provoca colisión de nombres de tool y rompe el arranque de `pi`.
     "@juicesharp/rpiv-ask-user-question"
+    # Plugin Antigravity retirado (2026-11-18) por decisión del dueño. Esta
+    # entrada es imprescindible y debe quedarse: es lo único que borra
+    # `npm:pi-antigravity` de settings.packages en la próxima activación. La
+    # fusión solo une listas y nunca borra, así que sin este filtro Pi
+    # intentaría cargar un paquete que el bootstrap ya mueve al backup. El
+    # servicio antigravity-keeper salió con él: solo renovaba sus cuentas OAuth.
     "pi-antigravity"
     # gentle-ai ≥ 4.2.0 retira pi-mcp-adapter: Pi ≥ 0.99 trae MCP propio y el
     # adaptador apagaba el MCP interno mientras estuvo instalado. Se mantiene en
@@ -688,7 +692,6 @@ let
     const rules = [
       ["gentle-pi", "@earendil-works/pi-tui"],
       ["gentle-engram", "typebox"],
-      ["pi-antigravity", "typebox"],
     ];
 
     for (const [pkg, dep] of rules) {
@@ -1405,7 +1408,6 @@ writeShellApplication {
     # One-time migration from the previous Nix closure. Only store links from
     # loon-gentle-pi-stack are retired; mutable packages are never replaced.
     for package_name in \
-      pi-antigravity \
       better-claude-code-ui \
       pi-discord-activity \
       @juicesharp/rpiv-ask-user-question \
@@ -1499,6 +1501,11 @@ writeShellApplication {
     # árbol deja de declararse y sale del camino mutable (recuperable desde el
     # backup de esta activación si algún día se reinstala a mano).
     retire_package "pi-mcp-adapter"
+    # Plugin Antigravity retirado (2026-11-18): su árbol mutable sale del camino
+    # de carga y queda recuperable desde el backup de esta activación. No basta
+    # con dejar de declararlo, porque la instalación anterior seguiría en
+    # node_modules y Pi la cargaría igual.
+    retire_package "pi-antigravity"
     rm -rf "$local_package_root/pi-antigravity-alt"
     rm -f "$agent_dir/commandcode-models.json"
     rm -f "$agent_dir/state/antigravity-quota-fallback.json"
@@ -1558,7 +1565,6 @@ writeShellApplication {
     install_missing_package pi-discord-activity npm:pi-discord-activity
     install_missing_package pi-web-access npm:pi-web-access
     install_missing_package pi-btw npm:pi-btw
-    install_missing_package pi-antigravity npm:pi-antigravity
 
     desired_core_source() {
       node -e '
